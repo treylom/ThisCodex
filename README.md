@@ -21,7 +21,7 @@ It is **not** a framework. It is a documented set of building blocks you assembl
 | YOLO (full-access) execution | ✅ working | `thread/start` **and** `thread/resume` both send `sandbox:"danger-full-access"`, `approvalPolicy:"never"` |
 | Image generation | ✅ working | codex built-in `image_gen.imagegen` tool |
 | Web fetch/search | ✅ working | codex built-in `web.run` tool |
-| `computer_use` / `browser_use` (desktop/browser control) | ⏸️ **parked** | Flag is `stable,true` but **not exposed to the CLI/app-server surface** — tracked upstream: [openai/codex#20851](https://github.com/openai/codex/issues/20851). Documented, not hacked. |
+| `computer_use` / `browser_use` (desktop/browser control) | ⏸️ **parked** | `codex features list` shows `stable,true`, **but no official `codex` command/subcommand exposes it**, so it is **not a callable tool** on the CLI/app-server surface (ships only as a Desktop-app-bundled MCP). Tracked upstream: [openai/codex#20851](https://github.com/openai/codex/issues/20851). Documented, not hacked. |
 
 Everything marked ✅ is empirically verified (see §6 Evidence). Everything ⏸️ is documented honestly with the upstream issue, not worked around.
 
@@ -120,7 +120,7 @@ Rule of thumb: **state that's dynamic per message stays in the bridge prompt; ev
 
 - Codex bot equivalence + 9 debug cycles: `claude-discode` / vault meeting `2026-05-15-codex-discord-bot-poc`.
 - Multi-client same-thread: verified by attaching a 2nd WS client and reading the bridge's live history.
-- `computer_use`/`browser_use` not on CLI/app-server surface: `codex features list` (flags true) **vs** GitHub #20851 (Desktop-app-only) **vs** clean app-server×`dangerFullAccess` turn → tool list = `web.run, exec_command, image_gen, …` (no browser/computer tool). 6 converging signals, confound-free.
+- `computer_use`/`browser_use`: flag `stable,true` in `codex features list` **but no official `codex` command/subcommand exposes it** → not a callable tool. Triangulated: features list (flags true) **vs** GitHub #20851 (Desktop-app-bundled MCP only) **vs** clean app-server×`dangerFullAccess` turn → tool list = `web.run, exec_command, image_gen, …` (no browser/computer tool). 6 converging signals, confound-free.
 - resume-sandbox bug: `thread/resume` without re-sending `sandbox` → effective `workspaceWrite`/`networkAccess:false`; fixed by re-sending `danger-full-access` → verified `{"type":"dangerFullAccess"}`.
 
 ---
