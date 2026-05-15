@@ -1,0 +1,40 @@
+{
+  "name": "thiscodex",
+  "version": "0.1.0",
+  "description": "Make an OpenAI Codex CLI agent behave like a Claude Code Discord bot — persona/vault discipline, multi-agent conventions, progressive-disclosure rules, CC↔Codex skill portability.",
+  "author": {
+    "name": "treylom",
+    "email": "treylom@gmail.com",
+    "url": "https://github.com/treylom"
+  },
+  "homepage": "https://github.com/treylom/ThisCodex",
+  "repository": "https://github.com/treylom/ThisCodex",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "discord-bot",
+    "multi-agent",
+    "obsidian",
+    "skill-portability",
+    "rules-system",
+    "claude-code"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ThisCodex",
+    "shortDescription": "Codex CLI → Claude-Code-equivalent Discord bot + vault rules",
+    "longDescription": "ThisCodex packages the verified setup for running an OpenAI Codex CLI agent as a persistent Discord bot with the same persona discipline, vault rules, and multi-agent conventions (cross-bot addressing, meeting threads, SessionStart roster, progressive-disclosure rules) as the Claude Code bots. Companion to ThisCode (the Claude Code side).",
+    "developerName": "treylom",
+    "category": "Coding",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Set up codex as a discord bot like claude code",
+      "Port these Claude Code skills/rules to Codex"
+    ],
+    "websiteURL": "https://github.com/treylom/ThisCodex"
+  }
+}
