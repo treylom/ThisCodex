@@ -30,7 +30,7 @@ Deep reference lives in the repo (load only when a step needs it — progressive
    DISCORD_STATE_DIR = "~/.claude/channels/discord-<botname>"
    ```
 3. **Bot working directory**: put `SOUL.md` (persona) + `AGENTS.md` (rules) there. `AGENTS.md` carries the static Discord-reply rule and points at `rules/INDEX.md` only (not inline rules).
-4. **Bridge + launcher**: 2-window tmux launcher — `infra` runs app-server + `bot.py` bridge; `codex` attaches a TUI to the SAME app-server (`codex resume <thread-id> --remote ws://…`). Command-as-window-process + supervised restart (never `send-keys` into a bare shell — that leaves stray shells on any exit).
+4. **Bridge + launcher**: use the shipped **`scripts/launch.sh`** (hardened 2-window tmux launcher: `infra` runs app-server + `bot.py` bridge; `codex` resumes the SAME bridge thread). It enforces the invariants — command-as-window-process (never `send-keys` into a bare shell), and the codex window **always `codex resume <bridge-thread-id> --remote`, never a bare fresh `codex --remote`**. Set `BOT_WD`, `SESSION`, `LAUNCH_CMD`. Do not hand-roll this (see Troubleshooting for why).
 5. **YOLO**: `bot.py` sends `sandbox:"danger-full-access"` + `approvalPolicy:"never"` on **both** `thread/start` AND `thread/resume` (resume silently degrades otherwise — the nastiest bug).
 6. **Skills/rules portability**: your own skills → `~/.agents/skills/<name>/SKILL.md`. Plugin/framework skills (e.g. superpowers) → install via the framework's own codex path, never hand-symlink.
 7. **Multi-agent conventions**: cross-bot `<@user_id>` addressing, meeting = dedicated thread, SessionStart roster injection — all from one `bot-roster.yaml`.
@@ -43,6 +43,18 @@ Deep reference lives in the repo (load only when a step needs it — progressive
 
 ## Smoke test (expected trigger)
 > Prompt: "set up codex as a discord bot like claude code" → this skill should activate and produce the 8-step procedure above with the verify gate. If it does not trigger on that phrasing, the `description` frontmatter needs widening.
+
+## Troubleshooting
+
+**Symptom**: Discord messages reach the bot (the `infra` window logs turns, replies get sent) but the **codex TUI window shows nothing / a fresh empty prompt** — "infra catches it, the codex TUI doesn't".
+
+**Cause**: the codex window ran `codex --remote ws://…` (a FRESH session/thread) instead of `codex resume "$(cat .codex-thread-id)" --remote ws://…`. `bot.py` drives the bridge thread; the TUI is on a different empty thread, so it never shows the bridge's turns. Common when the launcher is hand-rolled, or a stale launcher definition is used on manual recovery.
+
+**Fix**: the codex window MUST `codex resume <bridge-thread-id> --remote` the SAME thread `bot.py` uses (`.codex-thread-id`) — never bare `codex --remote`. `scripts/launch.sh` invariant 2 enforces this; use it instead of hand-rolling. Fix a live session without a full restart (bot.py/infra untouched):
+```
+tmux respawn-window -k -t <session>:codex -c <BOT_WD> \
+  "codex resume $(cat <BOT_WD>/.codex-thread-id) --remote ws://127.0.0.1:4222"
+```
 
 ## Reference map (load on demand — GitHub URLs, robust for loose-copy or marketplace install)
 | Need | Source |
