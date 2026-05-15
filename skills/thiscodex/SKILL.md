@@ -7,7 +7,7 @@ description: Use when setting up an OpenAI Codex CLI agent as a persistent Disco
 
 Invocable skill. Install paths:
 - **user-tier**: copy this folder to `~/.agents/skills/thiscodex/` (codex 4-layer scan picks it up; deep docs are referenced by URL below so a loose copy still works).
-- **marketplace/plugin**: the repo ships `.codex-plugin/plugin.json` (`skills: "./skills/"`) — install via the Codex plugin path, then invoke `/skills thiscodex` or by description match.
+- **marketplace/plugin**: the repo ships `.codex-plugin/plugin.json` (`skills: "./skills/"`). Register it with `codex plugin marketplace add treylom/ThisCodex` (the `<SOURCE>` arg accepts `owner/repo`). Note (verified codex 0.130, 손석희): there is **no `codex plugin install`** subcommand — `codex plugin` exposes only `marketplace`; whether the Codex App `/plugins` UI auto-recognizes `.codex-plugin/plugin.json` is unverified. Invoke via `/skills thiscodex` or description match.
 
 Deep reference lives in the repo (load only when a step needs it — progressive disclosure).
 

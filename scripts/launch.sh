@@ -65,9 +65,11 @@ tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
 tmux new-window -t "$SESSION" -n codex -c "$BOT_WD" \
   "until grep -q 'app-server ready\\|Listening' '$READY_LOG' 2>/dev/null || curl -s ${WS/ws:\/\//http:\/\/}/readyz >/dev/null 2>&1; do sleep 1; done; \
    until [ -s '$TID_FILE' ]; do echo '[thiscodex] waiting for bridge to write $TID_FILE (NOT starting a fresh codex session)'; sleep 2; done; \
-   TID=\$(cat '$TID_FILE'); echo \"[thiscodex] bridge thread=\$TID — waiting rollout\"; \
+   TID=\$(cat '$TID_FILE'); \
+   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach (a bare codex --remote here would fork a fresh divergent thread). Fix the bridge, do not work around.\"; exec zsh; fi; \
+   echo \"[thiscodex] bridge thread=\$TID — waiting rollout\"; \
    until find \"\$HOME/.codex/sessions\" -name \"*\$TID*.jsonl\" 2>/dev/null | grep -q .; do sleep 1; done; \
-   while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; codex resume \"\$TID\" --remote $WS; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; echo '[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)'; sleep 3; done; exec zsh"
+   fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote $WS; _e=\$(date +%s); if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)\"; sleep 3; done; exec zsh"
 
 tmux select-window -t "$SESSION:codex"
 echo "[thiscodex] launched session '$SESSION' (infra + codex). Attach: tmux attach -t $SESSION"
