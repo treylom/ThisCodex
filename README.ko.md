@@ -2,7 +2,7 @@
 
 > **Claude Code + Codex CLI 멀티 에이전트 봇**을 **디스코드**로 운영하고, **옵시디언 볼트(Obsidian vault, 노트 저장소)**의 폴더·메모리 규칙과 연결하는 재현 가능한 세팅 모음.
 >
-> 🇺🇸 [English README](./README.md) · 함께 쓰는 런타임: [claude-discode](https://github.com/treylom/claude-discode) (Claude Code 쪽) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
+> 🇺🇸 [English README](./README.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
 
 ThisCodex는 OpenAI의 `codex` CLI 에이전트를 Claude Code 디스코드 봇과 **똑같이** 동작하게 만드는, 검증된 패턴을 담은 모음입니다. 같은 페르소나 규율, 같은 디스코드 입출력, 같은 볼트 규칙 + 여러 에이전트가 한 디스코드 작업공간에서 협업하는 규칙(봇끼리 호출법, 회의 스레드, 세션 시작 시 컨텍스트 주입)까지.
 

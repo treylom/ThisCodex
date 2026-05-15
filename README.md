@@ -2,7 +2,7 @@
 
 > A reproducible setup for running **Claude Code + Codex CLI multi-agent bots** over **Discord**, wired into an **Obsidian vault** with shared folder/memory rules.
 >
-> 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [claude-discode](https://github.com/treylom/claude-discode) (Claude Code side) · This repo = the **Codex side** + cross-runtime conventions.
+> 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · This repo = the **Codex side** + cross-runtime conventions.
 
 ThisCodex packages the hard-won, **verified** pattern for making a Codex CLI agent (`codex` by OpenAI) behave like the Claude Code Discord bots — same persona discipline, same Discord I/O, same vault rules — plus the multi-agent conventions (cross-bot addressing, meeting threads, SessionStart context injection) that let Claude Code and Codex agents collaborate in one Discord workspace.
 
@@ -118,7 +118,7 @@ Rule of thumb: **state that's dynamic per message stays in the bridge prompt; ev
 
 ## 6. Evidence (every ✅ is traced)
 
-- Codex bot equivalence + 9 debug cycles: `claude-discode` / vault meeting `2026-05-15-codex-discord-bot-poc`.
+- Codex bot equivalence + 9 debug cycles: `ThisCode` / vault meeting `2026-05-15-codex-discord-bot-poc`.
 - Multi-client same-thread: verified by attaching a 2nd WS client and reading the bridge's live history.
 - `computer_use`/`browser_use`: flag `stable,true` in `codex features list` **but no official `codex` command/subcommand exposes it** → not a callable tool. Triangulated: features list (flags true) **vs** GitHub #20851 (Desktop-app-bundled MCP only) **vs** clean app-server×`dangerFullAccess` turn → tool list = `web.run, exec_command, image_gen, …` (no browser/computer tool). 6 converging signals, confound-free.
 - resume-sandbox bug: `thread/resume` without re-sending `sandbox` → effective `workspaceWrite`/`networkAccess:false`; fixed by re-sending `danger-full-access` → verified `{"type":"dangerFullAccess"}`.
