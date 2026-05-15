@@ -1,0 +1,25 @@
+# Secrets — NEVER commit (P3 audit learning 2026-05-16)
+.env
+.env.*
+**/access.json
+**/.codex-thread-id
+*.token
+*.key
+*.pem
+credentials*
+.connect/
+# Bot state dirs (live outside repo by design, guard anyway)
+channels/
+discord-*/
+
+# Runtime / logs
+*.log
+/tmp/
+run.log
+
+# OS / editor
+.DS_Store
+*.swp
+node_modules/
+__pycache__/
+.venv/
