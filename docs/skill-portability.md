@@ -38,6 +38,8 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
 
 ## 4. Winning pattern — one SKILL.md, dual invoke `[SOURCE FACT — 루돌프; openclaw/hermes-agent pattern absorbed]`
 
+> 본 절·표의 "bot" = §1 Goal 의 **Discord bot** (codex app-server + bridge daemon). "invoked by CLI *and* bot" = 동일 `SKILL.md` 를 codex CLI 와 그 Discord 봇이 동시에 invoke (루돌프 (d) nit 반영).
+
 | Concern | CC bot | codex-bots | Lesson |
 |---|---|---|---|
 | Auth | per-channel pairing | reuse `~/.codex/auth.json` | 0 keys issued |
