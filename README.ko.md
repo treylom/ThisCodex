@@ -4,6 +4,10 @@
 >
 > 🇺🇸 [English README](./README.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
 
+![ThisCode + ThisCodex 구조](assets/architecture.png)
+
+> **처음 오셨나요?** 이 그림 한 장이 전부입니다 — Claude Code 봇(**ThisCode**)과 Codex 봇(**ThisCodex**)을 **디스코드**에서 운영하고, 둘이 같은 옵시디언 볼트·메모리·규칙을 공유합니다. ThisCodex는 Codex 쪽 — 스킬(`skills/thiscodex/`)로 설치하고 §3을 따라오시면 됩니다.
+
 ThisCodex는 OpenAI의 `codex` CLI 에이전트를 Claude Code 디스코드 봇과 **똑같이** 동작하게 만드는, 검증된 패턴을 담은 모음입니다. 같은 페르소나 규율, 같은 디스코드 입출력, 같은 볼트 규칙 + 여러 에이전트가 한 디스코드 작업공간에서 협업하는 규칙(봇끼리 호출법, 회의 스레드, 세션 시작 시 컨텍스트 주입)까지.
 
 프레임워크가 아닙니다. 직접 조립하는 **문서화된 building block(구성 부품) 모음**이며, 모든 주장에 출처가 달려 있습니다.
