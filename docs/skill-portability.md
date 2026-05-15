@@ -12,7 +12,9 @@ $CWD/.agents/skills  →  $REPO_ROOT/.agents/skills  →  $HOME/.agents/skills  
 - `SKILL.md` frontmatter: `name` + `description` **required**, `metadata` optional (openai/skills-compatible — same shape as Claude Code skills).
 - Invoke paths (2): **explicit** `/skills <name>` or `$skill-name`; **implicit** description-match (Codex auto-invokes, chained depth 3).
 
-`[Mac cross-check — Karpathy]` Mac `codex-cli 0.130.0`: the `.agents/skills` 4-layer paths exist (empty on this Mac = not yet populated for codex; CC uses `~/.claude/skills`). `/etc/codex/skills` intentionally empty on both. → mechanism is structurally identical Mac & WSL.
+`[SOURCE FACT — 루돌프, fresh re-measure 2026-05-15T16:24Z]` 4-layer 실측: repo-tier `~/codex-bots/.agents/skills` = **4 entries**, user-tier `~/.agents/skills` = **46 entries**, admin-tier `/etc/codex/skills` = **디렉토리 미생성 (MISSING)** — 직전 표현 "intentionally empty" 는 부정확, 실제는 디렉토리 자체가 없음(스캐너 skip 동작은 동일).
+
+`[Mac cross-check — Karpathy]` Mac `codex-cli 0.130.0`: 동일 4-layer 경로 구조 존재(이 Mac은 codex용 미populate, CC는 `~/.claude/skills` 사용), admin-tier도 미생성. → 메커니즘 Mac·WSL 구조적으로 동일.
 
 `[SOURCE FACT — both sides, 0.130 feature gate identical]`
 ```
@@ -24,13 +26,13 @@ WSL (루돌프) and Mac (Karpathy) report the **same** flags. `skill_mcp_depende
 
 ## 2. The CC ↔ Codex mapping
 
-`[SOURCE FACT — 루돌프]` Claude Code `~/.claude/skills/` ↔ Codex **user-tier** `~/.agents/skills/` are **1:1 mappable** (same `SKILL.md` frontmatter contract). 루돌프's WSL fleet runs **46 user-tier skills** (codex-rescue/review/setup/status, brainstorm, pumasi/pumasi-image, ralph-loop, modernize-*×7, hookify-*×4, feature-dev, write/execute-plan, prompt-sync, using-superpowers, skills-upgrade). Full list: `rtk ls ~/.agents/skills/`.
+`[SOURCE FACT — 루돌프]` Claude Code `~/.claude/skills/` ↔ Codex **user-tier** `~/.agents/skills/` are **1:1 mappable** (same `SKILL.md` frontmatter contract). 루돌프's WSL fleet runs **46 user-tier skills** `[SOURCE FACT — 루돌프, fresh re-measure 2026-05-15T16:24Z, count 46 정합]`: brainstorm, clean-gone, code-review, codex-adversarial-review, codex-cancel, codex-rescue, codex-result, codex-review, codex-setup, codex-status, commit, commit-push-pr, connect-figma-components, create-design-system-rules, create-plugin, docs-guide, example-command, execute-plan, feature-dev, git-teacher, hookify, hookify-configure, hookify-help, hookify-list, implement-from-figma, lesson-a, modernize-assess, modernize-brief, modernize-extract-rules, modernize-harden, modernize-map, modernize-reimagine, modernize-transform, new-sdk-app, prompt, prompt-sync, pumasi, pumasi-image, ralph-loop, ralph-loop-cancel-ralph, review-design-parity, review-pr, revise-claude-md, skills-upgrade, using-superpowers, write-plan.
 
 Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.md`; it is then invokable by **codex CLI and the Codex Discord bot identically** (the winning pattern, §4). For Claude-Code parity, symlink or sync from `~/.claude/skills/`.
 
-## 3. The SDK 0.130 trap & workaround `[SOURCE FACT — 루돌프, codified in commit 5e90004]`
+## 3. The SDK 0.130 trap & workaround `[SOURCE FACT — 루돌프, hard-code 확인 2026-05-15: runner.ts:135 + test/runner.test.ts:149, commit 5e90004]`
 
-`@openai/codex-sdk` 0.130 has **no dedicated system slot**. Persona/rules can't be injected as a true system message. Workaround in production: inject `SOUL + AGENTS + TOOLS` as an inline `[system]\n…\n\n[user]\n…` prefix. The native path (per-persona `AGENTS.md` in `workingDirectory`, codex auto-load) is deferred to a follow-up turn — so first-turn persona is the inline prefix.
+`@openai/codex-sdk` 0.130 has **no dedicated system slot**. Persona/rules can't be injected as a true system message. Workaround in production: inject `SOUL + AGENTS + TOOLS` as an inline `[system]\n…\n\n[user]\n…` prefix. The native path (per-persona `AGENTS.md` in `workingDirectory`, codex auto-load) is deferred to a follow-up turn — so first-turn persona is the inline prefix. Hard-code 증거(루돌프, 2026-05-15): `packages/gateway/src/codex/runner.ts:135` 가 `[system]…[user]` 프리픽스를 직접 return, `test/runner.test.ts:149` 가 `lastInput` 에 `[system]` 포함을 assert — 코드+테스트 양측에 박힘 (commit 5e90004).
 
 `[session-verified — Karpathy]` Same symptom on the Mac bridge: codex `app-server` exposes only a generic tool/turn protocol, so `bot.py` injects the dynamic `<channel …>` block per turn while **static** persona/rules ride on `project_doc_fallback_filenames = ["SOUL.md","AGENTS.md"]` auto-load (per-turn re-injection removed — P1.5 trim). Net: identical mitigation, two runtimes.
 
@@ -58,6 +60,6 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
 
 ## 6. Open / deferred
 
-- 46-skill set: full enumeration pending `rtk ls ~/.agents/skills/` capture (루돌프 to attach).
+- 46-skill set: ✅ enumerated (루돌프 fresh re-measure 2026-05-15T16:24Z, count 46 정합) — §2 inline list.
 - Native `AGENTS.md` auto-load timing (deferred-to-follow-up-turn) — track upstream SDK > 0.130.
-- 루돌프 verification axes: (a) 4-layer path empirics, (b) 46-count, (c) SDK-slot wording parity, (d) winning-pattern phrasing align.
+- 루돌프 4-way 결과 (2026-05-15T16:24Z): (a) ✅ — 단 admin-tier 표현 "미생성"으로 정정 반영(§1) · (b) ✅ count 46 정합(§2) · (c) ✅ hard-code 확인(§3) · (d) ⏳ wording-level — ThisCodex가 아직 GitHub 미push (treylom/ThisCodex 404) 라 루돌프 미열람. §4 단락 멀티버스 paste 후 최종 확인 예정.
