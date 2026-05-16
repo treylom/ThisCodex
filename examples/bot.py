@@ -79,8 +79,18 @@ CODEX_WS = os.environ.get("CODEX_WS", "ws://127.0.0.1:4222")
 TURN_TIMEOUT_SEC = int(os.environ.get("CODEX_TURN_TIMEOUT", "300"))
 MAX_DEDUP_ENTRIES = 5000
 
-# YOLO is opt-in. Unset/0 → safe default sandbox. 1 → danger-full-access.
-YOLO = os.environ.get("THISCODEX_YOLO", "0") == "1"
+# YOLO is opt-in and selectable PER BOT. Opt-in signals — all OPERATOR-
+# controlled and OUTSIDE the model's writable working dir (critical: a sentinel
+# inside WD would let a model, fed untrusted Discord text in safe mode, write
+# the file and self-upgrade safe→YOLO on the next bridge restart):
+#   - env THISCODEX_YOLO=1                    (process-scoped, one-off launch)
+#   - env THISCODEX_YOLO_FILE=/abs/path       (explicit operator path), else
+#   - default sentinel  ~/.claude/channels/discord-<BOT_NAME>/.thiscodex-yolo
+#     (the bridge/token state dir — per-bot, and NOT the model's cwd/WD, so the
+#      model cannot create it). Neither present → safe default sandbox.
+_yolo_file = os.environ.get("THISCODEX_YOLO_FILE")
+_yolo_sentinel = Path(_yolo_file) if _yolo_file else (ENV_PATH.parent / ".thiscodex-yolo")
+YOLO = (os.environ.get("THISCODEX_YOLO", "0") == "1") or _yolo_sentinel.is_file()
 SANDBOX = "danger-full-access" if YOLO else "workspace-write"
 APPROVAL_POLICY = "never" if YOLO else "on-request"
 

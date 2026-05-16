@@ -95,11 +95,15 @@ sandbox**. The reference bridge ships in this repo:
 [`examples/bot.py`](examples/bot.py), and the rules it must obey are the
 **[YOLO bridge contract](docs/yolo-bridge-contract.md)**. Key points:
 
-- **Safe by default, YOLO opt-in.** The bridge runs `sandbox:"workspace-write"`
-  + `approvalPolicy:"on-request"` unless `THISCODEX_YOLO=1`, which switches to
+- **Safe by default, YOLO opt-in, per-bot selectable.** The bridge runs
+  `sandbox:"workspace-write"` + `approvalPolicy:"on-request"` unless a bot opts
+  in via env `THISCODEX_YOLO=1` **or** an operator-controlled sentinel
+  (`THISCODEX_YOLO_FILE`, default `~/.claude/channels/discord-<BOT_NAME>/.thiscodex-yolo`
+  — per-bot, and **outside the model's writable dir** so a model can't
+  self-upgrade safe→YOLO), which switches that bot to
   `sandbox:"danger-full-access"` + `approvalPolicy:"never"`. Unrestricted host
-  access is a conscious choice, never the zero-config behavior — read the
-  contract's Security section before enabling it.
+  access is a conscious per-bot choice, never the zero-config behavior — read
+  the contract's Security section before enabling it.
 - **`thread/start` AND `thread/resume` re-send the same sandbox/approval.**
   Omitting it on resume = silent fallback to the safe default after the first
   restart (§6). The contract makes this non-optional.

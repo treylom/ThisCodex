@@ -90,7 +90,7 @@ DISCORD_STATE_DIR = "~/.claude/channels/discord-<봇이름>"
 
 `launch.sh` 는 감독만 하고, **실제 sandbox 를 보내는 건 bridge 데몬**입니다. 참조 bridge 는 본 레포에 동봉: [`examples/bot.py`](examples/bot.py), 지켜야 할 규칙은 **[YOLO bridge 계약](docs/yolo-bridge-contract.md)**. 핵심:
 
-- **기본 안전, YOLO opt-in**: `THISCODEX_YOLO=1` 아니면 `sandbox:"workspace-write"`+`approvalPolicy:"on-request"`. 설정 시에만 `danger-full-access`+`never`. 호스트 무제한 접근은 의식적 선택이지 무설정 동작 ❌ — 계약의 보안 절 먼저 읽기.
+- **기본 안전, YOLO opt-in, 봇별 선택**: 봇이 env `THISCODEX_YOLO=1` **또는** operator 통제 sentinel(`THISCODEX_YOLO_FILE`, 기본 `~/.claude/channels/discord-<BOT_NAME>/.thiscodex-yolo` — 봇별, **모델 writable dir 밖**이라 모델이 safe→YOLO self-upgrade 불가)로 opt-in 안 하면 `sandbox:"workspace-write"`+`approvalPolicy:"on-request"`. opt-in 한 봇만 `danger-full-access`+`never`. 호스트 무제한 접근은 봇별 의식적 선택이지 무설정 동작 ❌ — 계약의 보안 절 먼저 읽기.
 - **`thread/start`·`thread/resume` 둘 다 동일 sandbox/approval 재전송** — resume 누락 시 첫 재시작 후 안전 기본값으로 silent fallback(§6). 계약에서 필수 조항.
 - bridge 가 discord MCP 승인을 `persist:"session"` 자동 수락.
 - 긴 턴 침묵 갭 방지 = bridge-level progress heartbeat(계약 heartbeat 절 + soul/AGENTS 능동보고 규율).

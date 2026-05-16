@@ -34,10 +34,22 @@ is the runnable spec + a reference `examples/bot.py`.
    Ignoring any of them hangs the turn forever. Minimum: accept the discord
    MCP elicitation with `{"action":"accept","_meta":{"persist":"session"}}`;
    default-deny the rest safely.
-4. **YOLO is opt-in, not the default.** Ship with the SAFE sandbox active and
-   require an explicit env flag (reference uses `THISCODEX_YOLO=1`) to switch
-   to `danger-full-access`. A user must consciously choose unrestricted host
-   access — never make it the zero-config behavior.
+4. **YOLO is opt-in and per-bot selectable, not the default.** Ship with the
+   SAFE sandbox active. Switching a bot to `danger-full-access` requires an
+   explicit opt-in signal, and the choice is **per bot** so a deployment can
+   run some bots full-access and others sandboxed:
+   - env `THISCODEX_YOLO=1` (process-scoped — a one-off launch), **or**
+   - env `THISCODEX_YOLO_FILE=/abs/path`, else a default sentinel at
+     `~/.claude/channels/discord-<BOT_NAME>/.thiscodex-yolo` (the per-bot
+     bridge/token state dir).
+
+   ⚠️ **The sentinel MUST live outside the model's writable working dir.** If
+   you place it inside `BOT_WD` (where Codex can write in safe mode), a model
+   fed untrusted Discord text could create it and **self-upgrade safe→YOLO**
+   on the next restart — defeating the whole opt-in. The default path above is
+   the token-state dir precisely because the model's cwd is `BOT_WD`, not
+   there. Neither signal present → safe. Unrestricted host access is never the
+   zero-config behavior.
 
 | Mode | sandbox | approvalPolicy | When |
 |---|---|---|---|
@@ -133,9 +145,16 @@ bridge 가 지켜야 할 실행 가능한 계약이며, 참조 구현은
    보내는 요청(elicitation·approval·tool call) 무시 시 턴 영원히 미완. 최소 =
    discord MCP elicitation `{"action":"accept","_meta":{"persist":"session"}}`
    수락, 나머지 안전하게 default-deny.
-4. **YOLO 는 opt-in, 기본값 아님** — 안전 sandbox 로 출하, 명시 env 플래그
-   (참조: `THISCODEX_YOLO=1`)로만 `danger-full-access` 전환. 무설정 동작이
-   호스트 무제한 접근이면 안 됨.
+4. **YOLO 는 opt-in + 봇별 선택, 기본값 아님** — 안전 sandbox 로 출하. 봇을
+   `danger-full-access` 로 전환하려면 명시 opt-in 신호 필요, 선택은 **봇
+   단위**(일부 봇은 full-access, 나머지는 sandbox 가능): env
+   `THISCODEX_YOLO=1`(프로세스 범위) **또는** env `THISCODEX_YOLO_FILE=/abs`,
+   없으면 기본 sentinel `~/.claude/channels/discord-<BOT_NAME>/.thiscodex-yolo`
+   (봇별 bridge/token state dir). ⚠️ **sentinel 은 모델 writable WD 밖에
+   둘 것** — `BOT_WD`(safe 모드서 Codex 쓰기 가능) 안에 두면 신뢰 불가
+   Discord 텍스트를 받은 모델이 그 파일을 만들어 재시작 시 safe→YOLO
+   **self-upgrade** 가능(opt-in 무력화). 기본 경로가 token-state dir 인 이유 =
+   모델 cwd 는 `BOT_WD` 라 거기 못 씀. 둘 다 없으면 안전.
 
 | 모드 | sandbox | approvalPolicy | 언제 |
 |---|---|---|---|
