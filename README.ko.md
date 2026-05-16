@@ -139,5 +139,6 @@ Claude Code + Codex 에이전트가 공존하게 하는 규칙. `bot-roster.yaml
 - ⏸️ computer_use/browser_use — [openai/codex#20851](https://github.com/openai/codex/issues/20851) 대기.
 - 🔁 스킬 이식성(Codex가 Claude Code 스킬 사용) + WSL/윈도우 codex 스킬 흡수 — 진행 중(협업). superpowers는 upstream 자체 codex 경로로 설치 → [docs/skill-portability.md](docs/skill-portability.md) §2.5.
 - ✅ Progressive-disclosure **rules 시스템**(규칙을 다 넣지 않고 상황별 참조 — context bloat 방지) — 컨벤션 동봉, [docs/rules-system.md](docs/rules-system.md).
+- ⚙️ **설정 가이드**(AGENTS.md · soul.md · rules · Skills 2.0 체크리스트) — [docs/SETUP-CONFIG-GUIDE.md](docs/SETUP-CONFIG-GUIDE.md).
 
 라이선스: 레포 참조. 본인이 통제하는 머신 + 신뢰 가능한 비공개 디스코드 서버에서만 사용.
