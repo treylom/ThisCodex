@@ -25,6 +25,8 @@ You do three things: (1) put one job sheet, (2) pick a personality template, (3)
 
 ## §0 — Guided onboarding (first run — recommended)
 
+![Onboarding decision path — designate workspace → make superpowers available → scan → /prompt draft → /using-superpowers interview, with the Obsidian-less branch](../assets/onboarding-decision-path.png)
+
 The non-developer path. The installing AI runs it **once**, and the output is
 a finished `AGENTS.md` + `soul.md` per bot — produced by the bundled `/prompt`
 skill and a short `/using-superpowers` interview, not hand-written. §1-§6
@@ -106,6 +108,8 @@ So this is not skippable, wire it the same way §6 wires `/prompt`:
   `First run / WD has no soul.md | onboarding.md | Run SETUP-CONFIG-GUIDE §0: workspace → superpowers → scan → /prompt → /using-superpowers`
 
 ## The config surfaces (and load order)
+
+![Config surfaces and load order — AGENTS.md → soul.md → rules/INDEX.md → memory/meetings](../assets/config-surfaces-loading-order.png)
 
 A ThisCodex (Codex CLI) bot composes behavior from these, in order:
 
@@ -200,6 +204,8 @@ once; do not duplicate it here.
 회의 스레드·채널·대화기록 보관 거버넌스: companion [ThisCode/docs/05-meeting-thread-protocol.md](https://github.com/treylom/ThisCode/blob/main/docs/05-meeting-thread-protocol.md) (정책 SoT = vault rules/channel-governance.md). Its "Applying to a Codex bot" section is the
 authoritative spec for the `AGENTS.md` → `rules/` wiring.
 
+![Companion + channel governance — ThisCode ↔ ThisCodex pairing, new-topic thread / archive-final-only / cross-machine multiverse](../assets/companion-governance.png)
+
 Minimal worked example —
 
 `rules/INDEX.md` (router; the only file `AGENTS.md` points at):
@@ -216,6 +222,8 @@ Minimal worked example —
 ```
 
 ## §4 — How to set up & how to ask (first run)
+
+![4-Tier vault search with Obsidian-less degradation — GraphRAG → vault-search MCP → Obsidian CLI → ripgrep fallback](../assets/search-fallback-4tier.png)
 
 Install per [README §Setup](../README.md) and [SKILL.md](../skills/thiscodex/SKILL.md)
 (register: `codex plugin marketplace add treylom/ThisCodex`; invoke via

@@ -4,9 +4,11 @@
 >
 > 🇺🇸 [English README](./README.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
 
-![ThisCode + ThisCodex 구조](assets/architecture.png)
+![ThisCodex 핵심 그림 — 구조화된 옵시디언 볼트, 작업 디렉토리별 적합한 봇, 디스코드로 운영, 봇끼리 협업](assets/core-mental-model.png)
 
-> **처음 오셨나요?** 이 그림 한 장이 전부입니다 — Claude Code 봇(**ThisCode**)과 Codex 봇(**ThisCodex**)을 **디스코드**에서 운영하고, 둘이 같은 옵시디언 볼트·메모리·규칙을 공유합니다. ThisCodex는 Codex 쪽 — 스킬(`skills/thiscodex/`)로 설치하고 §3을 따라오시면 됩니다.
+> **처음 오셨나요?** 이 그림 한 장이 핵심입니다 — **구조화된 옵시디언 볼트**에 **작업 디렉토리별 적합한 봇**(Claude Code *와* Codex)을 두고, **디스코드**로 운영하며 봇끼리 협업합니다. ThisCodex는 Codex 쪽 — 스킬(`skills/thiscodex/`)로 설치하고 §3을 따라오시면 됩니다.
+
+![ThisCode + ThisCodex 상세 배선 (tmux · app-server · 디스코드 · 볼트)](assets/architecture.png)
 >
 > **시작 전 권고:** 옵시디언 **폴더 구조**부터 잡고, 메모리·내부검색을 제대로 쓰려면 **옵시디언 설치** 권장. 옵시디언 없이도 단순 연결용 봇은 가능하나 메모리·내부검색 품질은 **보장되지 않습니다**.
 

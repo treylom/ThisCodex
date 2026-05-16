@@ -4,9 +4,11 @@
 >
 > 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · This repo = the **Codex side** + cross-runtime conventions.
 
-![ThisCode + ThisCodex architecture](assets/architecture.png)
+![ThisCodex core idea — a structured Obsidian vault, the right bot per working directory, driven from Discord, bots collaborating](assets/core-mental-model.png)
 
-> **New here?** This one picture is the whole idea: a Claude Code bot (**ThisCode**) and a Codex bot (**ThisCodex**), both driven from **Discord**, sharing one Obsidian vault, memory, and rules. ThisCodex is the Codex side — install it as a skill (`skills/thiscodex/`) and follow §3.
+> **New here?** This one picture is the whole idea: a **structured Obsidian vault**, the **right bot in each working directory** (Claude Code *and* Codex), all driven from **Discord**, with the bots collaborating. ThisCodex is the Codex side — install it as a skill (`skills/thiscodex/`) and follow §3.
+
+![ThisCode + ThisCodex detailed wiring (tmux · app-server · Discord · vault)](assets/architecture.png)
 >
 > **Before you start (recommended):** lay out your Obsidian **folder structure** first and **install Obsidian** for full memory + internal-search. Without Obsidian you can still wire a plain Discord bot, but memory / internal-search quality is **not guaranteed**.
 
