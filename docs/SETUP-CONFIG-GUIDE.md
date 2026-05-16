@@ -18,6 +18,93 @@ New here and not a developer? Think of your bot as a **new teammate**:
 
 You do three things: (1) put one job sheet, (2) pick a personality template, (3) point at the handbook. That is the whole setup. Everything below is just the detail of those three.
 
+> **Don't want to hand-write any of it?** Run **§0 guided onboarding** — the
+> installing AI designates your workspace, makes the skill plugin available,
+> scans the workspace, and drafts the files *for* you via an interview. §1-§6
+> then become reference, not homework.
+
+## §0 — Guided onboarding (first run — recommended)
+
+The non-developer path. The installing AI runs it **once**, and the output is
+a finished `AGENTS.md` + `soul.md` per bot — produced by the bundled `/prompt`
+skill and a short `/using-superpowers` interview, not hand-written. §1-§6
+below are the manual equivalent if you'd rather author by hand or audit what
+the AI produced.
+
+### Prerequisites (do these first, in order)
+
+**0a. Designate the workspace.** The installing AI asks you, in plain words:
+
+- *"Which folder is your Obsidian vault / overall workspace?"* — the root the
+  bots search and store into (**working directory** = 작업 폴더, the folder a
+  bot "lives in").
+- *"For each bot, what is its working directory?"* — one bot = one working
+  directory; that folder is where that bot's `AGENTS.md` + `soul.md` go.
+
+Don't guess the vault root — ask. (The companion
+[ThisCode](https://github.com/treylom/ThisCode) repo ships
+`scripts/claude-discode-init.sh --detect-only`, which autodiscovers a likely
+vault path + note count; if it's available, use it to pre-fill candidates and
+let the user confirm/correct.) A wrong vault root mis-scopes every later step,
+so this is asked **before** anything is scanned or written.
+
+**0b. Make superpowers available** (so the `/prompt` and `/using-superpowers`
+skills the next steps need are loadable — **plugin** = 플러그인, an add-on
+bundle of skills). Codex installs superpowers via its **own upstream Codex
+path**, not the Claude Code plugin manager — see
+[skill-portability.md](skill-portability.md) §2.5. The bundled `skills/prompt/`
+itself ships **inside this repo** (already vendored), so `/prompt` needs no
+extra step; superpowers adds `/using-superpowers` (the interview driver).
+Verify the skill resolves with `/skills` (or a description-match invoke).
+
+### The guided flow (the installing AI executes this)
+
+1. **Scan the designated workspace.** For the vault root and each bot working
+   directory, the AI reads: folder structure (top ~2 levels), any existing
+   `AGENTS.md`/`CLAUDE.md`/`soul.md`, a *sample* of notes for dominant topics
+   (it does not slurp the whole vault), and which Discord channel/role each
+   bot will own. This grounds the draft in your *actual* workspace, not a
+   generic template.
+2. **Auto-invoke `/prompt` to draft the two meta files.** For each bot working
+   directory, the AI **must** invoke the bundled `skills/prompt/` skill
+   (force-invoke — see §6; never hand-roll) to produce: a thin `AGENTS.md`
+   (the job sheet — §1 shape) and a `soul.md` seeded from the closest
+   companion `ThisCode/templates/soul-*.md` (the persona — §2 shape).
+   `/prompt` is mandatory here precisely because these two files *are* prompts
+   (the bot's standing instruction); ad-hoc authoring is the exact regression
+   §6 exists to stop.
+3. **Run the `/using-superpowers` advancement interview.** The AI invokes
+   `/using-superpowers`, which routes to the brainstorming skill to interview
+   you and refine the drafts — **one decision at a time**, not a wall of
+   questions: this bot's role/scope (owns vs. delegates) · persona & voice
+   (template, signature, forced self-check lines) · model id (a real Codex
+   `gpt-5.x` id your CLI exposes — not invented) · Discord surface
+   (channel/thread, mention id, meeting-thread governance) · vault scope
+   (search/write paths; Obsidian-present vs. Obsidian-less). Answers are
+   written back into the drafts; the meta file is then pointed at
+   `rules/INDEX.md` (rules are never inlined — §3).
+4. **Verify before declaring done.** `soul.md` frontmatter valid · signature
+   line present · meta file points *only* at `rules/INDEX.md` · `/prompt` was
+   actually entered (not free-handed) · the bridge actually injected the
+   persona (SKILL.md §Verify). Then continue with the normal §4 flow.
+
+**Obsidian-less path:** if at 0a you opt out of Obsidian, steps 0b-3 still
+run, but vault scope is marked *connectivity-only* and the AI tells you
+memory / internal-search quality is **not guaranteed** (mirrors the README
+"Before you start").
+
+### Force-invoke wiring (so a bot actually runs §0 on first setup)
+
+So this is not skippable, wire it the same way §6 wires `/prompt`:
+
+- In `AGENTS.md` (Codex's always-loaded meta), under the rules pointer, one
+  line: *"First run / unconfigured working dir → MUST run SETUP-CONFIG-GUIDE
+  §0 guided onboarding (designate workspace → make superpowers available →
+  scan → `/prompt` draft → `/using-superpowers` interview) before normal
+  work."*
+- Or a `rules/INDEX.md` row:
+  `First run / WD has no soul.md | onboarding.md | Run SETUP-CONFIG-GUIDE §0: workspace → superpowers → scan → /prompt → /using-superpowers`
+
 ## The config surfaces (and load order)
 
 A ThisCodex (Codex CLI) bot composes behavior from these, in order:
@@ -220,6 +307,59 @@ A. Do only the three steps in "In one minute" first. Skip §1-§6 detail until s
 [README](../README.md) 설치 **후** Codex 봇 행동을 설정하는 가이드. 봇이 읽는
 설정 표면과 **로딩 순서**, 작성법을 묶고, 깊은 내용은 정본 문서로 링크(필요할
 때만 펼치는 progressive disclosure — 점진적 노출). 어려운 영어는 첫 등장에 풀이.
+
+### §0 가이드 온보딩 (첫 실행 — 권장, 비개발자용 경로)
+
+직접 안 쓰고 싶으면 이 경로. 설치 AI 가 **한 번** 실행, 결과물은 봇별 완성된
+`AGENTS.md` + `soul.md` — 번들 `/prompt` 스킬 + 짧은 `/using-superpowers`
+인터뷰가 생성(손으로 안 씀). 아래 §1~§6 은 손수 작성/감수 시의 수동 대응판.
+
+**선행(이 순서로 먼저):**
+
+- **0a. 작업공간 지정.** 설치 AI 가 평이하게: ① "옵시디언 볼트 / 전체 작업
+  폴더 어디예요?"(봇 검색·저장 루트 — **working directory** = 작업 폴더) ②
+  "봇마다 작업 폴더 어디예요?"(봇 1개=폴더 1개, 그 폴더에 그 봇
+  `AGENTS.md`+`soul.md`). 볼트 루트 추측 ❌ — 물어볼 것. 동반
+  [ThisCode](https://github.com/treylom/ThisCode) 레포의
+  `scripts/claude-discode-init.sh --detect-only` 가 볼트 후보·노트 수
+  자동탐지 — 가용 시 후보 채워 사용자 확인/수정. 루트 틀리면 이후 전 단계
+  어긋남 → **스캔·작성 전에** 먼저.
+- **0b. superpowers 가용화**(`/prompt`·`/using-superpowers` 로드용 —
+  **plugin** = 플러그인, 스킬 묶음 애드온). Codex 는 Claude Code 플러그인
+  매니저가 아니라 **자체 upstream Codex 경로**로 superpowers 설치 —
+  [skill-portability.md](skill-portability.md) §2.5. 번들 `skills/prompt/` 는
+  **본 레포 안에 동봉**(이미 vendored)이라 `/prompt` 추가 단계 불필요,
+  superpowers 가 인터뷰 구동용 `/using-superpowers` 추가. `/skills`(또는
+  description 매칭)로 스킬 해석 확인.
+
+**가이드 흐름(설치 AI 실행):**
+
+1. **지정 작업공간 스캔** — 볼트 루트+각 봇 작업폴더의 폴더 구조(상위 ~2
+   레벨)·기존 `AGENTS.md`/`CLAUDE.md`/`soul.md`·노트 *샘플*(전체 흡입 ❌)
+   주제·담당 Discord 채널/역할. 일반 템플릿 아닌 *실제* 작업공간 근거.
+2. **`/prompt` 자동 호출로 메타 2파일 초안** — 봇 작업폴더마다 번들
+   `skills/prompt/` **반드시** 호출(force-invoke, §6 — 손작성 금지)해 얇은
+   `AGENTS.md`(업무지시서 §1) + 가장 가까운 동반
+   `ThisCode/templates/soul-*.md` 기반 `soul.md`(페르소나 §2). 이 두 파일이
+   곧 prompt(봇 상시 지시) → `/prompt` 강제, 즉흥 작성이 §6 이 막는 회귀.
+3. **`/using-superpowers` 고도화 인터뷰** — 호출 → brainstorming 라우팅 →
+   **한 번에 한 결정씩**(질문 폭탄 ❌): 역할/범위(직접 vs 위임) ·
+   페르소나·말투(템플릿·서명·자가점검 줄) · 모델 id(CLI 가 실제 노출하는
+   Codex `gpt-5.x` id, 지어냄 ❌) · Discord 표면(채널/스레드·mention id·회의
+   스레드 거버넌스) · 볼트 범위(옵시디언 유/무). 답을 초안 반영 후 메타를
+   `rules/INDEX.md` 포인팅(규칙 inline ❌ — §3).
+4. **완료 선언 전 검증** — soul.md frontmatter 유효 · 서명 줄 · 메타가
+   `rules/INDEX.md` *만* 가리킴 · `/prompt` 실제 진입 · bridge 페르소나 주입
+   (SKILL.md §Verify). 이후 §4 흐름.
+
+**옵시디언 없는 경로:** 0a 미사용 선택 시 0b~3 그대로, 볼트 범위=연결 전용
+표시 + 메모리/내부검색 품질 미보장 안내(README "Before you start" 동일).
+
+**강제 호출 배선(첫 셋업에 §0 실제 실행):** §6 가 `/prompt` 배선과 동일 —
+`AGENTS.md` 규칙 포인터 아래 한 줄: *"첫 실행 / 미설정 작업폴더 → 일반 작업
+전 SETUP-CONFIG-GUIDE §0(작업공간 지정 → superpowers 가용화 → 스캔 →
+`/prompt` 초안 → `/using-superpowers` 인터뷰) 필수."* 또는 `rules/INDEX.md`
+행: `첫 실행 / WD 에 soul.md 없음 | onboarding.md | SETUP-CONFIG-GUIDE §0 실행: 작업공간→superpowers→스캔→/prompt→/using-superpowers`
 
 ### 설정 표면 + 로딩 순서
 `AGENTS.md`(프로젝트+봇 WD 메타 — Codex 가 프로젝트 문서로 자동 로드, Claude 의
