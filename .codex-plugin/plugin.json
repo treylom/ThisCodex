@@ -4,7 +4,7 @@
   "description": "Make an OpenAI Codex CLI agent behave like a Claude Code Discord bot — persona/vault discipline, multi-agent conventions, progressive-disclosure rules, CC↔Codex skill portability.",
   "author": {
     "name": "treylom",
-    "email": "treylom@gmail.com",
+    "email": "treylom@users.noreply.github.com",
     "url": "https://github.com/treylom"
   },
   "homepage": "https://github.com/treylom/ThisCodex",
