@@ -35,7 +35,7 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
 `~/.agents/skills` hand-symlink is **only** for the user's own bespoke skills. A plugin/framework like **superpowers** already ships first-class codex packaging upstream — do not hand-roll:
 
 - Upstream: `github.com/obra/superpowers` (Jesse Vincent, MIT). Codex manifest at repo root: `.codex-plugin/plugin.json` → declares `"skills": "./skills/"` (same `skills/` tree as the Claude-Code plugin).
-- Maintainer sync path: `scripts/sync-to-codex-plugin.sh` → fork `prime-radiant-inc/openai-codex-plugins` (`plugins/superpowers`) → upstreamed into the **official Codex plugin marketplace `github.com/openai/plugins`**.
+- Maintainer sync path (manual / planned — no committed script): fork `prime-radiant-inc/openai-codex-plugins` (`plugins/superpowers`) → upstreamed into the **official Codex plugin marketplace `github.com/openai/plugins`**.
 - **Canonical Codex CLI install** (upstream README §"Codex CLI", verbatim):
   ```
   /plugins          # open the plugin search interface
