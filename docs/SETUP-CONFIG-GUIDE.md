@@ -155,6 +155,26 @@ structure, invocation control, no orphans/broken refs, progressive disclosure,
 imperative form). Walk every box manually, and grep the diff for hardcoded
 user paths / secrets, before any push.
 
+## §6 — Force-invoke the `/prompt` skill
+
+The bundled `skills/prompt/` skill must be **mandatorily invoked** for any
+prompt-authoring work (writing/refining a prompt, GPTs/Gems instructions,
+fact-check/research/image prompting) — never free-hand a prompt.
+
+Wire enforcement into the Codex bot's config:
+
+- In `AGENTS.md` (Codex's always-loaded meta), add one line under the rules
+  pointer: *"Prompt-authoring tasks → MUST invoke the `prompt` skill before
+  producing any prompt (no ad-hoc prompts)."*
+- Or a `rules/INDEX.md` row: `Producing a prompt for a model | prompt-skill.md | Invoke skills/prompt first; never hand-roll`.
+- In `soul.md`, put a hard rule in the forced-persona self-check table (reuse
+  the companion `ThisCode/templates/soul-custom.md`, which includes a `/prompt`
+  enforcement line).
+
+Why a hard rule: prompt quality regresses to ad-hoc without enforced routing;
+the skill's frameworks (IFCN fact-check base, 5-stage image, GPTs/Gems
+structure) apply only if the skill is actually entered.
+
 ## See also
 
 - [README.md](../README.md) / [README.ko.md](../README.ko.md) — overview + install
