@@ -16,6 +16,12 @@ A `rules/` directory with one small **router** + many **on-demand topical files*
 ├── discord-comms.md  ← loaded only when about to talk to an external channel
 ├── source-fact.md    ← loaded only when asserting a fact / verifying
 ├── autonomy.md       ← loaded only when tempted to over-confirm / before "done"
+│                        (also: the proactive completion/partial/blocked report
+│                         gate — report on completion, partial artifact,
+│                         awaiting-permission, handoff, or blocked >10–15min
+│                         WITHOUT being pinged; "next step remains" is not a
+│                         reason for silence. Bridge-level heartbeat backs this
+│                         in code — see ThisCodex docs/yolo-bridge-contract.md)
 ├── skill-process.md  ← loaded only when starting a build/debug/verify task
 ├── porting-infra.md  ← loaded only when porting/deploying/adding MCP
 └── voice.md          ← loaded only when writing a persona response

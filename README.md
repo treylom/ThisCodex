@@ -85,8 +85,31 @@ DISCORD_STATE_DIR = "~/.claude/channels/discord-<botname>"
 ### 3.3 Bot working directory
 Put `SOUL.md` (persona) and `AGENTS.md` (rules — including the static Discord-reply rule, see §4) in the bot WD. They are auto-loaded every thread; **do not** re-inject persona text per turn.
 
-### 3.4 Run it (yolo by design)
-A 2-window tmux launcher (`sshee` alias): window `infra` runs `launch.sh` (app-server + `bot.py`); window `codex` attaches an interactive TUI to the same app-server for live observation/steering. `launch.sh` is itself the yolo boundary: `approvalPolicy:"never"` + `sandbox:"danger-full-access"` + bridge auto-accepts the discord MCP elicitation with `persist:"session"`.
+### 3.4 Run it (the bridge is what grants access)
+A 2-window tmux launcher (`scripts/launch.sh`): window `infra` runs your
+`LAUNCH_CMD` (codex app-server + the bridge daemon); window `codex` attaches an
+interactive TUI to the same app-server for live observation/steering.
+
+`launch.sh` only supervises — **the bridge daemon is what actually sends the
+sandbox**. The reference bridge ships in this repo:
+[`examples/bot.py`](examples/bot.py), and the rules it must obey are the
+**[YOLO bridge contract](docs/yolo-bridge-contract.md)**. Key points:
+
+- **Safe by default, YOLO opt-in.** The bridge runs `sandbox:"workspace-write"`
+  + `approvalPolicy:"on-request"` unless `THISCODEX_YOLO=1`, which switches to
+  `sandbox:"danger-full-access"` + `approvalPolicy:"never"`. Unrestricted host
+  access is a conscious choice, never the zero-config behavior — read the
+  contract's Security section before enabling it.
+- **`thread/start` AND `thread/resume` re-send the same sandbox/approval.**
+  Omitting it on resume = silent fallback to the safe default after the first
+  restart (§6). The contract makes this non-optional.
+- Bridge auto-accepts the discord MCP elicitation with `persist:"session"`.
+- A bridge-level progress heartbeat prevents silent gaps on long turns (see the
+  contract's heartbeat section + the soul/AGENTS proactive-report rule).
+
+### 3.5 GitHub auth & superpowers
+- GitHub: `gh auth login` (or a PAT in the environment) before launch so codex `exec` can push/PR.
+- Superpowers / skills: codex reads `AGENTS.md`; point it at your skills directory and the migration rules (§5) so skill invocations resolve.
 
 ### 3.5 GitHub auth & superpowers
 - GitHub: `gh auth login` (or a PAT in the environment) before launch so codex `exec` can push/PR.
@@ -129,7 +152,7 @@ Rule of thumb: **state that's dynamic per message stays in the bridge prompt; ev
 - Codex bot equivalence + 9 debug cycles: `ThisCode` / vault meeting `2026-05-15-codex-discord-bot-poc`.
 - Multi-client same-thread: verified by attaching a 2nd WS client and reading the bridge's live history.
 - `computer_use`/`browser_use`: flag `stable,true` in `codex features list` **but no official `codex` command/subcommand exposes it** → not a callable tool. Triangulated: features list (flags true) **vs** GitHub #20851 (Desktop-app-bundled MCP only) **vs** clean app-server×`dangerFullAccess` turn → tool list = `web.run, exec_command, image_gen, …` (no browser/computer tool). 6 converging signals, confound-free.
-- resume-sandbox bug: `thread/resume` without re-sending `sandbox` → effective `workspaceWrite`/`networkAccess:false`; fixed by re-sending `danger-full-access` → verified `{"type":"dangerFullAccess"}`.
+- resume-sandbox bug: `thread/resume` without re-sending `sandbox` → effective `workspaceWrite`/`networkAccess:false`; fixed by re-sending the sandbox → verified `{"type":"dangerFullAccess"}`. Codified as a non-optional clause in the **[YOLO bridge contract](docs/yolo-bridge-contract.md)** and implemented in [`examples/bot.py`](examples/bot.py).
 
 ---
 
@@ -141,7 +164,8 @@ When upstream exposes `computer_use` to the CLI, **do not** pipe untrusted Disco
 
 ## 8. Status
 
-- ✅ Codex Discord bot, multi-client, roster/SessionStart, yolo, image_gen/web.run/exec — working & verified.
+- ✅ Codex Discord bot, multi-client, roster/SessionStart, safe/YOLO sandbox, image_gen/web.run/exec — working & verified.
+- ✅ **Reference bridge shipped** — [`examples/bot.py`](examples/bot.py) + the runnable **[YOLO bridge contract](docs/yolo-bridge-contract.md)** (safe-default vs opt-in YOLO, resume-sandbox re-send, progress heartbeat). A deployment no longer needs to hand-roll the access-granting bridge.
 - ⏸️ computer_use/browser_use — parked on [openai/codex#20851](https://github.com/openai/codex/issues/20851).
 - 🔁 Skill portability (Codex using Claude Code skills) + WSL/Windows codex skill absorption — in progress (collaborative). Superpowers: install via its own upstream codex path, see [docs/skill-portability.md](docs/skill-portability.md) §2.5.
 - ✅ Progressive-disclosure **rules system** (no context bloat — situational rule routing) — convention shipped, see [docs/rules-system.md](docs/rules-system.md).

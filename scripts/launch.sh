@@ -26,7 +26,14 @@
 #   SESSION     (default: thiscodex) tmux session name
 #   WS          (default: ws://127.0.0.1:4222) app-server listen URL
 #   TID_FILE    (default: $BOT_WD/.codex-thread-id) bridge writes the thread id here
-#   LAUNCH_CMD  (required) the infra command: starts `codex app-server` + bot.py bridge
+#   LAUNCH_CMD  (required) the infra command: starts `codex app-server` + the
+#               bridge daemon. THIS SCRIPT ONLY SUPERVISES — the bridge is what
+#               actually sends the sandbox. The bridge MUST honor
+#               docs/yolo-bridge-contract.md: send sandbox+approvalPolicy on
+#               BOTH thread/start AND thread/resume (omitting on resume =
+#               silent fallback to the safe default), and treat YOLO
+#               (danger-full-access) as opt-in, not the default. Reference
+#               implementation: examples/bot.py
 #   STOP_FILE   (default: $BOT_WD/.thiscodex-stop) touch to break supervised restart
 #   READY_LOG   (default: /tmp/$SESSION-bridge.log) grep'd for "app-server ready"
 
