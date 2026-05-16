@@ -1,6 +1,6 @@
 # Rules System — Progressive-Disclosure agent rules (no context bloat)
 
-> Convention shipped with ThisCode / ThisCodex. Origin: 재경님 spec 2026-05-16 — "규칙을 CLAUDE.md/soul.md/메모리에 많이 넣으면 다 기억 못 함. rules.md 신설해 상황별 참조." Verified in the obsidian-ai-vault deployment (`.claude/rules/`).
+> Convention shipped with ThisCode / ThisCodex. Origin: 운영자 spec 2026-05-16 — "규칙을 CLAUDE.md/soul.md/메모리에 많이 넣으면 다 기억 못 함. rules.md 신설해 상황별 참조." Verified in the obsidian-ai-vault deployment (`.claude/rules/`).
 
 ## Problem
 

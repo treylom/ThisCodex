@@ -30,7 +30,7 @@ WSL (루돌프) and Mac (Karpathy) report the **same** flags. `skill_mcp_depende
 
 Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.md`; it is then invokable by **codex CLI and the Codex Discord bot identically** (the winning pattern, §4). For Claude-Code parity, symlink or sync from `~/.claude/skills/`. **Scope: this hand-placement/symlink is only for your *own bespoke* skills. Plugin- or framework-distributed skills (e.g. superpowers) ship their own codex packaging — install via the framework's official codex path, never hand-symlink the plugin cache. See §2.5.**
 
-## 2.5. Plugin/framework skills → use the framework's own codex path `[SOURCE FACT — gh obra/superpowers + local plugin cache, verified 2026-05-16; 재경님 rule "원본 레포 반드시 확인"]`
+## 2.5. Plugin/framework skills → use the framework's own codex path `[SOURCE FACT — gh obra/superpowers + local plugin cache, verified 2026-05-16; maintainer rule "원본 레포 반드시 확인"]`
 
 `~/.agents/skills` hand-symlink is **only** for the user's own bespoke skills. A plugin/framework like **superpowers** already ships first-class codex packaging upstream — do not hand-roll:
 
@@ -44,7 +44,7 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
   ```
 - Install differs per harness — install separately for each: Claude Code `/plugin install superpowers@claude-plugins-official`; Codex CLI (above); Codex App → Plugins sidebar; Gemini `gemini extensions install https://github.com/obra/superpowers`; Cursor `/add-plugin superpowers`; Copilot `copilot plugin marketplace add obra/superpowers`; Factory Droid `droid plugin marketplace add https://github.com/obra/superpowers`.
 
-**Rule (재경님, recurring):** before hand-rolling cross-platform skill portability, **always check the upstream repo** for platform packaging (`.codex-plugin/`, `sync-to-*` scripts, `AGENTS.md`/`GEMINI.md`, a multi-harness install matrix). Upstream usually already solved it — the hand-symlink primitive is the *fallback for skills with no upstream codex packaging*, not the default.
+**Rule (maintainer, recurring):** before hand-rolling cross-platform skill portability, **always check the upstream repo** for platform packaging (`.codex-plugin/`, `sync-to-*` scripts, `AGENTS.md`/`GEMINI.md`, a multi-harness install matrix). Upstream usually already solved it — the hand-symlink primitive is the *fallback for skills with no upstream codex packaging*, not the default.
 
 ## 3. The SDK 0.130 trap & workaround `[SOURCE FACT — 루돌프, hard-code 확인 2026-05-15: runner.ts:135 + test/runner.test.ts:149, commit 5e90004]`
 
