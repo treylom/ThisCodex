@@ -173,6 +173,8 @@ When upstream exposes `computer_use` to the CLI, **do not** pipe untrusted Disco
 - ⏸️ computer_use/browser_use — parked on [openai/codex#20851](https://github.com/openai/codex/issues/20851).
 - 🔁 Skill portability (Codex using Claude Code skills) + WSL/Windows codex skill absorption — in progress (collaborative). Superpowers: install via its own upstream codex path, see [docs/skill-portability.md](docs/skill-portability.md) §2.5.
 - ✅ Progressive-disclosure **rules system** (no context bloat — situational rule routing) — convention shipped, see [docs/rules-system.md](docs/rules-system.md).
+- ✅ **Reversible memory archival** (`scripts/memory_dreaming.py`) — *move-not-delete* cleanup to out-of-WD cold storage, one-command checksum-verified restore; one tier-agnostic rubric across all tiers **incl. the Codex memory tier** (`~/.codex/memories`, env-configurable cold subdir); conservative (auto-archive gated, ambiguous → human review), criteria self-correct from restores; weekly-enforced. Plain-language: [docs/memory-dreaming.md](docs/memory-dreaming.md).
+- ✅ **Meeting watchdog** (`scripts/meeting_watchdog.py`) — on meeting-thread creation, YAML-enforced ~5-min progress check; self-terminates only when goal AND all tasks complete (models Claude Code `/goal`); fail-closed = never falsely terminate a live meeting.
 - ⚙️ **Config guide** (AGENTS.md · soul.md · rules · Skills 2.0 checklist) — [docs/SETUP-CONFIG-GUIDE.md](docs/SETUP-CONFIG-GUIDE.md).
 
 License: see repo. Use on machines you control, with trusted private Discord servers only.

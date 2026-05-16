@@ -24,7 +24,15 @@ A `rules/` directory with one small **router** + many **on-demand topical files*
 │                         in code — see ThisCodex docs/yolo-bridge-contract.md)
 ├── skill-process.md  ← loaded only when starting a build/debug/verify task
 ├── porting-infra.md  ← loaded only when porting/deploying/adding MCP
-└── voice.md          ← loaded only when writing a persona response
+├── voice.md          ← loaded only when writing a persona response
+└── orchestration.md  ← loaded only when delegating to / waiting on a bot,
+                         asserting a bot's identity/health, or coordinating
+                         multiple agents (chain-load identity guard: a shared
+                         root context file that doubles as one bot's WD meta
+                         must carry a top identity guard so other bots
+                         chain-loading it don't absorb that identity; teammate
+                         idle = drive not wait; meeting = adopt domain frames,
+                         no solo lock)
 ```
 
 - **`INDEX.md`** is a compact trigger table: `situation → rule file → one-line gist`. It is the only thing `CLAUDE.md`/`AGENTS.md` points to (one pointer block, not the rules themselves).
