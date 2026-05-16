@@ -7,6 +7,8 @@
 ![ThisCode + ThisCodex architecture](assets/architecture.png)
 
 > **New here?** This one picture is the whole idea: a Claude Code bot (**ThisCode**) and a Codex bot (**ThisCodex**), both driven from **Discord**, sharing one Obsidian vault, memory, and rules. ThisCodex is the Codex side — install it as a skill (`skills/thiscodex/`) and follow §3.
+>
+> **Before you start (recommended):** lay out your Obsidian **folder structure** first and **install Obsidian** for full memory + internal-search. Without Obsidian you can still wire a plain Discord bot, but memory / internal-search quality is **not guaranteed**.
 
 ThisCodex packages the hard-won, **verified** pattern for making a Codex CLI agent (`codex` by OpenAI) behave like the Claude Code Discord bots — same persona discipline, same Discord I/O, same vault rules — plus the multi-agent conventions (cross-bot addressing, meeting threads, SessionStart context injection) that let Claude Code and Codex agents collaborate in one Discord workspace.
 
