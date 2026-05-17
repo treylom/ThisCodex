@@ -43,3 +43,17 @@ test('manifest text has no provisional machine path', () => {
   const text = readFileSync('install/thiscodex.install.json', 'utf8');
   assert.doesNotMatch(text, /thiscodex-current-bot|\/home\/tofu/);
 });
+
+test('consent gated steps are exactly the safety line steps', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const gated = manifest.steps.filter(s => s.safety === 'consent-gated').map(s => s.id).sort();
+  assert.deepEqual(gated, ['alias_consent', 'config_ceiling_patch', 'materialize_runner', 'tmux_install_consent'].sort());
+});
+
+test('Codex prompt mapping contains all §6.A domain prompts', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const ids = manifest.steps.map(s => s.id);
+  for (const id of ['codex_skill_layer', 'codex_marketplace', 'codex_config_check', 'config_ceiling_patch', 'tmux_install_consent', 'alias_consent']) {
+    assert.ok(ids.includes(id), `${id} missing`);
+  }
+});

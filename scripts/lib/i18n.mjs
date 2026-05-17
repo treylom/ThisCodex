@@ -27,6 +27,14 @@ export const MESSAGES = {
     plain: '자동화 환경이라 질문을 멈추고, 안전한 기본값으로 점검한 뒤 다음 명령을 보여드립니다.',
     dev: 'Non-TTY: no readline; use defaults/answers and emit next command.',
   },
+  wsl_first_reason: {
+    plain: 'Windows에서는 WSL을 먼저 쓰는 편이 안정적입니다. Codex bot은 Linux shell, tmux, 예측 가능한 경로가 있을 때 가장 잘 동작합니다.',
+    dev: 'Windows native routes to WSL-first guidance for shell/tmux/path stability.',
+  },
+  tmux_one_line_consent: {
+    plain: 'tmux가 없으면 설치 명령 한 줄만 안내합니다. 동의할 때만 그 한 줄을 실행합니다.',
+    dev: 'tmux missing: one command, consent-gated, no deeper setup.',
+  },
   checkOnly: {
     plain: '점검만 완료했습니다. 파일은 바꾸지 않았습니다. 적용하려면 --apply 로 다시 실행하세요.',
     dev: '--check complete; zero writes. Apply with --apply.',
