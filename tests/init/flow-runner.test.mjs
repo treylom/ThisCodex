@@ -31,7 +31,7 @@ test('runner obeys manifest order and verify gate', async () => {
 });
 
 test('runner stops on failed required step with next command', async () => {
-  const result = await runFlow({ steps, ctx: { mode: 'check', os: 'mac', answers: {}, tools: {} }, handlers: {
+  const result = await runFlow({ steps, ctx: { mode: 'apply', os: 'mac', answers: {}, tools: {} }, handlers: {
     action: async () => {},
     verify: async step => step.id === 'a' ? { ok: false, message: 'bad' } : { ok: true },
     explain: () => {},
