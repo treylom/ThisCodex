@@ -119,8 +119,15 @@ The installer routes the bundled prompt flow to draft:
 - `soul.md`
 - `rules/`
 
-Then it runs or directs the `/using-superpowers` interview. The output must be
-stored as part of the install log so the user can inspect what changed.
+Then it runs or directs the `/using-superpowers` interview. The interview is a
+required gate for full guided onboarding because it shapes `AGENTS.md`,
+`soul.md`, and `rules/`. If the interview cannot run or cannot be routed, the
+guided flow stops before file generation and prints the next command.
+
+The output must be stored as part of the install log so the user can inspect
+what changed. Non-interactive mode never runs the interview; it only verifies
+whether the required superpowers path is available and reports the next command
+when it is not.
 
 ### Phase 6: Runner And Verification
 
@@ -151,7 +158,19 @@ This keeps CI useful without pretending CI completed guided onboarding.
 
 ## Doctor Behavior
 
-`thiscodex doctor` reuses the install verify gates.
+`thiscodex doctor` reuses the install verify gates. It replays verification
+against the current filesystem and environment; it does not synthesize state
+from the install log.
+
+Doctor verifies:
+
+- skill placement;
+- Codex config;
+- confirmed path writability;
+- `.codex-thread-id` when present;
+- rollout materialization when a thread exists;
+- Windows skill sync when selected;
+- superpowers availability check status.
 
 Rollout proof remains conditional:
 
@@ -181,10 +200,16 @@ The implementation plan should include tests for:
 - placement-only path does not claim guided readiness;
 - guided prompts use concrete question text, not generic step ids;
 - confirmed path keys are not written from cwd defaults;
+- placement-only state does not persist guided `confirmed_*` values;
+- placement-only followed by guided `--apply` still prompts the full guided
+  sequence;
 - WSL profile detection and ambiguous profile selection;
 - Windows skill sync idempotence and checksum verification;
 - non-interactive apply fails when required guided choices are missing;
 - superpowers missing path stops before prompt flow;
+- non-interactive mode checks superpowers availability but never runs the
+  interview;
+- `confirmed_superpowers_checked` is written only after the check actually ran;
 - doctor replay uses the same verify functions as install;
 - rollout proof skip/pass/fail triad from Track A remains intact;
 - 3-OS CI remains green.

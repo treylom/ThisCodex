@@ -46,9 +46,11 @@ The guided sequence is ordered:
 5. Select the Codex skill layer, defaulting to the user layer.
 6. On WSL, detect paired Windows profiles and offer Windows-side sync.
 7. Check and optionally patch `~/.codex/config.toml`.
-8. Check the Codex-native superpowers path.
+8. Check the Codex-native superpowers path and record that the check ran.
 9. Route the prompt flow that drafts `AGENTS.md`, `soul.md`, and `rules/`.
-10. Run the `/using-superpowers` interview or stop with a clear next command.
+10. Run or route the `/using-superpowers` interview. This is required for full
+    guided onboarding; if it is unavailable, the installer must stop before
+    prompt-file generation and print the next command.
 11. Offer daemon runner generation, safe by default, YOLO only by explicit
     opt-in.
 12. Verify skill placement, config, `.codex-thread-id`, rollout materialization,
@@ -94,9 +96,22 @@ Guided onboarding needs the Codex-native superpowers path and the prompt flow
 that drafts bot instructions.
 
 If `/using-superpowers` is not available and cannot be made available in the
-current environment, the installer must stop and explain the next command. It
-must not continue into `AGENTS.md`, `soul.md`, or `rules/` generation as if the
-interview happened.
+current environment, the installer must stop the guided onboarding flow and
+explain the next command. It must not continue into `AGENTS.md`, `soul.md`, or
+`rules/` generation as if the interview happened.
+
+The interview execution model is explicit:
+
+- interactive guided onboarding may invoke or route the interview and then
+  store the result in the install log;
+- non-interactive mode must not try to run the interview. It checks whether the
+  superpowers path is already available, prints the next command if it is not,
+  and exits with a status that reflects whether a required guided decision is
+  missing.
+
+The installer must persist a confirmed superpowers check marker such as
+`confirmed_superpowers_checked` only after the check actually ran. It must not
+invent this marker in check-only mode.
 
 ## Confirmed State Rule
 
@@ -111,7 +126,27 @@ Confirmed keys include:
 - `confirmed_state_dir`
 - `confirmed_windows_profile`
 - `confirmed_skill_layer`
+- `confirmed_superpowers_checked`
 
 These values must come from explicit CLI flags, an answers file, or an
 interactive user confirmation. `cwd`, repo root, or check-only defaults are not
 confirmed values by themselves.
+
+## Doctor Replay
+
+`thiscodex doctor` must replay the same filesystem and environment verification
+gates used by guided onboarding. It must not invent state from the install log.
+
+Doctor verifies the current filesystem state for:
+
+- skill placement;
+- Codex config;
+- confirmed path writability;
+- `.codex-thread-id` when present;
+- rollout materialization when a thread exists;
+- Windows skill sync when selected;
+- superpowers availability check status.
+
+Placement-only state must stay separate. A placement-only install must not
+persist `confirmed_*` guided-onboarding values, and a later guided `--apply`
+must still prompt the full guided sequence instead of skipping it.
