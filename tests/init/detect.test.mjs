@@ -27,7 +27,7 @@ test('detectCodexConfig reports config path and presence', () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   mkdirSync(join(home, '.codex'), { recursive: true });
   const c = detectCodexConfig({ HOME: home });
-  assert.match(c.path, /\.codex\/config\.toml$/);
+  assert.equal(c.path, join(home, '.codex', 'config.toml'));
   assert.equal(c.present, false);
   rmSync(home, { recursive: true, force: true });
 });
