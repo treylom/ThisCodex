@@ -70,6 +70,41 @@ Claude Code bots use the same shape, except the inbound-event injection is built
 - `codex` CLI (OpenAI), `tmux`, Python 3 with `websockets`, the Claude Code Discord plugin (reused as a codex MCP server).
 - Platforms: macOS / Linux / **WSL2 (Ubuntu 22.04+)**. Native Windows → use WSL. `computer_use` is macOS-Apple-Events-bound and N/A on WSL/Linux regardless of upstream.
 
+### 3.1a Node installer
+
+ThisCodex ships a shell-zero Node installer:
+
+```bash
+npx github:treylom/ThisCodex --check
+npx github:treylom/ThisCodex --apply
+```
+
+`--check` writes nothing. `--apply` copies the `thiscodex` skill into a
+Codex-visible layer (`~/.agents/skills/thiscodex` by default), optionally
+backs up and patches `~/.codex/config.toml`, and prints OS-specific runner
+instructions. It does not auto-start a daemon in scope A.
+
+#### Installer ownership
+
+The Node installer is the single owner of Codex skill placement. It copies
+`skills/thiscodex` into the selected Codex-visible layer (`~/.agents/skills`
+by default, repo-local `.agents/skills` when selected). ThisCodex intentionally
+does not ship a second shell sync script; duplicate sync paths drift and are
+harder to run on Windows.
+
+`scripts/launch.sh` remains a legacy/tmux fallback for operators who already
+run a bridge manually. New users should follow the Node runner guide. When
+`launch.sh` is used, set `THISCODEX_SHELL=${SHELL:-/bin/sh}` (or an explicit
+shell path) so the script does not require zsh.
+
+When a user explicitly chooses YOLO/full-access mode, warn that the bridge's
+per-turn `sandbox:"danger-full-access"` and `approvalPolicy:"never"` can still
+be clamped by Codex app-server defaults unless `~/.codex/config.toml` also has
+`sandbox_mode = "danger-full-access"` and `approval_policy = "never"`. The
+installer may add those two keys only in the Q6e YOLO opt-in path, after
+showing the security warning and backing up the file. Safe mode remains the
+zero-config default.
+
 ### 3.2 `~/.codex/config.toml`
 ```toml
 project_doc_fallback_filenames = ["SOUL.md", "AGENTS.md"]

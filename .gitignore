@@ -23,3 +23,8 @@ run.log
 node_modules/
 __pycache__/
 .venv/
+.thiscodex-init-state.json
+*.thiscodex.bak
+*.runner.txt
+*.plist.generated
+*.service.generated
