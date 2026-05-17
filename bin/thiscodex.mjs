@@ -16,6 +16,7 @@ import {
 import { verifyStep } from '../scripts/lib/doctor.mjs';
 import { applySkillInstall, marketplaceHint, patchCodexConfig } from '../scripts/lib/apply.mjs';
 import { aliasBlock, materializeBotFiles } from '../scripts/lib/materialize.mjs';
+import { promptForStep } from '../scripts/lib/prompts.mjs';
 
 const args = process.argv.slice(2);
 const command = ['init', 'doctor', 'smoke'].includes(args[0]) ? args.shift() : 'init';
@@ -91,9 +92,12 @@ const handlers = {
       }
       const readline = await import('node:readline/promises');
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      const answer = (await rl.question(`${step.id}: `)).trim();
+      const prompt = promptForStep(step, state);
+      const suffix = prompt.defaultValue ? ` [default: ${prompt.defaultValue}]` : '';
+      const answer = (await rl.question(`${prompt.question}${suffix}: `)).trim();
       rl.close();
       if (answer) state.answers[key] = answer;
+      else if (prompt.defaultValue && !key.startsWith('confirmed_')) state.answers[key] = prompt.defaultValue;
       return;
     }
     if (step.action === 'apply' && step.id === 'config_ceiling_patch') {
