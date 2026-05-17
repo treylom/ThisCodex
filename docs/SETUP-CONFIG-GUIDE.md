@@ -267,8 +267,22 @@ Plain intro: [memory-dreaming.md](memory-dreaming.md).
   `stop`.
 - Terminates ONLY when the goal is met AND all tasks complete. Fail-closed
   = keep-active: a corrupt/absent manifest never terminates a live meeting.
-  Discord post is best-effort; `MEETING_WATCHDOG_SIGNATURE` (default empty)
-  optionally appends a persona signature.
+Discord post is best-effort; `MEETING_WATCHDOG_SIGNATURE` (default empty)
+optionally appends a persona signature.
+
+### ThisCodex installer
+
+Prefer the Node entry over shell scripts:
+
+```bash
+node bin/thiscodex.mjs --check
+node bin/thiscodex.mjs --apply
+```
+
+The installer uses `~/.agents/skills/thiscodex` by default because Codex scans
+that user-tier skill layer. Repo-local `.agents/skills/thiscodex` is available
+for project-scoped installs. `.codex-plugin` is a marketplace/helper path, not
+the primary loose-install path.
 
 ## §4 — How to set up & how to ask (first run)
 
