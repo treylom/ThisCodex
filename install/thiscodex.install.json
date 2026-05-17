@@ -13,6 +13,16 @@
       "on_fail": { "next_command": "node bin/thiscodex.mjs --check --tone=plain" }
     },
     {
+      "id": "choose_install_surface",
+      "order": 15,
+      "when": "always",
+      "action": "prompt",
+      "reason": "Skill placement only copies SKILL.md; guided onboarding configures a usable bot workspace.",
+      "safety": "none",
+      "verify": { "type": "answer-one-of", "state_key": "install_surface", "choices": "placement,guided" },
+      "on_fail": { "next_command": "thiscodex init --apply --answers <answers.json>" }
+    },
+    {
       "id": "windows_wsl_first",
       "order": 20,
       "when": "os == 'win'",
@@ -31,6 +41,16 @@
       "safety": "none",
       "verify": { "type": "path-exists", "state_key": "confirmed_repo_root" },
       "on_fail": { "next_command": "thiscodex init --check --repo-root <path-to-ThisCodex>" }
+    },
+    {
+      "id": "confirm_workspace_root",
+      "order": 35,
+      "when": "answers.install_surface == 'guided'",
+      "action": "prompt",
+      "reason": "Guided onboarding needs the workspace or vault root before it can draft bot instructions.",
+      "safety": "user-confirmed-path",
+      "verify": { "type": "path-writable", "state_key": "confirmed_workspace_root" },
+      "on_fail": { "next_command": "thiscodex init --apply --answers <answers.json>" }
     },
     {
       "id": "confirm_bot_wd",

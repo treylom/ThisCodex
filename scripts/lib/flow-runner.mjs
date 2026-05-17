@@ -53,6 +53,10 @@ export async function runFlow({ steps, ctx, handlers }) {
     await handlers.action(step, ctx);
     const verified = await handlers.verify(step, ctx);
     if (!verified.ok) {
+      if (ctx.mode === 'check') {
+        events.push({ id: step.id, status: 'needs-input', reason: verified.message || 'verification failed' });
+        continue;
+      }
       return {
         ok: false,
         failed_step: step.id,

@@ -36,6 +36,16 @@ const cwd = process.cwd();
 const env = detectEnv();
 const tone = arg('--tone') || 'plain';
 
+function missingGuidedDecision(state) {
+  if (mode !== 'apply' || !nonInteractive || !yes) return '';
+  if (answersFile) return '';
+  if (state.answers?.install_surface !== 'guided') return '';
+  for (const key of ['confirmed_repo_root', 'confirmed_workspace_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
+    if (!state[key]) return key;
+  }
+  return '';
+}
+
 if (mode === 'apply' && nonInteractive && !yes && !answersFile) {
   console.log('ThisCodex apply is running without a TTY.');
   console.log('Next command: thiscodex init --apply --yes --answers <answers.json>');
@@ -56,6 +66,7 @@ state.answers.codex_marketplace ||= arg('--codex-marketplace') || 'no';
 state.answers.codex_yolo ||= arg('--codex-yolo') || 'safe';
 state.answers.alias_consent ||= arg('--alias-consent') || 'no';
 state.answers.daemon_guide ||= arg('--daemon-guide') || 'no';
+state.answers.install_surface ||= arg('--install-surface') || 'guided';
 
 if (answersFile) {
   const { readFileSync } = await import('node:fs');
@@ -63,6 +74,13 @@ if (answersFile) {
 }
 for (const key of ['confirmed_repo_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
   delete state.answers[key];
+}
+
+const missingDecision = missingGuidedDecision(state);
+if (missingDecision) {
+  console.log(`ThisCodex guided onboarding needs ${missingDecision}.`);
+  console.log('Next command: thiscodex init --apply --answers <answers.json>');
+  process.exit(2);
 }
 
 if (has('--resume')) {

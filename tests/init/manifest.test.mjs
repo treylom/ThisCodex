@@ -9,7 +9,9 @@ test('manifest loads ordered ThisCodex steps', () => {
   const ids = sortSteps(manifest.steps).map(s => s.id);
   for (const id of [
     'detect_environment',
+    'choose_install_surface',
     'confirm_repo_root',
+    'confirm_workspace_root',
     'confirm_bot_wd',
     'codex_skill_layer',
     'config_ceiling_patch',
@@ -19,6 +21,15 @@ test('manifest loads ordered ThisCodex steps', () => {
   ]) {
     assert.ok(ids.includes(id), `${id} missing`);
   }
+});
+
+test('manifest separates placement-only from guided onboarding', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const ids = sortSteps(manifest.steps).map(s => s.id);
+  assert.ok(ids.includes('choose_install_surface'));
+  assert.ok(ids.includes('confirm_workspace_root'));
+  const surface = manifest.steps.find(s => s.id === 'choose_install_surface');
+  assert.equal(surface.verify.state_key, 'install_surface');
 });
 
 test('manifest validation rejects missing required fields', () => {

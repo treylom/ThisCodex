@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -90,10 +90,29 @@ test('non-TTY apply does not persist confirmed_* as check_only placeholder', () 
     env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   const statePath = join(home, '.config', 'thiscodex', 'install-state.json');
-  const state = JSON.parse(readFileSync(statePath, 'utf8'));
-  assert.notEqual(state.answers?.confirmed_bot_wd, 'check_only');
-  assert.notEqual(state.answers?.confirmed_state_dir, 'check_only');
-  assert.notEqual(state.answers?.confirmed_repo_root, 'check_only');
+  if (existsSync(statePath)) {
+    const state = JSON.parse(readFileSync(statePath, 'utf8'));
+    assert.notEqual(state.answers?.confirmed_bot_wd, 'check_only');
+    assert.notEqual(state.answers?.confirmed_state_dir, 'check_only');
+    assert.notEqual(state.answers?.confirmed_repo_root, 'check_only');
+  }
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('non-interactive apply with yes but no answers stops before guided path persistence', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--non-interactive'], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout + result.stderr, /Next command:/);
+  assert.equal(existsSync(join(home, '.config', 'thiscodex', 'install-state.json')), false);
   rmSync(repo, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
