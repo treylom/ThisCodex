@@ -1,0 +1,136 @@
+{
+  "product": "thiscodex",
+  "version": 1,
+  "steps": [
+    {
+      "id": "detect_environment",
+      "order": 10,
+      "when": "always",
+      "action": "detect",
+      "reason": "First we check the operating system and installed tools so the installer can explain only the steps that apply to this machine.",
+      "safety": "none",
+      "verify": { "type": "environment-detected" },
+      "on_fail": { "next_command": "node bin/thiscodex.mjs --check --tone=plain" }
+    },
+    {
+      "id": "windows_wsl_first",
+      "order": 20,
+      "when": "os == 'win'",
+      "action": "guide",
+      "reason": "ThisCodex runs a Codex bot daemon. On Windows, WSL gives the bot a Linux shell, tmux, and predictable paths.",
+      "safety": "dry-run-only",
+      "verify": { "type": "guide-shown" },
+      "on_fail": { "next_command": "wsl --install" }
+    },
+    {
+      "id": "confirm_repo_root",
+      "order": 30,
+      "when": "always",
+      "action": "check",
+      "reason": "ThisCodex must know the repository root so generated aliases can return to the repo you chose, not a fixed developer path.",
+      "safety": "none",
+      "verify": { "type": "path-exists", "state_key": "confirmed_repo_root" },
+      "on_fail": { "next_command": "thiscodex init --check --repo-root <path-to-ThisCodex>" }
+    },
+    {
+      "id": "confirm_bot_wd",
+      "order": 40,
+      "when": "always",
+      "action": "prompt",
+      "reason": "ThisCodex needs one stable bot working directory for AGENTS.md, SOUL.md, thread id, and runner files.",
+      "safety": "user-confirmed-path",
+      "verify": { "type": "path-writable", "state_key": "confirmed_bot_wd" },
+      "on_fail": { "next_command": "thiscodex init --check --bot-wd <path>" }
+    },
+    {
+      "id": "confirm_state_dir",
+      "order": 50,
+      "when": "always",
+      "action": "prompt",
+      "reason": "Discord token and bridge state live outside the repo and outside BOT_WD, so safe-mode Codex cannot silently self-upgrade privileges.",
+      "safety": "user-confirmed-path",
+      "verify": { "type": "path-writable", "state_key": "confirmed_state_dir" },
+      "on_fail": { "next_command": "thiscodex init --check --state-dir ~/.claude/channels/discord-<botname>" }
+    },
+    {
+      "id": "codex_skill_layer",
+      "order": 60,
+      "when": "always",
+      "action": "prompt",
+      "reason": "Codex loads skills from ordered scan layers. User layer is shared across repos; repo layer is isolated to this checkout.",
+      "safety": "none",
+      "verify": { "type": "answer-one-of", "state_key": "codex_skill_layer", "choices": "user,repo" },
+      "on_fail": { "next_command": "thiscodex init --check --codex-skill-layer user" }
+    },
+    {
+      "id": "codex_marketplace",
+      "order": 70,
+      "when": "always",
+      "action": "prompt",
+      "reason": ".codex-plugin marketplace metadata is a secondary discovery path. The primary install still uses Codex skill scan directories.",
+      "safety": "none",
+      "verify": { "type": "answer-one-of", "state_key": "codex_marketplace", "choices": "yes,no" },
+      "on_fail": { "next_command": "thiscodex init --check --codex-marketplace no" }
+    },
+    {
+      "id": "codex_config_check",
+      "order": 80,
+      "when": "always",
+      "action": "check",
+      "reason": "Codex app-server can clamp per-turn sandbox requests unless ~/.codex/config.toml allows the requested ceiling.",
+      "safety": "dry-run-only",
+      "verify": { "type": "codex-config-readable" },
+      "on_fail": { "next_command": "thiscodex doctor --fix-guide codex-config" }
+    },
+    {
+      "id": "config_ceiling_patch",
+      "order": 90,
+      "when": "answers.codex_yolo == 'config_ceiling_patch'",
+      "action": "apply",
+      "reason": "Danger-full-access is powerful. This step is opt-in only, backs up config.toml, and exists for trusted hosts running unattended Codex bots.",
+      "safety": "consent-gated",
+      "verify": { "type": "codex-config-ceiling" },
+      "on_fail": { "next_command": "thiscodex init --apply --yes --codex-yolo config_ceiling_patch" }
+    },
+    {
+      "id": "tmux_install_consent",
+      "order": 100,
+      "when": "tools.tmux == false",
+      "action": "guide",
+      "reason": "tmux keeps the infra window and Codex TUI attached to the same bot session. Without it, the daemon guide cannot start cleanly.",
+      "safety": "consent-gated",
+      "verify": { "type": "tmux-present-or-guide-shown" },
+      "on_fail": { "next_command": "sudo apt-get update && sudo apt-get install -y tmux" }
+    },
+    {
+      "id": "alias_consent",
+      "order": 110,
+      "when": "answers.alias_consent == 'yes'",
+      "action": "generate",
+      "reason": "Aliases are useful only after the repo and BOT_WD are confirmed; otherwise they bake a temporary path into your shell.",
+      "safety": "consent-gated",
+      "verify": { "type": "aliases-parameterized" },
+      "on_fail": { "next_command": "thiscodex init --apply --yes --alias-consent yes" }
+    },
+    {
+      "id": "materialize_runner",
+      "order": 120,
+      "when": "answers.daemon_guide == 'yes'",
+      "action": "generate",
+      "reason": "The runner files make the safe launch command repeatable without auto-starting a daemon.",
+      "safety": "consent-gated",
+      "verify": { "type": "runner-files-present" },
+      "on_fail": { "next_command": "thiscodex init --apply --yes --daemon-guide yes" }
+    },
+    {
+      "id": "doctor_rollout_materialized",
+      "order": 130,
+      "when": "mode == 'doctor' or mode == 'smoke'",
+      "action": "check",
+      "reason": "The final proof is that Codex can resume the bridge thread from a materialized rollout, not merely that files were copied.",
+      "safety": "dry-run-only",
+      "verify": { "type": "rollout-materialized" },
+      "on_fail": { "next_command": "thiscodex doctor --verbose" }
+    }
+  ]
+}
