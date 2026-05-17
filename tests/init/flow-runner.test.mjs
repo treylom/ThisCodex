@@ -12,6 +12,9 @@ test('evaluateWhen supports always, os, mode, answer, and tool conditions', () =
   assert.equal(evaluateWhen('always', ctx), true);
   assert.equal(evaluateWhen("os == 'wsl'", ctx), true);
   assert.equal(evaluateWhen("mode == 'doctor'", ctx), false);
+  assert.equal(evaluateWhen("mode == 'doctor' or mode == 'smoke'", { ...ctx, mode: 'doctor' }), true);
+  assert.equal(evaluateWhen("mode == 'doctor' or mode == 'smoke'", { ...ctx, mode: 'smoke' }), true);
+  assert.equal(evaluateWhen("os == 'wsl' and tools.tmux == false", ctx), true);
   assert.equal(evaluateWhen("answers.alias_consent == 'yes'", ctx), true);
   assert.equal(evaluateWhen('tools.tmux == false', ctx), true);
 });
