@@ -148,6 +148,11 @@ adapter emits `--` before user values for every command; without it the
 dash-query / flag-injection surface is only half-closed.
 
 ### Worker shared-state (Agent Teams equivalent)
+> Status note: this external worker orchestrator is a baseline implementation.
+> If Codex native subagent surfaces become uniformly available across target
+> harnesses, a future plan may supersede this path. Until then, keep the file
+> and contract together; deleting one creates broken references.
+
 Workers do NOT share orchestrator memory. The minimal shared state is a
 single file `team_state.json` in the orchestrator's run dir:
 `{ team_id, finalized:bool, workers:[{id, workdir, thread, status}], results:[...] }`.
@@ -308,6 +313,11 @@ KM SKILL.md 불변.
 강제하는 conformance test 동봉. 없으면 dash-query/flag-injection 표면 반만 닫힘.
 
 **Worker shared-state(Agent Teams 등가)** — worker 는 orchestrator memory
+> 상태 메모: 이 외부 worker orchestrator 는 baseline 구현이다. Codex native
+> subagent surface 가 모든 target harness 에서 균일하게 가능해지면, 후속 plan 이
+> 이 경로를 supersede 할 수 있다. 그 전까지는 파일과 contract 를 함께 유지한다.
+> 한쪽만 삭제하면 broken reference 가 된다.
+
 공유 ❌. 최소 공유상태 = orchestrator run dir 의 단일 `team_state.json`
 `{team_id, finalized:bool, workers:[{id,workdir,thread,status}], results:[...]}`.
 쓰기 프로토콜(independent review HIGH-3 — race/corruption 차단): 모든 접근
