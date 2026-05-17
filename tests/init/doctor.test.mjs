@@ -57,3 +57,30 @@ test('rollout-materialized verify reads .codex-thread-id from BOT_WD', async () 
   rmSync(home, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
 });
+
+test('rollout-materialized skips with reason when no codex thread exists (CI-like)', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const result = await verifyStep(
+    { verify: { type: 'rollout-materialized' } },
+    {},
+    { HOME: home },
+  );
+  assert.equal(result.ok, true);
+  assert.match(result.message, /skip/i);
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('rollout-materialized hard-fails when thread exists but rollout missing', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  writeFileSync(join(bot, '.codex-thread-id'), 'aaaa1111-2222-3333-4444-555566667777\n');
+  const result = await verifyStep(
+    { verify: { type: 'rollout-materialized' } },
+    { confirmed_bot_wd: bot },
+    { HOME: home },
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.message, /not materialized/i);
+  rmSync(home, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+});

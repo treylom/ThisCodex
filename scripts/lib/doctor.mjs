@@ -71,8 +71,11 @@ export async function verifyStep(step, state, env = process.env) {
     if (!tid && threadFile && existsSync(threadFile)) {
       tid = readFileSync(threadFile, 'utf8').trim();
     }
+    if (!tid) {
+      return { ok: true, message: 'skipped: no codex thread yet (app-server turn not run)' };
+    }
     const home = env.HOME || env.USERPROFILE || '';
-    return tid && rolloutFilesForThread(home, tid).length
+    return rolloutFilesForThread(home, tid).length
       ? { ok: true }
       : { ok: false, message: 'rollout not materialized' };
   }
