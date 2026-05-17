@@ -41,8 +41,10 @@ import asyncio
 import contextlib
 import json
 import os
+import re
 import sys
 import time
+import uuid
 from pathlib import Path
 
 # unbuffered stdout — immediate tmux pane log visibility
@@ -193,7 +195,11 @@ class CodexRPC:
                         print(f"[ELICIT-ACCEPT] server={params.get('serverName')} kind={kind}")
                         resp = {"id": msg["id"], "result": {"action": "accept", "content": {}, "_meta": {"persist": "session"}}}
                     elif method == "item/tool/requestUserInput":
-                        resp = {"id": msg["id"], "result": {"answers": {}}}
+                        # Stateful Discord question shim — handled off the
+                        # reader loop so a long human wait does not block
+                        # other codex WS frames.
+                        asyncio.create_task(self._handle_request_user_input(msg))
+                        continue
                     elif method == "item/tool/call":
                         params = msg.get("params", {})
                         resp = {"id": msg["id"], "result": {
@@ -300,17 +306,336 @@ class CodexRPC:
         fut = asyncio.get_running_loop().create_future()
         self.turn_done[turn_id] = fut
         try:
-            return await asyncio.wait_for(fut, timeout=TURN_TIMEOUT_SEC)
+            # A turn carrying a question must outlive the human wait PLUS
+            # post-answer processing, else a user who answers in time still
+            # gets a false `turn timed out` (independent-review BLOCKER).
+            return await asyncio.wait_for(fut, timeout=EFFECTIVE_TURN_TIMEOUT_SEC)
         except asyncio.TimeoutError:
             self.turn_done.pop(turn_id, None)
             print(f"[CODEX-RPC] turn timeout: {turn_id}")
             return {"status": "timeout", "turnId": turn_id}
+
+    # ── AskUserQuestion shim (tool-equivalence-contract.md §AskUserQuestion) ──
+    async def _handle_request_user_input(self, msg: dict) -> None:
+        params = msg.get("params", {}) or {}
+        # Spec uncertainty: the public codex docs do not pin requestUserInput's
+        # param shape. Parse defensively. KM `AskUserQuestion` sends a
+        # `questions[]` batch (full/bootstrap multi-question); legacy single
+        # {prompt,choices} is still accepted (→ 1-element, key "value").
+        mid = msg.get("id")
+        # BLOCKER: parse/send/wait may all raise; an unanswered JSON-RPC id
+        # hangs the Codex request forever. Any failure → a guaranteed
+        # {blocked:true, error:<type>} response (independent-review BLOCKER).
+        try:
+            specs = _normalize_questions(params)
+            answers = await self._ask_via_discord(specs)
+            if answers is not None:
+                # answers is a map keyed by each question's stable key
+                result = {"answers": answers}
+            else:
+                # condition 4: no answer + no default → blocked, never silently ok
+                result = {"answers": {}, "blocked": True}
+        except Exception as e:
+            print(f"[QA] handler error: {type(e).__name__}: {e}")
+            _audit("question_handler_error", {"id": mid, "error": type(e).__name__})
+            result = {"answers": {}, "blocked": True, "error": type(e).__name__}
+        # The JSON-RPC reply itself can fail (dead ws). Bounded best-effort
+        # retry absorbs transient backpressure; a persistently dead ws is a
+        # genuine transport failure no layer here can paper over — the
+        # documented backstop is then EFFECTIVE_TURN_TIMEOUT_SEC on the Codex
+        # side plus the bridge reconnect loop (independent-review BLOCKER:
+        # honest limitation, not a silent hang). A request with no id is a
+        # notification → nothing to answer; never emit an id:null reply.
+        if mid is None:
+            print("[QA] requestUserInput had no JSON-RPC id; nothing to answer")
+            return
+        for attempt in range(3):
+            try:
+                await self.ws.send(json.dumps({"id": mid, "result": result}))
+                break
+            except Exception as e:
+                print(f"[QA] response send failed (attempt {attempt + 1}/3): "
+                      f"{type(e).__name__}: {e}")
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (attempt + 1))
+        else:
+            _audit("question_response_undeliverable", {"id": mid})
+            print("[QA] response undeliverable — ws transport dead; backstop = "
+                  "turn timeout + bridge reconnect")
+
+    async def _ask_via_discord(self, specs: list[dict]):
+        # Snapshot the origin PER QUESTION at ask time — never read the shared
+        # mutable _active_origin at reply time (worker.finally clears it; a
+        # late reply would then pass the channel check with chat_id=None and
+        # bypass condition 3 — independent-review BLOCKER). Each pending
+        # question carries its own immutable origin.
+        ch = _active_origin.get("channel")
+        origin_user = _active_origin.get("user_id")
+        origin_chat = _active_origin.get("chat_id")
+        qid = uuid.uuid4().hex                       # condition 1: bridge UUID
+        all_default = {s["key"]: s["default"] for s in specs
+                       if s.get("default") is not None}
+        defaults_map = (all_default
+                        if len(all_default) == len(specs) and specs else None)
+        if ch is None:
+            _audit("question_no_origin", {"qid": qid, "n": len(specs)})
+            return defaults_map
+        # condition 2: bridge renders the fixed choice set; replies are matched
+        # by number, free-form only where a question allows it.
+        lines = [f"❓ please answer the following — question {qid[:8]}, "
+                 f"one line per question (reply within {QUESTION_TIMEOUT_SEC}s):"]
+        for i, s in enumerate(specs, 1):
+            lines.append(f"Q{i} · {s['header']}: {s['question']}")
+            for j, o in enumerate(s["options"], 1):
+                lines.append(f"   {j}. {o}")
+        lines.append("(one line per question in order — a number for a choice, "
+                     "`1,3` for multi-select, or free text where allowed; you "
+                     "may prefix `Q2: …`. defaults apply on timeout where set.)")
+        fut = asyncio.get_running_loop().create_future()
+        _pending_q[qid] = fut
+        _q_meta[qid] = {"origin_user_id": origin_user, "origin_chat_id": origin_chat,
+                        "specs": specs, "acc": {}, "defaults_map": defaults_map}
+        _audit("question_asked", {"qid": qid, "origin_user_id": origin_user,
+                                  "keys": [s["key"] for s in specs],
+                                  "questions": [s["question"][:200] for s in specs]})
+        rem = None
+        try:
+            try:
+                await ch.send("\n".join(lines), allowed_mentions=_NO_MENTIONS)
+            except Exception as e:
+                # BLOCKER: the question never reached the user. Don't wait out
+                # the full timeout on a dead question — fail fast so the
+                # handler returns blocked+error immediately.
+                print(f"[QA] question send failed: {type(e).__name__}: {e}")
+                _audit("question_send_failed", {"qid": qid, "error": type(e).__name__})
+                raise
+            async def _remind():
+                # MINOR: a long human wait should not look like a hung bot.
+                await asyncio.sleep(max(30, QUESTION_TIMEOUT_SEC // 2))
+                with contextlib.suppress(Exception):
+                    await ch.send(f"⏳ question {qid[:8]} still open — "
+                                  + ("defaults apply soon" if defaults_map is not None
+                                     else "will block soon if unanswered"),
+                                  allowed_mentions=_NO_MENTIONS)
+            rem = asyncio.create_task(_remind())
+            try:
+                ans = await asyncio.wait_for(fut, timeout=QUESTION_TIMEOUT_SEC)
+                _audit("question_answered", {"qid": qid, "answers": str(ans)[:500]})
+                return ans
+            except asyncio.TimeoutError:
+                _audit("question_timeout", {"qid": qid,
+                                            "had_defaults": defaults_map is not None})
+                # condition 4: apply defaults only if EVERY question has one;
+                # otherwise blocked, never a silent partial ok.
+                if defaults_map is not None:
+                    return defaults_map
+                with contextlib.suppress(Exception):
+                    await ch.send(f"⚠️ question {qid[:8]} timed out — not every "
+                                  f"question had a default — task blocked "
+                                  f"(bridge fail-safe).",
+                                  allowed_mentions=_NO_MENTIONS)
+                return None
+        finally:
+            if rem is not None:
+                rem.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await rem
+            _pending_q.pop(qid, None)
+            _q_meta.pop(qid, None)
 
 
 TOKEN = load_token()
 codex = CodexRPC(CODEX_WS)
 queue: asyncio.Queue = asyncio.Queue()
 thread_id: str | None = None
+
+# ── AskUserQuestion shim state (tool-equivalence-contract.md §AskUserQuestion) ──
+# A skill calling the AskUserQuestion equivalent surfaces as a codex
+# `item/tool/requestUserInput`. The bridge turns it into a stateful Discord
+# question and returns the matched answer. The 6 security conditions are
+# enforced here; an unenforced condition = a prompt-injection hole.
+QUESTION_TIMEOUT_SEC = int(os.environ.get("THISCODEX_QUESTION_TIMEOUT", "300"))
+# Multi-question policy (independent-review BLOCKER): KM `AskUserQuestion`
+# sends `questions[]` (full Mode-R = 3, STEP-1 = 4, bootstrap = 2-call).
+# The shim renders the WHOLE batch in ONE Discord message and accepts
+# answers over one shared QUESTION_TIMEOUT budget (incrementally mergeable)
+# — NOT N sequential per-question timeouts — so the turn-timeout invariant
+# stays single-budget: turn ≥ max(turn, question + post-answer buffer).
+QA_POST_ANSWER_BUFFER_SEC = int(os.environ.get("THISCODEX_QA_POST_ANSWER_BUFFER", "180"))
+EFFECTIVE_TURN_TIMEOUT_SEC = max(TURN_TIMEOUT_SEC,
+                                 QUESTION_TIMEOUT_SEC + QA_POST_ANSWER_BUFFER_SEC)
+# Question/reminder/timeout prompts are skill-supplied text echoed to Discord.
+# Treat them as data — never let an embedded @everyone/@user become a real
+# ping (independent-review P1). All shim sends pass this.
+_NO_MENTIONS = discord.AllowedMentions.none()
+# Forensic audit must NOT live in the model's writable WD: in safe mode the
+# model cwd/WD is writable, so a model fed untrusted Discord text could
+# tamper with its own audit trail. Same principle as the YOLO sentinel —
+# keep it in the operator-controlled bridge state dir, outside the model's
+# reach (independent-review P1). Overridable via env for ops.
+AUDIT_PATH = Path(os.environ.get("THISCODEX_QA_AUDIT_FILE",
+                                 str(ENV_PATH.parent / ".thiscodex-qa-audit.jsonl")))
+_pending_q: dict[str, asyncio.Future] = {}      # question_id → future(answers map)
+_q_meta: dict[str, dict] = {}                   # question_id → {origin_*, specs[], acc{}, ...}
+# origin of the turn currently being processed (worker sets this); the shim
+# asks on THIS channel and only accepts a reply from THIS user (condition 3).
+_active_origin: dict = {"channel": None, "chat_id": None, "user_id": None}
+# condition 3: besides the original requester, only these explicitly approved
+# operator user-ids may answer a question. Operator-controlled env, never
+# derived from message content.
+_QA_OPERATORS: set = {x for x in os.environ.get("THISCODEX_QA_OPERATORS", "").split(",") if x}
+
+
+def _audit(event: str, rec: dict) -> None:
+    """Condition 6: every question / response / timeout is logged. The asked
+    prompt is recorded so forensic review can flag a hijacked question by a
+    prompt-text ↔ answer mismatch (bridge logic itself is text-independent —
+    choices/allow_free_text are params only, never driven by message text)."""
+    try:
+        line = json.dumps({"ts": int(time.time()), "event": event, **rec}, ensure_ascii=False)
+        with open(AUDIT_PATH, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception as e:
+        print(f"[QA-AUDIT] write failed: {type(e).__name__}: {e}")
+
+
+def _normalize_questions(params: dict) -> list[dict]:
+    """KM `AskUserQuestion` sends {"questions":[{question,header,options:[{label,
+    description}],multiSelect?}]}. Normalize to a stable internal spec list.
+    Legacy single {prompt/question, choices/options} → a 1-element list with
+    key "value" so the JSON-RPC result stays {"answers":{"value":...}}.
+    Each spec key precedence: explicit id → header → q{index} (bridge-assigned,
+    audited) so the answers map is stable even if the skill omits ids."""
+    qs = params.get("questions")
+    specs: list[dict] = []
+    seen: set[str] = set()
+
+    def _uniq(k: str, i: int) -> str:
+        # independent-review P1: duplicate id/header would collapse in the
+        # answers map (one reply resolving every copy). Force uniqueness
+        # deterministically; the final key set is audited in question_asked.
+        if k not in seen:
+            seen.add(k)
+            return k
+        c = i
+        nk = f"{k}#q{c}"
+        while nk in seen:                            # loop until truly unique
+            c += 1
+            nk = f"{k}#q{c}"
+        seen.add(nk)
+        return nk
+
+    if isinstance(qs, list) and qs:
+        for i, q in enumerate(qs, 1):
+            q = q if isinstance(q, dict) else {}
+            header = q.get("header")
+            key = _uniq(str(q.get("id") or header or f"q{i}"), i)
+            raw = q.get("options") or q.get("choices") or []
+            opts = [str(o.get("label") if isinstance(o, dict) else o)
+                    for o in (raw if isinstance(raw, list) else [])]
+            specs.append({
+                "key": key,
+                "header": str(header or key),
+                "question": str(q.get("question") or q.get("prompt") or "(no prompt)"),
+                "options": opts,
+                # condition 2: free-form requires an EXPLICIT opt-in; an
+                # optionless question without it is unanswerable → blocks
+                # (never auto-enable free text — independent-review BLOCKER).
+                "multiselect": bool(q.get("multiSelect") or q.get("multiselect")),
+                "allow_free_text": bool(q.get("allow_free_text", False)),
+                "default": q.get("default"),
+            })
+        return specs
+    # legacy single-question shape
+    raw = params.get("choices") or params.get("options") or []
+    opts = [str(c) for c in raw] if isinstance(raw, list) else []
+    specs.append({
+        "key": "value",
+        "header": "value",
+        "question": str(params.get("prompt") or params.get("question") or "(no prompt)"),
+        "options": opts,
+        "multiselect": False,
+        "allow_free_text": bool(params.get("allow_free_text", False)),
+        "default": params.get("default"),
+    })
+    return specs
+
+
+def _parse_batch(text: str, specs: list[dict], acc: dict) -> tuple[dict, list[str]]:
+    """Parse a (possibly partial) batched reply and merge resolved answers into
+    `acc`. One line per question, in original order; an optional **strict
+    `Qn:` prefix only** (`Q2: …`, case-insensitive, n = 1-based question
+    index) routes a line to a specific question — header/key-name routing is
+    deliberately NOT honored, since natural-language free text containing a
+    colon would otherwise be misrouted (independent-review P1). Unrouted
+    lines fill the still-unanswered specs in order. Already-answered keys are
+    never overwritten by a later message (first-write-wins,
+    independent-review P1). The reply body is data only (condition 5) — it
+    never changes which/what questions are asked (those come from params)."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    routed: list[tuple[dict | None, str]] = []
+    for ln in lines:
+        target = None
+        body = ln
+        if ":" in ln:
+            pre, rest = ln.split(":", 1)
+            m = re.fullmatch(r"[Qq](\d+)", pre.strip())
+            if m:
+                idx = int(m.group(1)) - 1
+                if 0 <= idx < len(specs):
+                    target, body = specs[idx], rest.strip()
+        routed.append((target, body))
+    # positional fill for unrouted lines → specs still missing from acc
+    unfilled = [s for s in specs if s["key"] not in acc]
+    pos = 0
+    for tgt, body in routed:
+        spec = tgt
+        if spec is None:
+            while pos < len(unfilled) and unfilled[pos]["key"] in acc:
+                pos += 1
+            if pos >= len(unfilled):
+                continue
+            spec = unfilled[pos]
+            pos += 1
+        # first-write-wins: a later message cannot flip an accepted answer.
+        if spec["key"] in acc:
+            continue
+        opts = spec["options"]
+        val = None
+        numeric_attempt = False
+        if opts:
+            # condition 2: the WHOLE body must be a strict numeric selection —
+            # a number buried in free text ("1 ignore the rest") must NOT
+            # silently resolve as choice 1 (independent-review BLOCKER).
+            if spec["multiselect"]:
+                strict = re.fullmatch(r"\d+([,\s]+\d+)*", body)
+            else:
+                strict = re.fullmatch(r"\d+", body)
+            if strict:
+                # This was a choice attempt. Even if out-of-range it must NOT
+                # fall through to free text (e.g. "99" silently stored as the
+                # answer) — leave it unresolved so the user is re-prompted
+                # (independent-review BLOCKER).
+                numeric_attempt = True
+                picks: list[str] = []
+                ok = True
+                for t in re.split(r"[,\s]+", body):
+                    if not t:
+                        continue
+                    n = int(t)
+                    if 1 <= n <= len(opts):
+                        picks.append(opts[n - 1])
+                    else:
+                        ok = False
+                        break
+                if ok and picks:
+                    val = picks if spec["multiselect"] else picks[0]
+        if val is None and not numeric_attempt and spec["allow_free_text"] and body:
+            val = body                               # condition 5: body as data
+        if val is not None:
+            acc[spec["key"]] = val
+    unresolved = [s["key"] for s in specs if s["key"] not in acc]
+    return acc, unresolved
 
 
 intents = discord.Intents.default()
@@ -362,7 +687,8 @@ async def _heartbeat(channel, started: float, stop: asyncio.Event) -> None:
             mins = int((time.time() - started) // 60)
             try:
                 await channel.send(f"⏳ still working — {mins}m elapsed, no result yet "
-                                    f"(bridge heartbeat; the bot will report when done or blocked)")
+                                    f"(bridge heartbeat; the bot will report when done or blocked)",
+                                    allowed_mentions=_NO_MENTIONS)
             except Exception as e:
                 print(f"[HEARTBEAT] send failed: {type(e).__name__}: {e}")
 
@@ -378,6 +704,56 @@ async def on_message(msg: discord.Message):
 
     if is_self:
         return
+
+    # ── AskUserQuestion shim: is this a reply to a pending bridge question? ──
+    # Checked before the mention/dedup gates so the original requester can
+    # answer without re-mentioning the bot. Enforces conditions 2,3,5.
+    if _pending_q:
+        for qid, fut in list(_pending_q.items()):
+            meta = _q_meta.get(qid, {})
+            ou = meta.get("origin_user_id")
+            # condition 3: only the original requester or an approved operator
+            ok_user = (str(msg.author.id) == str(ou)) or (str(msg.author.id) in _QA_OPERATORS)
+            # answer must come from the SAME channel the question was asked on.
+            # Use the per-question snapshot (never the shared _active_origin,
+            # which worker.finally clears → would let chat_id=None match any
+            # channel and bypass condition 3).
+            same_ch = str(meta.get("origin_chat_id")) == str(msg.channel.id)
+            if not (ok_user and same_ch):
+                continue
+            # strip a leading/instinctive bot mention from the answer too —
+            # else "<@bot> 1" fails the digit test, falls through the mention
+            # gate and enqueues a spurious NEW turn (independent-review P1).
+            text = (msg.content.replace(f"<@{client.user.id}>", "")
+                                .replace(f"<@!{client.user.id}>", "").strip())
+            specs = meta.get("specs") or []
+            acc = meta.setdefault("acc", {})
+            # condition 5: the reply body is data only — parsed against the
+            # fixed specs, never altering which questions are asked.
+            acc, unresolved = _parse_batch(text, specs, acc)
+            if unresolved:
+                # From the question's origin user+channel but the batch is not
+                # yet complete/valid. Consume with guidance and KEEP waiting
+                # (one shared timeout) — do NOT leak a new codex turn (P1).
+                _audit("question_partial_reply",
+                       {"qid": qid, "resolved": list(acc.keys()),
+                        "unresolved": unresolved, "raw": text[:200]})
+                with contextlib.suppress(Exception):
+                    todo = "; ".join(
+                        f"Q{i} {s['header']}"
+                        + (f" (1-{len(s['options'])})" if s["options"] else " (free text)")
+                        for i, s in enumerate(specs, 1) if s["key"] in unresolved)
+                    await msg.channel.send(
+                        f"⚠️ question {qid[:8]}: still need — {todo}. "
+                        f"One line per question, in order.",
+                        allowed_mentions=_NO_MENTIONS)
+                return                               # consumed, no new turn
+            if not fut.done():
+                fut.set_result(dict(acc))            # full answers map
+            with contextlib.suppress(Exception):
+                await msg.add_reaction("✅")
+            return                                   # consumed; never goes to a codex turn
+
     # DM channel = no mention required (the bot receiving it IS the intent).
     # Guild channel/thread = mention required.
     if not is_dm and not is_mentioned:
@@ -412,7 +788,7 @@ async def on_message(msg: discord.Message):
     # Static reply rule lives in AGENTS.md (project-doc auto-loaded), NOT
     # re-injected per turn. Per-turn payload = the dynamic <channel> block +
     # one "→ reply" line only (no persona/SOUL re-announcement noise).
-    await queue.put((event, msg.channel))
+    await queue.put((event, msg.channel, msg.channel.id, msg.author.id))
 
 
 async def worker():
@@ -420,8 +796,11 @@ async def worker():
     global thread_id
     print("[WORKER-START]")
     while True:
-        event, channel = await queue.get()
+        event, channel, o_chat, o_user = await queue.get()
         print(f"[WORKER-GET] event size = {len(event)} chars")
+        # The AskUserQuestion shim asks on, and only accepts a reply from,
+        # this turn's origin (condition 3). Set before the turn can call it.
+        _active_origin.update({"channel": channel, "chat_id": o_chat, "user_id": o_user})
         stop = asyncio.Event()
         hb = asyncio.create_task(_heartbeat(channel, time.time(), stop))
         blocked_reason = None
@@ -432,7 +811,7 @@ async def worker():
             result = await codex.send_turn(thread_id, event)
             print(f"[TURN-DONE] result keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}")
             if isinstance(result, dict) and result.get("status") == "timeout":
-                blocked_reason = f"turn timed out after {TURN_TIMEOUT_SEC}s with no result"
+                blocked_reason = f"turn timed out after {EFFECTIVE_TURN_TIMEOUT_SEC}s with no result"
         except Exception as e:
             blocked_reason = f"turn dispatch error: {type(e).__name__}"
             print(f"[ERROR] turn dispatch: {type(e).__name__}: {e}")
@@ -447,9 +826,13 @@ async def worker():
             if blocked_reason and channel is not None:
                 try:
                     await channel.send(f"⚠️ blocked — {blocked_reason}; no reply was produced "
-                                       f"(bridge fail-safe report; check the bot host).")
+                                       f"(bridge fail-safe report; check the bot host).",
+                                       allowed_mentions=_NO_MENTIONS)
                 except Exception as e:
                     print(f"[BLOCKED-REPORT] send failed: {type(e).__name__}: {e}")
+            # turn over → invalidate origin so a late message can't match a
+            # stale question against the wrong turn.
+            _active_origin.update({"channel": None, "chat_id": None, "user_id": None})
             queue.task_done()
 
 
