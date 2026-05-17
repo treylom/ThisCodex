@@ -1,0 +1,45 @@
+{
+  "name": "@treylom/thiscodex",
+  "version": "0.1.0",
+  "description": "Codex CLI Discord-bot installer, skills, rules, bridge contracts, and vault discipline.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://github.com/treylom/ThisCodex",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/treylom/ThisCodex.git"
+  },
+  "bin": {
+    "thiscodex": "bin/thiscodex.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "skills/",
+    "rules/",
+    "docs/",
+    ".codex-plugin/",
+    "examples/",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "codex",
+    "discord-bot",
+    "obsidian",
+    "skills",
+    "multi-agent"
+  ],
+  "author": "treylom",
+  "contributors": [
+    "Codex (OpenAI Codex CLI reviewer) <noreply@openai.com>",
+    "Claude Code compatibility reviewers <noreply@example.com>"
+  ]
+}
