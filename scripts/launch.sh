@@ -3,7 +3,7 @@
 # ThisCodex hardened 2-window tmux launcher.
 #
 # Prevents the #1 multi-client failure: the codex TUI window starting a FRESH
-# session (`codex --remote`) instead of resuming the bridge's thread
+# remote-only session instead of resuming the bridge's thread
 # (`codex resume <thread-id> --remote`). When that happens, bot.py (infra)
 # drives the real thread but the operator's codex TUI is blind — "infra
 # catches it, the codex TUI doesn't". See README Troubleshooting.
@@ -14,7 +14,7 @@
 #      shell then surfaces on ANY exit (stray-bash bug).
 #   2. The codex window runs `codex resume "$(cat $TID_FILE)" --remote $WS`
 #      ONLY after $TID_FILE is non-empty AND the rollout file exists. It NEVER
-#      falls back to a bare `codex --remote` (that is the fresh-session bug).
+#      falls back to a fresh remote-only attach (that is the fresh-session bug).
 #   3. Both windows are supervised (auto-restart) and tail `exec "$THISCODEX_SHELL"` so a
 #      deliberate stop yields one clean shell, never an accidental stray one.
 #
@@ -43,6 +43,7 @@
 #                 --sandbox danger-full-access --ask-for-approval never
 #               The bridge still owns thread/start and thread/resume sandbox per
 #               docs/yolo-bridge-contract.md.
+#   ROLLOUT_WAIT_TIMEOUT_SEC (default: 120) max wait for rollout materialization
 
 set -euo pipefail
 
@@ -75,16 +76,28 @@ tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
 
 # window 1 'codex' — operator TUI joined to the SAME thread as the bridge.
 # Hard guarded: wait for app-server, wait for a NON-EMPTY thread id, wait for
-# the rollout file, THEN `codex resume "$TID" --remote`. Never bare
-# `codex --remote`. If TID never appears, it loops waiting (loud) rather than
+# the rollout file, THEN `codex resume "$TID" --remote`. Never fresh remote-only
+# attach. If TID never appears, it loops waiting (loud) rather than
 # silently starting a fresh divergent session. (invariant 2)
 tmux new-window -t "$SESSION" -n codex -c "$BOT_WD" \
   "until grep -q 'app-server ready\\|Listening' '$READY_LOG' 2>/dev/null || curl -s ${WS/ws:\/\//http:\/\/}/readyz >/dev/null 2>&1; do sleep 1; done; \
    until [ -s '$TID_FILE' ]; do echo '[thiscodex] waiting for bridge to write $TID_FILE (NOT starting a fresh codex session)'; sleep 2; done; \
    TID=\$(cat '$TID_FILE'); \
-   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach (a bare codex --remote here would fork a fresh divergent thread). Fix the bridge, do not work around.\"; exec \"$THISCODEX_SHELL\"; fi; \
+   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach. A fresh remote-only attach here would fork a divergent thread. Fix the bridge, do not work around.\"; exec \"$THISCODEX_SHELL\"; fi; \
    echo \"[thiscodex] bridge thread=\$TID — waiting rollout\"; \
-   until find \"\$HOME/.codex/sessions\" -name \"*\$TID*.jsonl\" 2>/dev/null | grep -q .; do sleep 1; done; \
+   rollout_wait_start=\$(date +%s); \
+   while true; do \
+     TID=\$(cat '$TID_FILE'); \
+     if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like during rollout wait: '\$TID'\"; exec \"$THISCODEX_SHELL\"; fi; \
+     if find \"\$HOME/.codex/sessions\" -name \"*\$TID*.jsonl\" 2>/dev/null | grep -q .; then break; fi; \
+     now=\$(date +%s); \
+     if [ \$((now-rollout_wait_start)) -ge ${ROLLOUT_WAIT_TIMEOUT_SEC:-120} ]; then \
+       echo \"[thiscodex][FATAL] rollout timeout for thread \$TID. Recovery command: run 'thiscodex doctor --verbose' and verify app-server wrote ~/.codex/sessions rollout JSONL before opening TUI.\"; \
+       exec \"$THISCODEX_SHELL\"; \
+     fi; \
+     echo \"[thiscodex] waiting rollout for \$TID (re-reading $TID_FILE; never starting a fresh remote-only attach)\"; \
+     sleep 1; \
+   done; \
    fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote $WS $CODEX_RESUME_FLAGS; _e=\$(date +%s); if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)\"; sleep 3; done; exec \"$THISCODEX_SHELL\""
 
 tmux select-window -t "$SESSION:codex"
