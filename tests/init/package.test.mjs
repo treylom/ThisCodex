@@ -21,6 +21,5 @@ test('contributors include Codex', () => {
 });
 
 test('test script uses node --test', () => {
-  assert.match(pkg.scripts.test, /node --test/);
-  assert.match(pkg.scripts.test, /tests\/\*\*\/\*\.mjs/);
+  assert.equal(pkg.scripts.test, 'node scripts/run-tests.mjs');
 });

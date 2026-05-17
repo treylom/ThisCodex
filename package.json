@@ -16,7 +16,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test 'tests/**/*.mjs'"
+    "test": "node scripts/run-tests.mjs"
   },
   "files": [
     "bin/",
