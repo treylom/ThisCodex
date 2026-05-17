@@ -24,5 +24,5 @@ test('windows runner recommends WSL/manual path', () => {
 
 test('codexResumeCommand adds YOLO flags only when requested', () => {
   assert.doesNotMatch(codexResumeCommand('T', 'ws://x', 'safe'), /danger-full-access/);
-  assert.match(codexResumeCommand('T', 'ws://x', 'yolo'), new RegExp('--sandbox danger-full-access --a' + 'sk' + '-for-approval never'));
+  assert.match(codexResumeCommand('T', 'ws://x', 'yolo'), /--sandbox danger-full-access --ask-for-approval never/);
 });

@@ -27,6 +27,5 @@ export function runnerFile(os, { label, command }) {
 
 export function codexResumeCommand(tidVar = '$TID', ws = '$WS', mode = 'safe') {
   const base = `codex resume "${tidVar}" --remote ${ws}`;
-  const approvalFlag = '--a' + 'sk' + '-for-approval';
-  return mode === 'yolo' ? `${base} --sandbox danger-full-access ${approvalFlag} never` : base;
+  return mode === 'yolo' ? `${base} --sandbox danger-full-access --ask-for-approval never` : base;
 }
