@@ -75,14 +75,28 @@ Claude Code bots use the same shape, except the inbound-event injection is built
 ThisCodex ships a shell-zero Node installer:
 
 ```bash
-npx github:treylom/ThisCodex --check
-npx github:treylom/ThisCodex --apply
+npx github:treylom/ThisCodex init --check --non-interactive
+npx github:treylom/ThisCodex init --apply
 ```
 
 `--check` writes nothing. `--apply` copies the `thiscodex` skill into a
 Codex-visible layer (`~/.agents/skills/thiscodex` by default), optionally
 backs up and patches `~/.codex/config.toml`, and prints OS-specific runner
 instructions. It does not auto-start a daemon in scope A.
+
+ThisCodex install is manifest-driven. The installer reads
+`install/thiscodex.install.json`; every step has an order, reason, safety label,
+and verification check. `thiscodex doctor` replays the same verify checks, so
+install success and diagnosis use one path. In non-interactive shells, the
+installer never waits for a question; it prints a safe check result and the next
+command.
+
+On Windows, use WSL first. If tmux is missing, ThisCodex uses a tmux
+one-command safety line: it explains why tmux is needed and offers one install
+command; it runs that command only if you explicitly consent. Aliases are
+generated only after `confirmed_repo_root`,
+`confirmed_bot_wd`, and `confirmed_state_dir` are known, so no temporary path is
+baked into your shell.
 
 #### Installer ownership
 

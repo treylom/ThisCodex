@@ -1,0 +1,41 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { verifyStep, detectStaleSuperpowersWrapper, rolloutFilesForThread } from '../../scripts/lib/doctor.mjs';
+
+test('path-writable verify passes for existing writable path', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
+  const result = await verifyStep({ verify: { type: 'path-writable', state_key: 'confirmed_bot_wd' } }, { confirmed_bot_wd: dir });
+  assert.equal(result.ok, true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('path-writable verify fails with friendly message', async () => {
+  const result = await verifyStep({ verify: { type: 'path-writable', state_key: 'confirmed_bot_wd' } }, { confirmed_bot_wd: '/definitely/no/such/path' });
+  assert.equal(result.ok, false);
+  assert.match(result.message, /not writable|missing/i);
+});
+
+test('stale using-superpowers wrapper detection reports latest installed version', () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const base = join(home, '.codex', 'plugins', 'cache', 'openai-curated', 'superpowers');
+  mkdirSync(join(base, '5.0.7'), { recursive: true });
+  mkdirSync(join(base, '5.1.0'), { recursive: true });
+  const stale = detectStaleSuperpowersWrapper({ wrapperVersion: '5.0.7', home });
+  assert.equal(stale.stale, true);
+  assert.equal(stale.latest, '5.1.0');
+  assert.match(stale.next_command, /using-superpowers|superpowers/);
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('rolloutFilesForThread finds rollout files containing thread id', () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const tid = '12345678-1234-1234-1234-123456789abc';
+  const dir = join(home, '.codex', 'sessions', '2026', '05', '17');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `rollout-test-${tid}.jsonl`), '{}\n');
+  assert.equal(rolloutFilesForThread(home, tid).length, 1);
+  rmSync(home, { recursive: true, force: true });
+});

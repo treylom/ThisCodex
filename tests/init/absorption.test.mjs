@@ -25,3 +25,25 @@ test('launch.sh is documented as fallback, not primary installer', () => {
   assert.match(docs, /legacy|fallback|보조|대체/i);
   assert.match(docs, /THISCODEX_SHELL|Node runner|node runner/i);
 });
+
+test('docs describe manifest runner, doctor verify replay, and WSL-first safety line', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /manifest|매니페스트/i);
+  assert.match(docs, /doctor.*verify|verify.*doctor|진단.*검증/i);
+  assert.match(docs, /WSL/i);
+  assert.match(docs, /tmux.*one|tmux.*한 줄|한 줄.*tmux/i);
+});
+
+test('docs warn that aliases are generated only after confirmed paths', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /confirmed.*BOT_WD|확정.*BOT_WD/i);
+  assert.doesNotMatch(docs, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
+});

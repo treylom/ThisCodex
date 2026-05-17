@@ -275,14 +275,39 @@ optionally appends a persona signature.
 Prefer the Node entry over shell scripts:
 
 ```bash
-node bin/thiscodex.mjs --check
-node bin/thiscodex.mjs --apply
+node bin/thiscodex.mjs init --check --non-interactive
+node bin/thiscodex.mjs init --apply
 ```
 
 The installer uses `~/.agents/skills/thiscodex` by default because Codex scans
 that user-tier skill layer. Repo-local `.agents/skills/thiscodex` is available
 for project-scoped installs. `.codex-plugin` is a marketplace/helper path, not
 the primary loose-install path.
+
+The install flow is manifest-driven: `install/thiscodex.install.json` gives
+each step an order, a reason, a safety label, a verify check, and an
+`on_fail.next_command`. `thiscodex doctor` replays the same verify checks, so
+install success and diagnosis share one path. In non-interactive shells the
+runner does not open readline; it prints a safe check result and the next
+command.
+
+On Windows, use WSL first. If tmux is missing, ThisCodex uses a tmux
+one-command safety line: it explains why tmux is needed and offers one install
+command; it runs that command only after explicit consent. Aliases are
+generated only after `confirmed_repo_root`,
+`confirmed_bot_wd`, and `confirmed_state_dir` are known, so provisional paths
+are never baked into the shell.
+
+Run these checks after install:
+
+```bash
+node bin/thiscodex.mjs init --check --non-interactive
+node bin/thiscodex.mjs doctor --non-interactive
+```
+
+The first command proves the manifest can evaluate in automation. The second
+replays the verify steps for BOT_WD, state dir, tmux, Codex config/auth,
+`.codex-thread-id`, rollout materialization, and stale local wrappers.
 
 #### Installer ownership
 
