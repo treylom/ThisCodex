@@ -84,6 +84,26 @@ npx github:treylom/ThisCodex --apply
 `~/.codex/config.toml`을 백업 후 패치하며, OS별 runner 실행 안내를
 출력합니다. scope A에서는 데몬을 자동 시작하지 않습니다.
 
+#### Installer ownership
+
+Node installer가 Codex 스킬 배치의 단일 정본입니다. `skills/thiscodex`를
+선택한 Codex-visible 계층(기본 `~/.agents/skills`, 선택 시 repo-local
+`.agents/skills`)으로 복사합니다. ThisCodex는 별도 shell sync 스크립트를
+두 번째 경로로 동봉하지 않습니다. 중복 sync 경로는 drift가 나고 Windows에서
+실행하기 더 어렵습니다.
+
+`scripts/launch.sh`는 이미 bridge를 직접 운영하는 사람을 위한 legacy/tmux
+fallback입니다. 새 사용자는 Node runner guide를 따릅니다. `launch.sh`를
+쓸 때는 `THISCODEX_SHELL=${SHELL:-/bin/sh}`(또는 명시 shell 경로)을 설정해
+zsh가 없어도 실행되게 합니다.
+
+사용자가 YOLO/full-access를 명시 선택하면, bridge의 per-turn
+`sandbox:"danger-full-access"`와 `approvalPolicy:"never"`가 있어도
+`~/.codex/config.toml`에 `sandbox_mode = "danger-full-access"` 및
+`approval_policy = "never"`가 없으면 Codex app-server 기본값에 clamp될 수
+있다고 경고합니다. installer는 Q6e YOLO opt-in 경로에서만 보안 경고와 백업
+후 두 key를 추가할 수 있습니다. safe mode는 계속 zero-config 기본값입니다.
+
 ### 3.2 `~/.codex/config.toml`
 ```toml
 project_doc_fallback_filenames = ["SOUL.md", "AGENTS.md"]
