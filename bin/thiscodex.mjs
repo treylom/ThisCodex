@@ -60,6 +60,9 @@ if (answersFile) {
   const { readFileSync } = await import('node:fs');
   state.answers = { ...state.answers, ...JSON.parse(readFileSync(answersFile, 'utf8')) };
 }
+for (const key of ['confirmed_repo_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
+  delete state.answers[key];
+}
 
 if (has('--resume')) {
   console.log(resumeSummary(state));
@@ -83,7 +86,7 @@ const handlers = {
     if (step.action === 'prompt') {
       const key = step.verify?.state_key || step.id;
       if (ctx.tty === false || ctx.nonInteractive) {
-        state.answers[key] ??= 'check_only';
+        if (!key.startsWith('confirmed_')) state.answers[key] ??= 'check_only';
         return;
       }
       const readline = await import('node:readline/promises');

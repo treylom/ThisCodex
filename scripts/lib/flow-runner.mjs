@@ -16,6 +16,11 @@ function parseValue(raw) {
 
 export function evaluateWhen(expr, ctx) {
   if (!expr || expr === 'always') return true;
+  // Split on bare ` or `/` and ` — manifest conditions carry no quoted or/and literals.
+  const orParts = expr.split(/\s+or\s+/);
+  if (orParts.length > 1) return orParts.some(part => evaluateWhen(part, ctx));
+  const andParts = expr.split(/\s+and\s+/);
+  if (andParts.length > 1) return andParts.every(part => evaluateWhen(part, ctx));
   const match = expr.match(/^([a-zA-Z0-9_.]+)\s*==\s*(.+)$/);
   if (!match) throw new Error(`unsupported when expression: ${expr}`);
   return readPath(ctx, match[1]) === parseValue(match[2]);

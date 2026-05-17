@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, readdirSync } from 'node:fs';
+import { accessSync, constants, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { detectCodexConfig, whichSync } from './detect.mjs';
 
@@ -66,7 +66,11 @@ export async function verifyStep(step, state, env = process.env) {
   if (type === 'runner-files-present') return { ok: true };
   if (type === 'aliases-parameterized') return { ok: true };
   if (type === 'rollout-materialized') {
-    const tid = state.thread_id || state.answers?.thread_id;
+    let tid = state.thread_id || state.answers?.thread_id;
+    const threadFile = state.confirmed_bot_wd ? join(state.confirmed_bot_wd, '.codex-thread-id') : null;
+    if (!tid && threadFile && existsSync(threadFile)) {
+      tid = readFileSync(threadFile, 'utf8').trim();
+    }
     const home = env.HOME || env.USERPROFILE || '';
     return tid && rolloutFilesForThread(home, tid).length
       ? { ok: true }

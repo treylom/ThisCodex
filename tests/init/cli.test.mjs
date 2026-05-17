@@ -78,3 +78,22 @@ test('doctor replays verify checks and prints ordered result', () => {
   rmSync(dir, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
+
+test('non-TTY apply does not persist confirmed_* as check_only placeholder', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--non-interactive'], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  const statePath = join(home, '.config', 'thiscodex', 'install-state.json');
+  const state = JSON.parse(readFileSync(statePath, 'utf8'));
+  assert.notEqual(state.answers?.confirmed_bot_wd, 'check_only');
+  assert.notEqual(state.answers?.confirmed_state_dir, 'check_only');
+  assert.notEqual(state.answers?.confirmed_repo_root, 'check_only');
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+});
