@@ -58,6 +58,17 @@ test('rollout-materialized verify reads .codex-thread-id from BOT_WD', async () 
   rmSync(bot, { recursive: true, force: true });
 });
 
+test('superpowers verifier passes only when plugin path exists', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  let result = await verifyStep({ verify: { type: 'superpowers-available' } }, {}, { HOME: home });
+  assert.equal(result.ok, false);
+  assert.match(result.message, /superpowers/i);
+  mkdirSync(join(home, '.codex', 'plugins', 'cache', 'openai-curated', 'superpowers'), { recursive: true });
+  result = await verifyStep({ verify: { type: 'superpowers-available' } }, {}, { HOME: home });
+  assert.equal(result.ok, true);
+  rmSync(home, { recursive: true, force: true });
+});
+
 test('rollout-materialized skips with reason when no codex thread exists (CI-like)', async () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   const result = await verifyStep(

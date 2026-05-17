@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { detectEnv } from '../scripts/lib/detect.mjs';
 import { loadManifest } from '../scripts/lib/manifest.mjs';
@@ -12,17 +12,22 @@ import {
   loadInstallState,
   resumeSummary,
   saveInstallState,
+  withDetectedDefaults,
 } from '../scripts/lib/state.mjs';
 import { verifyStep } from '../scripts/lib/doctor.mjs';
 import { applySkillInstall, marketplaceHint, patchCodexConfig } from '../scripts/lib/apply.mjs';
 import { aliasBlock, materializeBotFiles } from '../scripts/lib/materialize.mjs';
+import { promptForStep } from '../scripts/lib/prompts.mjs';
 
 const args = process.argv.slice(2);
 const command = ['init', 'doctor', 'smoke'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
-  return found ? found.slice(name.length + 1) : '';
+  if (found) return found.slice(name.length + 1);
+  const index = args.indexOf(name);
+  if (index !== -1 && args[index + 1] && !args[index + 1].startsWith('--')) return args[index + 1];
+  return '';
 };
 
 const mode = command === 'doctor' ? 'doctor' : command === 'smoke' ? 'smoke' : has('--apply') ? 'apply' : 'check';
@@ -34,6 +39,52 @@ const repoRoot = resolve(process.env.THISCODEX_REPO_ROOT || fileURLToPath(new UR
 const cwd = process.cwd();
 const env = detectEnv();
 const tone = arg('--tone') || 'plain';
+const CONFIRMED_PATH_KEYS = [
+  'confirmed_repo_root',
+  'confirmed_workspace_root',
+  'confirmed_bot_wd',
+  'confirmed_state_dir',
+  'confirmed_windows_profile',
+  'confirmed_windows_skill_dir',
+];
+
+function applyConfirmedPath(state, key, value) {
+  if (!value) return state;
+  return confirmPath(state, key, resolve(value));
+}
+
+function applyAnswers(state, answers) {
+  let next = { ...state, answers: { ...(state.answers || {}), ...answers } };
+  for (const key of CONFIRMED_PATH_KEYS) {
+    if (answers[key]) {
+      next = applyConfirmedPath(next, key, answers[key]);
+      delete next.answers[key];
+    }
+  }
+  return next;
+}
+
+function missingGuidedDecision(state) {
+  if (mode !== 'apply' || !nonInteractive || !yes) return '';
+  if (answersFile) return '';
+  if (state.answers?.install_surface !== 'guided') return '';
+  for (const key of ['confirmed_repo_root', 'confirmed_workspace_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
+    if (!state[key]) return key;
+  }
+  return '';
+}
+
+function hasConfirmedInstallState(state) {
+  return [
+    'confirmed_repo_root',
+    'confirmed_workspace_root',
+    'confirmed_bot_wd',
+    'confirmed_state_dir',
+    'confirmed_windows_profile',
+    'confirmed_windows_skill_dir',
+    'confirmed_superpowers_checked',
+  ].some(key => Boolean(state[key])) || state.placement_only === true;
+}
 
 if (mode === 'apply' && nonInteractive && !yes && !answersFile) {
   console.log('ThisCodex apply is running without a TTY.');
@@ -41,28 +92,41 @@ if (mode === 'apply' && nonInteractive && !yes && !answersFile) {
   process.exit(2);
 }
 
-let state = loadInstallState();
+let state = withDetectedDefaults(loadInstallState(), {
+  repo_root: repoRoot,
+  workspace_root: cwd,
+  cwd,
+  state_dir: cwd,
+  codex_skill_layer: 'user',
+  codex_marketplace: 'no',
+  codex_yolo: 'safe',
+  alias_consent: 'no',
+  daemon_guide: 'no',
+});
 state.answers ||= {};
 state.completed_steps ||= [];
-state.confirmed_repo_root ||= arg('--repo-root') || repoRoot;
-state.confirmed_bot_wd ||= arg('--bot-wd') || cwd;
-state.confirmed_state_dir ||= arg('--state-dir') || cwd;
-if (arg('--repo-root')) state = confirmPath(state, 'confirmed_repo_root', resolve(arg('--repo-root')));
-if (arg('--bot-wd')) state = confirmPath(state, 'confirmed_bot_wd', resolve(arg('--bot-wd')));
-if (arg('--state-dir')) state = confirmPath(state, 'confirmed_state_dir', resolve(arg('--state-dir')));
-state.answers.codex_skill_layer ||= arg('--codex-skill-layer') || 'user';
-state.answers.codex_marketplace ||= arg('--codex-marketplace') || 'no';
-state.answers.codex_yolo ||= arg('--codex-yolo') || 'safe';
-state.answers.alias_consent ||= arg('--alias-consent') || 'no';
-state.answers.daemon_guide ||= arg('--daemon-guide') || 'no';
+state = applyConfirmedPath(state, 'confirmed_repo_root', arg('--repo-root'));
+state = applyConfirmedPath(state, 'confirmed_workspace_root', arg('--workspace-root'));
+state = applyConfirmedPath(state, 'confirmed_bot_wd', arg('--bot-wd'));
+state = applyConfirmedPath(state, 'confirmed_state_dir', arg('--state-dir'));
+if (arg('--codex-skill-layer')) state.answers.codex_skill_layer = arg('--codex-skill-layer');
+if (arg('--codex-marketplace')) state.answers.codex_marketplace = arg('--codex-marketplace');
+if (arg('--codex-yolo')) state.answers.codex_yolo = arg('--codex-yolo');
+if (arg('--alias-consent')) state.answers.alias_consent = arg('--alias-consent');
+if (arg('--daemon-guide')) state.answers.daemon_guide = arg('--daemon-guide');
+if (arg('--install-surface')) state.answers.install_surface = arg('--install-surface');
 
 if (answersFile) {
-  const { readFileSync } = await import('node:fs');
-  state.answers = { ...state.answers, ...JSON.parse(readFileSync(answersFile, 'utf8')) };
+  state = applyAnswers(state, JSON.parse(readFileSync(answersFile, 'utf8')));
 }
-for (const key of ['confirmed_repo_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
-  delete state.answers[key];
+
+const missingDecision = missingGuidedDecision(state);
+if (missingDecision) {
+  console.log(`ThisCodex guided onboarding needs ${missingDecision}.`);
+  console.log('Next command: thiscodex init --apply --answers <answers.json>');
+  process.exit(2);
 }
+const flowMode = command === 'doctor' && !hasConfirmedInstallState(state) ? 'check' : mode;
 
 if (has('--resume')) {
   console.log(resumeSummary(state));
@@ -91,9 +155,17 @@ const handlers = {
       }
       const readline = await import('node:readline/promises');
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      const answer = (await rl.question(`${step.id}: `)).trim();
+      const prompt = promptForStep(step, state);
+      const suffix = prompt.defaultValue ? ` [default: ${prompt.defaultValue}]` : '';
+      const answer = (await rl.question(`${prompt.question}${suffix}: `)).trim();
       rl.close();
-      if (answer) state.answers[key] = answer;
+      const value = answer || prompt.defaultValue;
+      if (!value) return;
+      if (key.startsWith('confirmed_')) {
+        state = applyConfirmedPath(state, key, value);
+      } else {
+        state.answers[key] = value;
+      }
       return;
     }
     if (step.action === 'apply' && step.id === 'config_ceiling_patch') {
@@ -112,7 +184,7 @@ const handlers = {
 
 const result = await runFlow({
   steps: manifest.steps,
-  ctx: { mode, os: env.os, tools: env.tools, answers: state.answers, tty, nonInteractive, yes },
+  ctx: { mode: flowMode, os: env.os, tools: env.tools, answers: state.answers, tty, nonInteractive, yes },
   handlers,
 });
 

@@ -1,6 +1,7 @@
 import { accessSync, constants, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { detectCodexConfig, whichSync } from './detect.mjs';
+import { detectSuperpowers } from './superpowers.mjs';
 
 export function isWritable(path) {
   try {
@@ -62,6 +63,12 @@ export async function verifyStep(step, state, env = process.env) {
   }
   if (type === 'codex-config-readable') return { ok: true, detail: detectCodexConfig(env) };
   if (type === 'codex-config-ceiling') return { ok: true };
+  if (type === 'superpowers-available') {
+    const result = detectSuperpowers(env);
+    if (result.present) return { ok: true };
+    if (state.confirmed_superpowers_checked) return { ok: true, message: 'superpowers previously checked' };
+    return { ok: false, message: `superpowers unavailable; next command: ${result.next_command}` };
+  }
   if (type === 'tmux-present-or-guide-shown') return whichSync('tmux', env) ? { ok: true } : { ok: true, message: 'tmux guide shown' };
   if (type === 'runner-files-present') return { ok: true };
   if (type === 'aliases-parameterized') return { ok: true };

@@ -90,11 +90,30 @@ ThisCodex 설치는 매니페스트 기반입니다. 설치기는
 설치 성공 확인과 진단이 한 경로를 씁니다. 비대화형 셸에서는 질문을 기다리지
 않고 안전한 점검 결과와 다음 명령을 출력합니다.
 
+스킬 배치와 guided onboarding은 다른 경로입니다. `SKILL.md`는 guided
+onboarding이 아닙니다. Codex 스킬 계층에 복사하면 스킬을 보이게 할
+뿐입니다. guided onboarding은 repo, workspace, BOT_WD, state dir, Codex
+config, superpowers 가용성, runner 안내, 최종 doctor 검증까지 확인한 뒤에만
+봇 준비 완료라고 말합니다.
+
+비대화형(`--non-interactive`)은 CI·진단 모드이지 guided onboarding이
+아닙니다. 누락된 경로를 발명하지 않습니다. 필수 결정이 없으면 조용히
+계속하지 않고 Next command를 출력하고 종료합니다.
+
 Windows에서는 WSL을 먼저 쓰세요. tmux가 없으면 ThisCodex는 tmux 한 줄
 안전선을 씁니다. tmux가 왜 필요한지 설명하고 설치 명령 한 줄만 제안합니다.
 그 한 줄도 명시 동의가 있을 때만 실행합니다. alias는 `confirmed_repo_root`, `confirmed_bot_wd`,
 `confirmed_state_dir`가 확정된 뒤에만 생성하므로 임시 경로가 shell에 박히지
 않습니다.
+
+WSL 안에서 실행 중이면 WSL -> Windows 스킬 동기화가 1급 단계입니다.
+설치기는 `/mnt/c/Users/*`를 감지하고 사용할 Windows 프로필을 확인한 뒤,
+`thiscodex` 스킬만 `%USERPROFILE%\.agents\skills\thiscodex`로 동기화합니다.
+다른 Windows 스킬은 보존하고, 복사 뒤 `SKILL.md` 일치를 검증합니다.
+
+`/using-superpowers` 인터뷰 전에 superpowers가 필요합니다. Codex superpowers
+bundle이 없으면 설치기는 멈추고 superpowers 다음 명령을 출력합니다. guided
+interview가 끝난 것처럼 진행하지 않습니다.
 
 #### Installer ownership
 
