@@ -23,6 +23,10 @@ export const MESSAGES = {
     plain: '데몬은 자동으로 시작하지 않습니다. 대신 OS별 실행 파일과 실행 명령을 만들어 사용자가 직접 켤 수 있게 안내합니다.',
     dev: 'Scope A: generate runner files and commands only; no auto-start.',
   },
+  non_tty_next_command: {
+    plain: '자동화 환경이라 질문을 멈추고, 안전한 기본값으로 점검한 뒤 다음 명령을 보여드립니다.',
+    dev: 'Non-TTY: no readline; use defaults/answers and emit next command.',
+  },
   checkOnly: {
     plain: '점검만 완료했습니다. 파일은 바꾸지 않았습니다. 적용하려면 --apply 로 다시 실행하세요.',
     dev: '--check complete; zero writes. Apply with --apply.',
