@@ -51,24 +51,52 @@ export function loadInstallState(env = process.env) {
   const path = statePath(env);
   if (existsSync(path)) {
     try {
-      return JSON.parse(readFileSync(path, 'utf8'));
+      return normalizeInstallState(JSON.parse(readFileSync(path, 'utf8')));
     } catch {
-      return { version: 2, answers: {}, completed_steps: [], updated_iso: null };
+      return freshInstallState();
     }
   }
+  return freshInstallState();
+}
+
+export function freshInstallState() {
   return {
-    version: 2,
+    version: 3,
     answers: {},
     completed_steps: [],
+    detected: {},
     confirmed_repo_root: null,
+    confirmed_workspace_root: null,
     confirmed_bot_wd: null,
     confirmed_state_dir: null,
+    confirmed_windows_profile: null,
+    confirmed_skill_layer: null,
+    confirmed_windows_skill_dir: null,
+    confirmed_superpowers_checked: null,
+    placement_only: false,
     updated_iso: null,
   };
 }
 
+export function normalizeInstallState(state) {
+  return { ...freshInstallState(), ...state, answers: state.answers || {}, completed_steps: state.completed_steps || [], detected: state.detected || {} };
+}
+
+export function withDetectedDefaults(state, detected) {
+  return { ...state, detected: { ...(state.detected || {}), ...detected } };
+}
+
+export function markPlacementOnly(state, { skillLayer }) {
+  return {
+    ...state,
+    placement_only: true,
+    confirmed_skill_layer: skillLayer,
+    updated_iso: new Date().toISOString(),
+  };
+}
+
 export function confirmPath(state, key, value) {
-  if (!['confirmed_repo_root', 'confirmed_bot_wd', 'confirmed_state_dir'].includes(key)) {
+  if (!['confirmed_repo_root', 'confirmed_workspace_root', 'confirmed_bot_wd', 'confirmed_state_dir', 'confirmed_windows_profile', 'confirmed_windows_skill_dir'].includes(key)) {
     throw new Error(`unknown confirmed path key: ${key}`);
   }
   return { ...state, [key]: rejectProvisionalPath(value), updated_iso: new Date().toISOString() };

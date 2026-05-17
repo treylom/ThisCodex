@@ -13,6 +13,9 @@ import {
   saveInstallState,
   confirmPath,
   rejectProvisionalPath,
+  freshInstallState,
+  withDetectedDefaults,
+  markPlacementOnly,
 } from '../../scripts/lib/state.mjs';
 
 test('fresh state skeleton', () => {
@@ -61,4 +64,21 @@ test('provisional paths are rejected before persistent state write', () => {
   const provisional = ['/', 'home', 'tofu', ['thiscodex', 'current', 'bot'].join('-')].join('/');
   assert.throws(() => rejectProvisionalPath(provisional), /provisional/);
   assert.doesNotThrow(() => rejectProvisionalPath('/home/alice/bots/sonseokhee'));
+});
+
+test('detected defaults do not become confirmed state', () => {
+  const state = freshInstallState();
+  const next = withDetectedDefaults(state, { repo_root: '/repo', cwd: '/tmp/bot' });
+  assert.equal(next.confirmed_repo_root, null);
+  assert.equal(next.confirmed_bot_wd, null);
+  assert.equal(next.detected.repo_root, '/repo');
+  assert.equal(next.detected.cwd, '/tmp/bot');
+});
+
+test('placement-only state does not persist guided confirmed paths', () => {
+  const state = markPlacementOnly(freshInstallState(), { skillLayer: 'user' });
+  assert.equal(state.placement_only, true);
+  assert.equal(state.confirmed_skill_layer, 'user');
+  assert.equal(state.confirmed_bot_wd, null);
+  assert.equal(state.confirmed_state_dir, null);
 });
