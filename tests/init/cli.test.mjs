@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,7 @@ const run = (args, cwd, extraEnv = {}) => execFileSync(process.execPath, [BIN, .
 test('--check --non-interactive writes nothing', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
   const before = readdirSync(dir).sort();
-  const out = run(['--check', '--non-interactive'], dir);
+  const out = run(['init', '--check', '--non-interactive'], dir);
   assert.deepEqual(readdirSync(dir).sort(), before);
   assert.match(out, /check|점검|Codex/i);
   rmSync(dir, { recursive: true, force: true });
@@ -40,9 +40,15 @@ test('--apply --non-interactive without yes stops before consent-gated writes', 
 
 test('--tone=dev switches output', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
-  const out = run(['--check', '--non-interactive', '--tone=dev'], dir);
+  const out = run(['init', '--check', '--non-interactive', '--tone=dev'], dir);
   assert.match(out, /skill-scan|Codex/i);
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('CLI derives repo root with fileURLToPath for Windows-safe URLs', () => {
+  const source = readFileSync(BIN, 'utf8');
+  assert.match(source, /fileURLToPath\(new URL\('\.\.', import\.meta\.url\)\)/);
+  assert.doesNotMatch(source, /new URL\('\.\.', import\.meta\.url\)\.pathname/);
 });
 
 test('non-TTY init does not enter readline and exits 0', () => {

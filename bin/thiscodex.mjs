@@ -2,6 +2,7 @@
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { detectEnv } from '../scripts/lib/detect.mjs';
 import { loadManifest } from '../scripts/lib/manifest.mjs';
 import { runFlow } from '../scripts/lib/flow-runner.mjs';
@@ -29,7 +30,7 @@ const tty = process.stdin.isTTY === true;
 const nonInteractive = has('--non-interactive') || !tty;
 const yes = has('--yes');
 const answersFile = arg('--answers');
-const repoRoot = resolve(process.env.THISCODEX_REPO_ROOT || new URL('..', import.meta.url).pathname);
+const repoRoot = resolve(process.env.THISCODEX_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url)));
 const cwd = process.cwd();
 const env = detectEnv();
 const tone = arg('--tone') || 'plain';
