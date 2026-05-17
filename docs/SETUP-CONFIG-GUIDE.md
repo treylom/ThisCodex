@@ -291,12 +291,30 @@ install success and diagnosis share one path. In non-interactive shells the
 runner does not open readline; it prints a safe check result and the next
 command.
 
+Skill placement and guided onboarding are separate. `SKILL.md` is not guided
+onboarding; copying it to `~/.agents/skills/thiscodex` only makes the skill
+discoverable. Guided onboarding confirms repo root, workspace, BOT_WD, state
+dir, Codex config, superpowers, runner guidance, and final doctor checks.
+
+`--non-interactive` is CI/diagnostic only, not guided onboarding. It never
+invents missing confirmed paths. Missing required decisions stop with a clear
+Next command.
+
 On Windows, use WSL first. If tmux is missing, ThisCodex uses a tmux
 one-command safety line: it explains why tmux is needed and offers one install
 command; it runs that command only after explicit consent. Aliases are
 generated only after `confirmed_repo_root`,
 `confirmed_bot_wd`, and `confirmed_state_dir` are known, so provisional paths
 are never baked into the shell.
+
+In WSL, Windows skill sync is a first-class setup step. The installer detects
+`/mnt/c/Users/*`, asks which Windows profile to use, syncs only `thiscodex` to
+`%USERPROFILE%\.agents\skills\thiscodex`, preserves sibling skills, and verifies
+that Windows `SKILL.md` matches the repo copy.
+
+Superpowers is required for the `/using-superpowers` interview. If the Codex
+superpowers bundle is unavailable, the installer stops and prints a superpowers
+Next command rather than silently treating the interview as complete.
 
 Run these checks after install:
 

@@ -47,3 +47,43 @@ test('docs warn that aliases are generated only after confirmed paths', () => {
   assert.match(docs, /confirmed.*BOT_WD|확정.*BOT_WD/i);
   assert.doesNotMatch(docs, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });
+
+test('docs separate placement-only from full guided onboarding', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /Skill placement.*guided onboarding|스킬 배치.*guided onboarding|스킬 배치.*가이드/i);
+  assert.match(docs, /SKILL\.md.*not.*guided|SKILL\.md.*가이드.*아님|copying.*SKILL\.md.*not/i);
+});
+
+test('docs describe WSL to Windows skill sync as a first-class step', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /WSL.*Windows.*sync|Windows.*skill.*sync|WSL.*윈도우.*동기화|윈도우.*스킬.*동기화/i);
+  assert.match(docs, /%USERPROFILE%.*\.agents.*skills.*thiscodex|\/mnt\/c\/Users.*\.agents.*skills.*thiscodex/i);
+});
+
+test('docs state non-interactive mode is CI or diagnostic, not guided onboarding', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /non-interactive.*CI.*diagnostic|CI.*diagnostic.*non-interactive|비대화형.*CI.*진단/i);
+  assert.match(docs, /not.*guided onboarding|guided onboarding.*not|가이드.*아님/i);
+});
+
+test('docs require superpowers availability or a clear next command', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /superpowers.*Next command|superpowers.*next command|superpowers.*다음 명령/i);
+  assert.match(docs, /\/using-superpowers/i);
+});
