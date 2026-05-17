@@ -13,5 +13,6 @@ jobs:
         with:
           node-version: '20'
       - run: npm test
-      - run: node bin/thiscodex.mjs --check --non-interactive
+      - run: node bin/thiscodex.mjs init --check --non-interactive
+      - run: node bin/thiscodex.mjs doctor --non-interactive
       - run: git diff --exit-code
