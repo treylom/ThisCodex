@@ -15,7 +15,7 @@
 #   2. The codex window runs `codex resume "$(cat $TID_FILE)" --remote $WS`
 #      ONLY after $TID_FILE is non-empty AND the rollout file exists. It NEVER
 #      falls back to a bare `codex --remote` (that is the fresh-session bug).
-#   3. Both windows are supervised (auto-restart) and tail `exec zsh` so a
+#   3. Both windows are supervised (auto-restart) and tail `exec "$THISCODEX_SHELL"` so a
 #      deliberate stop yields one clean shell, never an accidental stray one.
 #
 # Usage:
@@ -36,6 +36,13 @@
 #               implementation: examples/bot.py
 #   STOP_FILE   (default: $BOT_WD/.thiscodex-stop) touch to break supervised restart
 #   READY_LOG   (default: /tmp/$SESSION-bridge.log) grep'd for "app-server ready"
+#   THISCODEX_SHELL (default: ${SHELL:-/bin/sh}) fallback shell after deliberate stop
+#   CODEX_RESUME_FLAGS (default: empty) extra flags for operator TUI resume only.
+#               Safe default = no extra flags. If the operator explicitly chooses
+#               YOLO, a runner may set:
+#                 --sandbox danger-full-access --ask-for-approval never
+#               The bridge still owns thread/start and thread/resume sandbox per
+#               docs/yolo-bridge-contract.md.
 
 set -euo pipefail
 
@@ -46,6 +53,8 @@ WS="${WS:-ws://127.0.0.1:4222}"
 TID_FILE="${TID_FILE:-$BOT_WD/.codex-thread-id}"
 STOP_FILE="${STOP_FILE:-$BOT_WD/.thiscodex-stop}"
 READY_LOG="${READY_LOG:-/tmp/$SESSION-bridge.log}"
+THISCODEX_SHELL="${THISCODEX_SHELL:-${SHELL:-/bin/sh}}"
+CODEX_RESUME_FLAGS="${CODEX_RESUME_FLAGS:-}"
 
 command -v tmux  >/dev/null || { echo "[FATAL] tmux not found"; exit 1; }
 command -v codex >/dev/null || { echo "[FATAL] codex CLI not found"; exit 1; }
@@ -62,7 +71,7 @@ rm -f "$STOP_FILE" 2>/dev/null || true
 # window 0 'infra' — app-server + bot.py bridge. Command IS the window process,
 # wrapped in a supervised restart loop. (invariant 1, 3)
 tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
-  "while true; do $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec zsh"
+  "while true; do $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec \"$THISCODEX_SHELL\""
 
 # window 1 'codex' — operator TUI joined to the SAME thread as the bridge.
 # Hard guarded: wait for app-server, wait for a NON-EMPTY thread id, wait for
@@ -73,10 +82,10 @@ tmux new-window -t "$SESSION" -n codex -c "$BOT_WD" \
   "until grep -q 'app-server ready\\|Listening' '$READY_LOG' 2>/dev/null || curl -s ${WS/ws:\/\//http:\/\/}/readyz >/dev/null 2>&1; do sleep 1; done; \
    until [ -s '$TID_FILE' ]; do echo '[thiscodex] waiting for bridge to write $TID_FILE (NOT starting a fresh codex session)'; sleep 2; done; \
    TID=\$(cat '$TID_FILE'); \
-   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach (a bare codex --remote here would fork a fresh divergent thread). Fix the bridge, do not work around.\"; exec zsh; fi; \
+   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach (a bare codex --remote here would fork a fresh divergent thread). Fix the bridge, do not work around.\"; exec \"$THISCODEX_SHELL\"; fi; \
    echo \"[thiscodex] bridge thread=\$TID — waiting rollout\"; \
    until find \"\$HOME/.codex/sessions\" -name \"*\$TID*.jsonl\" 2>/dev/null | grep -q .; do sleep 1; done; \
-   fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote $WS; _e=\$(date +%s); if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)\"; sleep 3; done; exec zsh"
+   fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote $WS $CODEX_RESUME_FLAGS; _e=\$(date +%s); if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)\"; sleep 3; done; exec \"$THISCODEX_SHELL\""
 
 tmux select-window -t "$SESSION:codex"
 echo "[thiscodex] launched session '$SESSION' (infra + codex). Attach: tmux attach -t $SESSION"
