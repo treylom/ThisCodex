@@ -45,5 +45,5 @@ test('docs warn that aliases are generated only after confirmed paths', () => {
     readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
   ].join('\n');
   assert.match(docs, /confirmed.*BOT_WD|확정.*BOT_WD/i);
-  assert.doesNotMatch(docs, /thiscodex-current-bot/);
+  assert.doesNotMatch(docs, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });

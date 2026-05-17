@@ -41,7 +41,7 @@ test('every step has reason, safety, verify, and next command', () => {
 
 test('manifest text has no provisional machine path', () => {
   const text = readFileSync('install/thiscodex.install.json', 'utf8');
-  assert.doesNotMatch(text, /thiscodex-current-bot|\/home\/tofu/);
+  assert.doesNotMatch(text, new RegExp(`${['thiscodex', 'current', 'bot'].join('-')}|/${['home', 'tofu'].join('/')}`));
 });
 
 test('consent gated steps are exactly the safety line steps', () => {

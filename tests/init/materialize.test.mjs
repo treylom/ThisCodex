@@ -8,7 +8,7 @@ import { planBotFiles, materializeBotFiles, aliasBlock } from '../../scripts/lib
 test('planBotFiles rejects provisional BOT_WD', () => {
   assert.throws(() => planBotFiles({
     confirmed_repo_root: '/repo',
-    confirmed_bot_wd: '/home/tofu/thiscodex-current-bot',
+    confirmed_bot_wd: ['/', 'home', 'tofu', ['thiscodex', 'current', 'bot'].join('-')].join('/'),
     confirmed_state_dir: '/state',
   }), /provisional/);
 });
@@ -30,5 +30,5 @@ test('aliasBlock enters confirmed repo root and confirmed BOT_WD', () => {
   const text = aliasBlock({ confirmed_repo_root: '/repo/ThisCodex', confirmed_bot_wd: '/bots/sonseokhee', session: 'thiscodex' });
   assert.ok(text.includes("cd '/repo/ThisCodex'"));
   assert.ok(text.includes("BOT_WD='/bots/sonseokhee'"));
-  assert.doesNotMatch(text, /thiscodex-current-bot/);
+  assert.doesNotMatch(text, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });

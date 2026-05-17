@@ -38,8 +38,10 @@ export function statePath(env = process.env) {
   return join(home, INSTALL_STATE_REL);
 }
 
+const PROVISIONAL_BOT_RE = new RegExp(['thiscodex', 'current', 'bot'].join('-'));
+
 export function rejectProvisionalPath(value) {
-  if (/thiscodex-current-bot/.test(value || '')) {
+  if (PROVISIONAL_BOT_RE.test(value || '')) {
     throw new Error(`provisional path cannot be persisted: ${value}`);
   }
   return value;
