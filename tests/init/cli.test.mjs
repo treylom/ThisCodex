@@ -73,7 +73,7 @@ test('doctor replays verify checks and prints ordered result', () => {
     encoding: 'utf8',
     env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
-  assert.ok([0, 1, 2].includes(result.status));
+  assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout + result.stderr, /doctor|verify|BOT_WD|Codex/i);
   rmSync(dir, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });

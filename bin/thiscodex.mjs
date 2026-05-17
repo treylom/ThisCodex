@@ -74,6 +74,18 @@ function missingGuidedDecision(state) {
   return '';
 }
 
+function hasConfirmedInstallState(state) {
+  return [
+    'confirmed_repo_root',
+    'confirmed_workspace_root',
+    'confirmed_bot_wd',
+    'confirmed_state_dir',
+    'confirmed_windows_profile',
+    'confirmed_windows_skill_dir',
+    'confirmed_superpowers_checked',
+  ].some(key => Boolean(state[key])) || state.placement_only === true;
+}
+
 if (mode === 'apply' && nonInteractive && !yes && !answersFile) {
   console.log('ThisCodex apply is running without a TTY.');
   console.log('Next command: thiscodex init --apply --yes --answers <answers.json>');
@@ -114,6 +126,7 @@ if (missingDecision) {
   console.log('Next command: thiscodex init --apply --answers <answers.json>');
   process.exit(2);
 }
+const flowMode = command === 'doctor' && !hasConfirmedInstallState(state) ? 'check' : mode;
 
 if (has('--resume')) {
   console.log(resumeSummary(state));
@@ -171,7 +184,7 @@ const handlers = {
 
 const result = await runFlow({
   steps: manifest.steps,
-  ctx: { mode, os: env.os, tools: env.tools, answers: state.answers, tty, nonInteractive, yes },
+  ctx: { mode: flowMode, os: env.os, tools: env.tools, answers: state.answers, tty, nonInteractive, yes },
   handlers,
 });
 
