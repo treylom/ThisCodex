@@ -36,7 +36,7 @@ export async function runFlow({ steps, ctx, handlers }) {
       continue;
     }
     handlers.explain?.(step, ctx);
-    if ((ctx.tty === false || ctx.nonInteractive === true) && step.safety === 'consent-gated' && !hasConsent(step, ctx)) {
+    if (ctx.mode === 'apply' && (ctx.tty === false || ctx.nonInteractive === true) && step.safety === 'consent-gated' && !hasConsent(step, ctx)) {
       return {
         ok: false,
         failed_step: step.id,

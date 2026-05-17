@@ -50,3 +50,18 @@ test('non-TTY consent-gated apply does not run without consent', async () => {
   assert.equal(result.ok, false);
   assert.equal(result.next_command, 'rerun --yes');
 });
+
+test('non-TTY check mode shows consent-gated guidance without failing', async () => {
+  const gated = [{ id: 'tmux_install_consent', order: 1, when: 'always', action: 'guide', reason: 'tmux reason', safety: 'consent-gated', verify: { type: 'tmux-present-or-guide-shown' }, on_fail: { next_command: 'install tmux' } }];
+  let verified = false;
+  const result = await runFlow({ steps: gated, ctx: { mode: 'check', os: 'mac', answers: {}, tools: {}, tty: false, yes: false }, handlers: {
+    action: async () => {},
+    verify: async () => {
+      verified = true;
+      return { ok: true };
+    },
+    explain: () => {},
+  }});
+  assert.equal(result.ok, true);
+  assert.equal(verified, true);
+});
