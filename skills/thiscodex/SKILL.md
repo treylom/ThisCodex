@@ -80,7 +80,7 @@ tmux respawn-window -k -t <session>:codex -c <BOT_WD> \
 
 **Cause**: the shared official discord plugin (`…/external_plugins/discord/server.ts`, ≈L806) does `if (msg.author.bot) return` **before** `gate()` — every bot-authored message is dropped pre-allowlist. This Codex bot reuses that same plugin, so it is hit identically. Root cause is in the external plugin, **not** ThisCodex.
 
-**Fix**: replace the blanket `msg.author.bot` drop with the 3-guard (self-loop / webhook / bot-DM block, else fall through to `gate()`). Full recipe + re-apply note (the file is in `marketplaces/` → overwritten on plugin update): ThisCode `docs/08-debug-노하우.md` **J-2**. Permanent external-patch-layer is an open architecture decision — `docs/2026-05-18-repo-handoff-interactive-default-design.md` §J-2.
+**Fix**: replace the blanket `msg.author.bot` drop with the 3-guard (self-loop / webhook / bot-DM block, else fall through to `gate()`). Full recipe: ThisCode `docs/08-debug-노하우.md` **J-2**. Permanent re-apply layer is **built** — ThisCode `scripts/patch-discord-bot-drop.sh` (idempotent, fail-open, .bak, exact-match-only), wired into `/thiscode:self-update pull` + opt-in SessionStart. Reuse it on the Codex side too (same external plugin). Decision record: `docs/2026-05-18-repo-handoff-interactive-default-design.md` §10.1.
 
 ## Reference map (load on demand — GitHub URLs, robust for loose-copy or marketplace install)
 | Need | Source |
