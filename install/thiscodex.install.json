@@ -20,7 +20,7 @@
       "reason": "Skill placement only copies SKILL.md; guided onboarding configures a usable bot workspace.",
       "safety": "none",
       "verify": { "type": "answer-one-of", "state_key": "install_surface", "choices": "placement,guided" },
-      "on_fail": { "next_command": "thiscodex init --apply --answers <answers.json>" }
+      "on_fail": { "next_command": "rerun `thiscodex init` for interactive guided recovery (an AI agent: relay this choice to the user — do NOT self-answer); non-interactive opt-out only: thiscodex init --apply --yes --answers <answers.json>; or abort" }
     },
     {
       "id": "windows_wsl_first",
