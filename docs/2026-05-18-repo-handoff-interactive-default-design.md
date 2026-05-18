@@ -273,26 +273,58 @@ subordinate report → no phantom fix). All findings confirmed real; fixed TDD
 | J-2 | external official discord plugin `…/discord/server.ts` (≈L806) `if (msg.author.bot) return` **before** `gate()` → all bot-authored msgs dropped → multi-bot collaboration broken. **Outside our repos** (overwritten on plugin update = J-1 realized) | documented `docs/08-debug-노하우.md` **J-2** (root cause + 3-guard recipe + re-apply note) + ThisCodex SKILL.md Troubleshooting cross-ref | doc-lint (debug-knowhow test); ThisCodex own test |
 | A8 | (see §3) earlier "ThisCode plugin path unverified" was **factually wrong** | retracted; README/SKILL/spec re-framed verified-working; Codex side stays broken | `tests/init/repo-handoff.test.mjs` A8 group (4) |
 
-### 10.1 Flagged for maintainer decision (NOT built autonomously — design-gated)
+### 10.1 ⓑ ⓒ — escalated by maintainer → BUILT autonomously (conservative)
 
-- **J-2 permanent fix**: the server.ts patch is in `marketplaces/` (official plugin)
-  → wiped by every `/plugin marketplace update`. A permanent solution = an
-  external patch layer or a post-plugin-update re-patch hook. This is a **new
-  subsystem / architecture decision** → not built at night; documented + flagged.
-  Open question: patch-layer file location, trigger (post-update hook vs
-  session-start check), idempotency, and whether it belongs in ThisCode core or
-  an opt-in.
-- **Stop-hook debugging** (maintainer idea 2026-05-18 "stop hook으로 디버깅 진행
-  하는 것도 좋아 보입니다"): the existing `stop-pending-task-check.sh` is a
-  fail-CLOSED gate (exit 2 denies session end). Extending *what makes it deny*
-  (e.g. run verify/lint/regression on stop) risks falsely trapping a bot in a
-  non-terminating session — exactly the "flag-forgotten must not cause harm"
-  concern. So **not** expanded unilaterally. Proposed design (for brainstorming
-  when maintainer is back): an **opt-in, fail-OPEN** Stop-hook variant that
-  *surfaces* (stderr note, never exit 2) unresolved debug/verify state — e.g.
-  "branch has uncommitted fix without a green test run" — without blocking
-  session end. Needs: opt-in switch, the exact signals it inspects, and a hard
-  guarantee it can never deny stop. Decision: maintainer brainstorming.
+Initially flagged design-gated. Maintainer then explicitly escalated:
+"전부 다 끝까지 해 … 다 완벽히 해놔" → autonomy §1 override (explicit user
+instruction > brainstorming gate). Built with the safe designs that had been
+proposed; the irreversible/info-poor item (ⓐ master merge) stayed flagged.
+
+- **ⓑ J-2 permanent fix — BUILT**: `scripts/patch-discord-bot-drop.sh`
+  idempotently re-applies the 3-guard to the external plugin server.ts.
+  Safety: fail-OPEN (always exit 0 — never bricks `/self-update`), `.bak`
+  before edit, exact-match-only (warns instead of blind-editing if upstream
+  shape changed), idempotent marker. Wired into `/self-update pull` Step 4;
+  opt-in SessionStart wiring documented (auto-editing external code = opt-in,
+  not forced). Tests `tests/init/patch-discord-bot-drop.test.mjs` (4). The
+  *truly permanent* form (continuous auto re-patch on every session for all
+  users) deliberately NOT forced — opt-in only (invasive to auto-edit
+  third-party code); that broader default remains a maintainer call.
+- **ⓒ Stop-hook debugging — BUILT**: `hooks/stop-debug-surface.sh`, exactly
+  the opt-in **fail-OPEN** design proposed — ALWAYS exit 0, NEVER exit 2,
+  cannot deny session end (deliberate opposite of fail-CLOSED
+  stop-pending-task-check.sh, which it coexists with, not replaces). Surfaces
+  (stderr) uncommitted source/test work on session end. Opt-in (not
+  auto-registered). Tests `tests/init/stop-debug-surface.test.mjs` (5) incl.
+  an explicit "never exits 2" safety assertion.
+- **ⓐ master merge — STILL FLAGGED** (unchanged): irreversible public default-
+  branch action; the feature branches also carry unrelated in-flight work
+  (e.g. image-pipeline) that a merge would publish; branch model unknown.
+  Authorization scope = work, not release strategy. Maintainer decision.
+
+### 10.3 design-md → comprehensive frontend skill (maintainer batch-decided)
+
+Maintainer answered the brainstorming fork in one batch (asleep, "질문 한 번에"):
+**Q1=B** generalize tool-agnostic · **Q2** semantic-token slot schema as the
+1급 first section · **Q3=B** 코난 OCRs the source carousel for the author's exact
+naming rules (delegated async, non-blocking) · **Q4** non-breaking. Plus:
+"/search vault for awesome-design.md etc. → elevate to a comprehensive frontend
+skill", and "gpt-5.5 (Codex) judgment on all this work".
+
+Built: `~/obsidian-ai-vault/.claude/skills/design-md/SKILL.md` rewritten
+(name kept = non-breaking invocation) — §0 semantic-token slot schema FIRST
+(the convergence contract), §1 IA, §2 component form/function split, §3
+slot-bound design-system synthesis, §4 narrative + anti-pattern gate, §5
+tool-agnostic input adapters with the **Stitch flow preserved as one adapter**
+(Q4), §6 Stitch-DESIGN.md-compatible cross-AI output. Grounded in the vault
+corpus discovered via `/search` + direct find: [[바이브코딩-디자인시스템-가이드]]
+(4 principles), [[AI-프론트엔드-디자인-가이드-MOC]] (GPT-5.4 4 principles),
+[[design-md-claude-code-슬롯-아님]] (Stitch standard + awesome-design-md
+ecosystem), [[Impeccable-AI-Frontend-Design-Skill-2026-04]] (7-foundation /
+anti-patterns), [[2026-05-18-dddesign.io-design.md-시멘틱토큰]] (the slot
+insight). Vault repo auto-commits the skill; prior version retained in git.
+gpt-5.5/Codex adversarial review of the whole change set: dispatched
+(codex-rescue), findings folded before final report.
 
 ### 10.2 Cross-repo scope
 
