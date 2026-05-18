@@ -322,9 +322,29 @@ corpus discovered via `/search` + direct find: [[바이브코딩-디자인시스
 [[design-md-claude-code-슬롯-아님]] (Stitch standard + awesome-design-md
 ecosystem), [[Impeccable-AI-Frontend-Design-Skill-2026-04]] (7-foundation /
 anti-patterns), [[2026-05-18-dddesign.io-design.md-시멘틱토큰]] (the slot
-insight). Vault repo auto-commits the skill; prior version retained in git.
-gpt-5.5/Codex adversarial review of the whole change set: dispatched
-(codex-rescue), findings folded before final report.
+insight). Vault repo skill committed (`83014c68`); §0 naming rules later
+refined with 코난's OCR result (Q3 closed — author's dot-notation
+`category.role` form + design-token-vs-semantic-token rule + base-system
+adoption procedure; source was main-6 + follow-up-4, not 4).
+
+### 10.4 gpt-5.5 / Codex adversarial review outcome (maintainer-requested)
+
+Two codex-rescue passes over the full change set. Verdict: **no BLOCKING**.
+Concerns raised and resolved:
+- patch-discord-bot-drop.sh non-atomic write → temp + fsync + `os.replace`.
+- patch-discord-bot-drop.sh fail-open broken if HOME unset under `set -u`
+  → `HOME="${HOME:-}"` guard + regression test.
+- ThisCodex SKILL.md called the J-2 layer an "open decision" while ThisCode
+  shipped it → re-pointed to the built script.
+- README brittle `# 12 skill` count vs 13 dirs → de-numbered.
+- Behavioral coverage: added `plugin-dir-probe-behavior.test.mjs` (extracts &
+  runs the install-hooks ordered probe).
+**Honest residual (not fixed — judgment, low value at scale)**: the
+self-update.md / create-bot.md PLUGIN_DIR probes are structurally identical
+to install-hooks (now behaviorally tested) but remain doc-lint only. Mechanism
+is proven; per-file behavioral parity is a follow-up nicety, recorded here
+rather than silently claimed as covered. Final suites: ThisCode 82/82,
+ThisCodex 100/100, zero regression.
 
 ### 10.2 Cross-repo scope
 
