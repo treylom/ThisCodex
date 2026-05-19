@@ -23,6 +23,10 @@ const PROMPTS = {
     question: 'Show .codex-plugin marketplace guidance too',
     defaultKey: 'codex_marketplace',
   },
+  progress_report_cadence: {
+    question: 'Choose proactive progress reporting cadence',
+    defaultKey: 'progress_report_cadence',
+  },
 };
 
 export function promptForStep(step, state = {}) {

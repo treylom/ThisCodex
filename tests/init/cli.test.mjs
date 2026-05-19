@@ -133,6 +133,7 @@ test('answers file confirms guided paths and persists them explicitly', () => {
     codex_skill_layer: 'user',
     codex_marketplace: 'no',
     codex_yolo: 'safe',
+    progress_report_cadence: '1m',
     alias_consent: 'no',
     daemon_guide: 'no',
   }));
@@ -149,6 +150,7 @@ test('answers file confirms guided paths and persists them explicitly', () => {
   assert.equal(state.confirmed_workspace_root, workspace);
   assert.equal(state.confirmed_bot_wd, bot);
   assert.equal(state.confirmed_state_dir, stateDir);
+  assert.equal(state.answers.progress_report_cadence, '1m');
   rmSync(repo, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
   rmSync(workspace, { recursive: true, force: true });
