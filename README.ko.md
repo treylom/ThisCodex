@@ -4,7 +4,7 @@
 
 > **Claude Code + Codex CLI 멀티 에이전트 봇**을 **디스코드**로 운영하고, **옵시디언 볼트(Obsidian vault, 노트 저장소)**의 폴더·메모리 규칙과 연결하는 재현 가능한 세팅 모음.
 >
-> 🇺🇸 [English README](./README.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 📖 [시작 안내서 (PDF, 초보자·한/영)](docs/시작안내서/ThisCode-ThisCodex-시작안내서.pdf) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
+> 🇺🇸 [English README](./README.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 📖 [시작 안내서 (PDF, 초보자·한/영 병기)](docs/getting-started/ThisCode-ThisCodex-getting-started.pdf) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
 
 ![ThisCodex 핵심 그림 — 구조화된 옵시디언 볼트, 작업 디렉토리별 적합한 봇, 디스코드로 운영, 봇끼리 협업](assets/core-mental-model.png)
 
