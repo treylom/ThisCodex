@@ -1,6 +1,6 @@
 {
   "name": "@treylom/thiscodex",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Codex CLI Discord-bot installer, skills, rules, bridge contracts, and vault discipline.",
   "type": "module",
   "license": "MIT",
