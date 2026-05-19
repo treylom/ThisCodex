@@ -212,9 +212,32 @@ sandbox**. The reference bridge ships in this repo:
 - GitHub: `gh auth login` (or a PAT in the environment) before launch so codex `exec` can push/PR.
 - Superpowers / skills: codex reads `AGENTS.md`; point it at your skills directory and the migration rules (§5) so skill invocations resolve.
 
-### 3.5 GitHub auth & superpowers
-- GitHub: `gh auth login` (or a PAT in the environment) before launch so codex `exec` can push/PR.
-- Superpowers / skills: codex reads `AGENTS.md`; point it at your skills directory and the migration rules (§5) so skill invocations resolve.
+### 3.6 Codex hooks (SessionStart + meeting Stop) — wire **and trust**
+
+The shipped hook helpers only take effect once they are both **wired** into
+`~/.codex/hooks.json` and **trusted** by Codex:
+
+- **SessionStart** → `hooks/bot-session-init.sh`: injects the bot roster +
+  active-meeting state + the situational rules router `rules/INDEX.md`. This is
+  how recent `rules/` changes auto-apply — a new session reads the current
+  INDEX, not a frozen copy.
+- **Stop** → `hooks/meeting-stop-reread.sh`: during an active meeting,
+  asks the bot to re-read the meeting progress file before it ends a turn. The
+  shipped hook is runtime-agnostic — it auto-detects a bot session from the
+  environment (`DISCORD_STATE_DIR`/`BOT_WD`), so it is wired plainly with no
+  flag. It
+  emits the only valid Stop primitive `{"decision":"block","reason":...}` (the
+  Stop event has **no** `hookSpecificOutput` variant), guarded single-shot by
+  `stop_hook_active`; every other case allows stop (empty stdout + `exit 0`).
+
+**Trust is not optional on Codex.** A wired Codex hook does **not** run until
+it is approved through the Codex `/hooks` flow, which writes a `trusted_hash`
+for that hook into `~/.codex/config.toml`. If `~/.codex/config.toml` has no
+Stop `trusted_hash`, the meeting reread is silently inactive even though
+`hooks.json` is correct. After wiring, run `/hooks` in the Codex TUI, approve
+the Stop (and SessionStart) hook, then verify a `trusted_hash` entry for the
+Stop hook exists in `~/.codex/config.toml`. Claude Code / ThisCode has no
+equivalent trust step — this caveat is Codex-specific.
 
 ---
 

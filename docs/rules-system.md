@@ -76,3 +76,9 @@ ThisCodex also ships optional hook helpers for active meetings:
 The helpers intentionally avoid maintainer-local vault paths and Discord thread
 IDs. A distribution can install them into its own hook runner, but the shipped
 contract remains path-parameterized and fail-open.
+
+On Codex specifically, a wired Stop hook does **not** run until it is trusted
+via the Codex `/hooks` flow (a `trusted_hash` must land in
+`~/.codex/config.toml`); otherwise the meeting reread is silently inactive even
+though `~/.codex/hooks.json` is correct. See README §3.6 and the setup skill
+for the trust step. Claude Code has no equivalent trust gate.
