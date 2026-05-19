@@ -1,0 +1,6 @@
+interface:
+  display_name: "ThisCodex"
+  short_description: "Codex CLI Discord-bot installer, rules, and bridge contracts"
+  icon_small: "./assets/core-mental-model.png"
+  icon_large: "./assets/core-mental-model.png"
+  default_prompt: "Use $thiscodex-plugin to set up Codex as a Discord bot with vault discipline and guided onboarding."

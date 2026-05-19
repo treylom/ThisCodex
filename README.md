@@ -18,6 +18,22 @@ It is **not** a framework. It is a documented set of building blocks you assembl
 
 ---
 
+## Codex plugin packaging
+
+This repository now carries a canonical Codex plugin package surface:
+`.codex-plugin/plugin.json`, root `skills/SKILL.md`, plugin-level `agents/`,
+`plugin.lock.json`, and `scripts/sync-to-codex-plugin.sh`. The layout follows
+the current OpenAI plugin conventions seen in `openai/plugins` and the public
+`obra/superpowers` sync pattern.
+
+Plugin packaging makes ThisCodex discoverable as a Codex plugin. **Guided
+onboarding is still separate.** After the plugin or skill is visible, run
+`thiscodex init` to confirm the repo, workspace, BOT_WD, state directory, Codex
+config, runner guidance, and final doctor checks before claiming the bot is
+ready.
+
+---
+
 ## 1. What you get
 
 | Capability | Status | Mechanism |

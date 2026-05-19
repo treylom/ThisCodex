@@ -1,0 +1,42 @@
+{
+  "lockVersion": 1,
+  "plugin": {
+    "name": "thiscodex",
+    "version": "0.1.0",
+    "manifest": ".codex-plugin/plugin.json"
+  },
+  "sources": [
+    {
+      "type": "github",
+      "repo": "openai/plugins",
+      "path": "plugins/figma",
+      "reason": "Canonical public plugin layout reference: .codex-plugin, README, agents, skills, plugin.lock.json, scripts, workflow-adjacent packaging."
+    },
+    {
+      "type": "github",
+      "repo": "obra/superpowers",
+      "path": ".",
+      "reason": "Codex plugin sync reference: plugin manifest plus scripts/sync-to-codex-plugin.sh workflow."
+    }
+  ],
+  "skills": [
+    {
+      "id": "prompt",
+      "vendoredPath": "skills/prompt",
+      "source": {
+        "type": "repo",
+        "path": "skills/prompt/SKILL.md"
+      },
+      "integrity": "sha256-487c905e8683f23e98e6b24504ed5235385e6d7512d0a826dfaec9d35e2eb439"
+    },
+    {
+      "id": "thiscodex",
+      "vendoredPath": "skills/thiscodex",
+      "source": {
+        "type": "repo",
+        "path": "skills/thiscodex/SKILL.md"
+      },
+      "integrity": "sha256-79175a1d94854550ce63880735fc78b04f5e4be7700f576d3dc7a532be39c2f7"
+    }
+  ]
+}
