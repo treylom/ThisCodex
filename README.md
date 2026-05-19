@@ -1,8 +1,10 @@
+![ThisCodex — Tofu](assets/readme-banner.png)
+
 # ThisCodex
 
 > A reproducible setup for running **Claude Code + Codex CLI multi-agent bots** over **Discord**, wired into an **Obsidian vault** with shared folder/memory rules.
 >
-> 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · This repo = the **Codex side** + cross-runtime conventions.
+> 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · 📖 [시작 안내서 (PDF, 초보자·한/영)](docs/시작안내서/ThisCode-ThisCodex-시작안내서.pdf) · This repo = the **Codex side** + cross-runtime conventions.
 
 ![ThisCodex core idea — a structured Obsidian vault, the right bot per working directory, driven from Discord, bots collaborating](assets/core-mental-model.png)
 
