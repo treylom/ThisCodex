@@ -35,7 +35,7 @@ test('plugin.json follows current Codex plugin interface conventions', () => {
 });
 
 test('root skill delegates to the ThisCodex skill without duplicating full docs', () => {
-  const skill = readFileSync('skills/SKILL.md', 'utf8');
+  const skill = readFileSync('skills/SKILL.md', 'utf8').replace(/\r\n/g, '\n');
   assert.match(skill, /^---\nname: thiscodex-plugin\n/m);
   assert.match(skill, /skills\/thiscodex\/SKILL\.md/);
   assert.match(skill, /guided onboarding/i);
