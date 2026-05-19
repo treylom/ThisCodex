@@ -67,9 +67,11 @@ ThisCodex also ships optional hook helpers for active meetings:
   only generic active-meeting state and the progressive `rules/INDEX.md` when
   they exist. Paths are derived from `MEETING_PROTOCOL_DIR`,
   `MEETING_ACTIVE_FILE`, `BOT_WD`, or `PWD`; missing files are a graceful no-op.
-- `hooks/meeting-stop-reread.sh` is a Stop-compatible helper. It returns
-  `continue:true` only for bot sessions with an active meeting file and a
-  non-recursive Stop event. All other cases allow stop silently.
+- `hooks/meeting-stop-reread.sh` is a Stop-compatible helper. It emits
+  `{"decision":"block","reason":...}` (the only valid Stop block+inject
+  primitive — the Stop event has no hookSpecificOutput variant) only for bot
+  sessions with an active meeting file and a non-recursive Stop event. All
+  other cases allow stop silently (empty stdout + exit 0).
 
 The helpers intentionally avoid maintainer-local vault paths and Discord thread
 IDs. A distribution can install them into its own hook runner, but the shipped
