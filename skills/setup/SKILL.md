@@ -25,8 +25,12 @@ skipping decisions.
 4. Present safe mode first. Offer YOLO only as an explicit opt-in using the
    bridge contract and operator-controlled sentinel.
 5. Ask `progress_report_cadence`: `per_task`, `1m`, `3m`, `5m`, `off`, or
-   `custom`.
-6. Finish with `thiscodex doctor`.
+   `custom`. `per_task` means a meaningful subtask or milestone completion,
+   not every raw model turn boundary.
+6. When aliases are generated, tell the user to `source` the generated alias
+   script/block; only add it to a shell rc file if they explicitly want it
+   permanent.
+7. Finish with `thiscodex doctor`.
 
 ## Guardrails
 

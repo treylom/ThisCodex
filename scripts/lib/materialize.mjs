@@ -1,6 +1,7 @@
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { rejectProvisionalPath } from './state.mjs';
+import { progressConfigForState, progressEnvForState } from './progress.mjs';
 
 function shQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
@@ -21,11 +22,14 @@ export function planBotFiles(state) {
 
 export function runScript(state) {
   const plan = planBotFiles(state);
+  const env = progressEnvForState(state);
   return `#!/usr/bin/env bash
 set -euo pipefail
 export BOT_WD="${plan.bot}"
 export DISCORD_STATE_DIR="${plan.stateDir}"
 export SESSION="${state.session || 'thiscodex'}"
+export THISCODEX_PROGRESS_CADENCE="${env.THISCODEX_PROGRESS_CADENCE}"
+export THISCODEX_HEARTBEAT_SEC="${env.THISCODEX_HEARTBEAT_SEC}"
 export LAUNCH_CMD="${plan.infra}"
 cd "${plan.repo}"
 exec "${plan.repo}/scripts/launch.sh"
@@ -50,12 +54,15 @@ export function aliasBlock(state) {
   const stateDir = state.confirmed_state_dir ? rejectProvisionalPath(state.confirmed_state_dir) : '';
   const session = state.session || 'thiscodex';
   const yoloFile = stateDir ? `${stateDir}/.thiscodex-yolo` : `${bot}/.thiscodex-yolo`;
+  const env = progressEnvForState(state);
+  const progressEnv = `THISCODEX_PROGRESS_CADENCE=${shQuote(env.THISCODEX_PROGRESS_CADENCE)} THISCODEX_HEARTBEAT_SEC=${shQuote(env.THISCODEX_HEARTBEAT_SEC)}`;
   return [
-    `alias thiscodex-start="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} SESSION=${shQuote(session)} ./scripts/launch.sh"`,
+    '# Source this block from your shell, or paste it into your own rc file if you want it permanent.',
+    `alias thiscodex-start="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} SESSION=${shQuote(session)} ${progressEnv} ./scripts/launch.sh"`,
     `alias thiscodex-attach="tmux attach -t ${session}"`,
     `alias thiscodex-tui="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} tmux select-window -t ${session}:codex"`,
     `alias thiscodex-doctor="cd ${shQuote(repo)} && node bin/thiscodex.mjs doctor"`,
-    `alias thiscodex-discord="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} DISCORD_STATE_DIR=${shQuote(stateDir || bot)} SESSION=${shQuote(session)} ./scripts/launch.sh"`,
+    `alias thiscodex-discord="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} DISCORD_STATE_DIR=${shQuote(stateDir || bot)} SESSION=${shQuote(session)} ${progressEnv} ./scripts/launch.sh"`,
     `alias thiscodex-yolo-on="mkdir -p ${shQuote(stateDir || bot)} && touch ${shQuote(yoloFile)}"`,
     `alias thiscodex-yolo-off="rm -f ${shQuote(yoloFile)}"`,
   ].join('\n') + '\n';
@@ -65,6 +72,7 @@ export function materializeBotFiles(state) {
   const plan = planBotFiles(state);
   mkdirSync(plan.bot, { recursive: true });
   mkdirSync(plan.stateDir, { recursive: true });
+  writeFileSync(join(plan.stateDir, 'progress-reporting.json'), JSON.stringify(progressConfigForState(state), null, 2) + '\n');
   writeFileSync(plan.run, runScript(state));
   writeFileSync(plan.infra, infraScript(state));
   chmodSync(plan.run, 0o755);

@@ -113,6 +113,7 @@ state = applyConfirmedPath(state, 'confirmed_state_dir', arg('--state-dir'));
 if (arg('--codex-skill-layer')) state.answers.codex_skill_layer = arg('--codex-skill-layer');
 if (arg('--codex-marketplace')) state.answers.codex_marketplace = arg('--codex-marketplace');
 if (arg('--codex-yolo')) state.answers.codex_yolo = arg('--codex-yolo');
+if (arg('--progress-report-cadence')) state.answers.progress_report_cadence = arg('--progress-report-cadence');
 if (arg('--alias-consent')) state.answers.alias_consent = arg('--alias-consent');
 if (arg('--daemon-guide')) state.answers.daemon_guide = arg('--daemon-guide');
 if (arg('--install-surface')) state.answers.install_surface = arg('--install-surface');
