@@ -5,9 +5,29 @@ description: Use when setting up an OpenAI Codex CLI agent as a persistent Disco
 
 # ThisCodex — make Codex behave like a Claude Code Discord bot
 
+## Install — read this before doing anything
+
+**Default install = interactive guided onboarding.** Run:
+
+```
+thiscodex init
+```
+
+(or `npx github:treylom/ThisCodex init`). If you are an AI agent handed this
+repo: you can talk to the user through your session/TUI, so **run guided
+`thiscodex init` and relay every question to the user**, feeding their answers
+back — one question at a time. Do **not** auto-run a non-interactive install,
+and do **not** fabricate an answers file to skip the questions. Copying this
+skill folder is *placement*; **placement is not guided onboarding** — do **not**
+report "copied = installed" or claim the bot is installed from placement alone.
+Use `--non-interactive` / `--yes` / `--answers` only when the user explicitly
+asks for CI or automation. If the installer stops on a missing required
+decision, it prints an interactive-recovery hint — relay that to the user and
+let them choose; never self-answer to push past it.
+
 Invocable skill. Install paths:
 - **user-tier**: copy this folder to `~/.agents/skills/thiscodex/` (codex 4-layer scan picks it up; deep docs are referenced by URL below so a loose copy still works).
-- **marketplace/plugin**: the repo ships `.codex-plugin/plugin.json` (`skills: "./skills/"`). Register it with `codex plugin marketplace add treylom/ThisCodex` (the `<SOURCE>` arg accepts `owner/repo`). Note (verified codex 0.130, 손석희): there is **no `codex plugin install`** subcommand — `codex plugin` exposes only `marketplace`; whether the Codex App `/plugins` UI auto-recognizes `.codex-plugin/plugin.json` is unverified. Invoke via `/skills thiscodex` or description match.
+- **marketplace/plugin** — ⚠️ **incomplete on codex 0.130, not a usable install today; do not use as the entry path** (verified 손석희, 2026-05-18, raw): the repo ships `.codex-plugin/plugin.json`, but `codex plugin marketplace add treylom/ThisCodex` **fails** — `marketplace root does not contain a supported manifest`; codex requires a `.agents/plugins/marketplace.json` the repo does not yet ship. There is **no `codex plugin install`** subcommand (only `marketplace add/upgrade/remove`); cwd auto-load of `.codex-plugin/plugin.json` does not work; `tool_search thiscodex` = 0. The Codex App `/plugins` GUI auto-recognition is unverified from CLI (separate GUI check needed). **Until future `.agents/plugins/marketplace.json` packaging lands, use the user-tier loose-skill copy above or `thiscodex init` (guided) — not the plugin path.**
 
 Deep reference lives in the repo (load only when a step needs it — progressive disclosure).
 
@@ -55,6 +75,12 @@ Deep reference lives in the repo (load only when a step needs it — progressive
 tmux respawn-window -k -t <session>:codex -c <BOT_WD> \
   "codex resume $(cat <BOT_WD>/.codex-thread-id) --remote ws://127.0.0.1:4222"
 ```
+
+**Symptom**: multi-bot collaboration channel — bots (Claude *and* this Codex bot) can't read each other's messages even though every bot id is in `access.json`.
+
+**Cause**: the shared official discord plugin (`…/external_plugins/discord/server.ts`, ≈L806) does `if (msg.author.bot) return` **before** `gate()` — every bot-authored message is dropped pre-allowlist. This Codex bot reuses that same plugin, so it is hit identically. Root cause is in the external plugin, **not** ThisCodex.
+
+**Fix**: replace the blanket `msg.author.bot` drop with the 3-guard (self-loop / webhook / bot-DM block, else fall through to `gate()`). Full recipe: ThisCode `docs/08-debug-노하우.md` **J-2**. Permanent re-apply layer is **built** — ThisCode `scripts/patch-discord-bot-drop.sh` (idempotent, fail-open, .bak, exact-match-only), wired into `/thiscode:self-update pull` + opt-in SessionStart. Reuse it on the Codex side too (same external plugin). Decision record: `docs/2026-05-18-repo-handoff-interactive-default-design.md` §10.1.
 
 ## Reference map (load on demand — GitHub URLs, robust for loose-copy or marketplace install)
 | Need | Source |

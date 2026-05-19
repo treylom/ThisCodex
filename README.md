@@ -72,34 +72,47 @@ Claude Code bots use the same shape, except the inbound-event injection is built
 
 ### 3.1a Node installer
 
-ThisCodex ships a shell-zero Node installer:
+ThisCodex ships a shell-zero Node installer. **The default is interactive
+guided onboarding** — run it with no flags:
+
+```bash
+npx github:treylom/ThisCodex init
+```
+
+Guided `init` walks you through repo root, workspace, BOT_WD, state dir, Codex
+config, superpowers availability, runner guidance, and the final doctor checks,
+asking one question at a time with safe defaults, then performs the writes only
+after you confirm. This is the path for both humans and AI agents handed the
+repo: an agent must run guided `init` and relay each question to the user — it
+must not auto-run a non-interactive install or report "copied = installed".
+
+`--apply` copies the `thiscodex` skill into a Codex-visible layer
+(`~/.agents/skills/thiscodex` by default), optionally backs up and patches
+`~/.codex/config.toml`, and prints OS-specific runner instructions. It does not
+auto-start a daemon in scope A. ThisCodex install is manifest-driven
+(`install/thiscodex.install.json`); `thiscodex doctor` replays the same verify
+checks, so install success and diagnosis use one path.
+
+Skill placement and guided onboarding are separate paths. Copying `SKILL.md`
+into a Codex skill layer only makes the skill visible; it is **not** completed
+onboarding. Guided onboarding confirms the repo, workspace, BOT_WD, state dir,
+Codex config, superpowers, runner guidance, and final doctor checks before
+claiming the bot is ready.
+
+#### CI / automation (non-interactive opt-out)
+
+Non-interactive mode is only for CI or diagnosis, and must be requested with an
+explicit flag:
 
 ```bash
 npx github:treylom/ThisCodex init --check --non-interactive
-npx github:treylom/ThisCodex init --apply
+npx github:treylom/ThisCodex init --apply --yes --answers <answers.json>
 ```
 
-`--check` writes nothing. `--apply` copies the `thiscodex` skill into a
-Codex-visible layer (`~/.agents/skills/thiscodex` by default), optionally
-backs up and patches `~/.codex/config.toml`, and prints OS-specific runner
-instructions. It does not auto-start a daemon in scope A.
-
-ThisCodex install is manifest-driven. The installer reads
-`install/thiscodex.install.json`; every step has an order, reason, safety label,
-and verification check. `thiscodex doctor` replays the same verify checks, so
-install success and diagnosis use one path. In non-interactive shells, the
-installer never waits for a question; it prints a safe check result and the next
-command.
-
-Skill placement and guided onboarding are separate paths. `SKILL.md` is not
-guided onboarding; copying it into a Codex skill layer only makes the skill
-visible. Guided onboarding confirms the repo, workspace, BOT_WD, state dir,
-Codex config, superpowers availability, runner guidance, and final doctor
-checks before claiming the bot is ready.
-
 `--non-interactive` is a CI or diagnostic mode, not guided onboarding. It never
-invents missing paths. If a required decision is missing, it exits with a clear
-Next command instead of silently continuing.
+invents missing paths. If a required decision is missing it stops — with an
+interactive-recovery hint when input is possible, or a clear Next command when
+not — instead of silently continuing or self-answering.
 
 On Windows, use WSL first. If tmux is missing, ThisCodex uses a tmux
 one-command safety line: it explains why tmux is needed and offers one install
