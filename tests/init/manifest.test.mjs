@@ -68,3 +68,12 @@ test('Codex prompt mapping contains all §6.A domain prompts', () => {
     assert.ok(ids.includes(id), `${id} missing`);
   }
 });
+
+test('manifest interviews for progress reporting cadence', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const step = manifest.steps.find(s => s.id === 'progress_report_cadence');
+  assert.ok(step, 'progress_report_cadence missing');
+  assert.equal(step.action, 'prompt');
+  assert.equal(step.verify.state_key, 'progress_report_cadence');
+  assert.match(step.reason, /progress|report/i);
+});

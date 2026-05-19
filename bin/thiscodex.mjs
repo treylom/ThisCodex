@@ -100,6 +100,7 @@ let state = withDetectedDefaults(loadInstallState(), {
   codex_skill_layer: 'user',
   codex_marketplace: 'no',
   codex_yolo: 'safe',
+  progress_report_cadence: 'per_task',
   alias_consent: 'no',
   daemon_guide: 'no',
 });
@@ -150,7 +151,8 @@ const handlers = {
     if (step.action === 'prompt') {
       const key = step.verify?.state_key || step.id;
       if (ctx.tty === false || ctx.nonInteractive) {
-        if (!key.startsWith('confirmed_')) state.answers[key] ??= 'check_only';
+        const prompt = promptForStep(step, state);
+        if (!key.startsWith('confirmed_')) state.answers[key] ??= prompt.defaultValue || 'check_only';
         return;
       }
       const readline = await import('node:readline/promises');

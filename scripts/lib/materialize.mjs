@@ -47,12 +47,17 @@ echo "[thiscodex] replace this guide command with your bridge daemon command"
 export function aliasBlock(state) {
   const repo = rejectProvisionalPath(state.confirmed_repo_root);
   const bot = rejectProvisionalPath(state.confirmed_bot_wd);
+  const stateDir = state.confirmed_state_dir ? rejectProvisionalPath(state.confirmed_state_dir) : '';
   const session = state.session || 'thiscodex';
+  const yoloFile = stateDir ? `${stateDir}/.thiscodex-yolo` : `${bot}/.thiscodex-yolo`;
   return [
     `alias thiscodex-start="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} SESSION=${shQuote(session)} ./scripts/launch.sh"`,
     `alias thiscodex-attach="tmux attach -t ${session}"`,
     `alias thiscodex-tui="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} tmux select-window -t ${session}:codex"`,
     `alias thiscodex-doctor="cd ${shQuote(repo)} && node bin/thiscodex.mjs doctor"`,
+    `alias thiscodex-discord="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} DISCORD_STATE_DIR=${shQuote(stateDir || bot)} SESSION=${shQuote(session)} ./scripts/launch.sh"`,
+    `alias thiscodex-yolo-on="mkdir -p ${shQuote(stateDir || bot)} && touch ${shQuote(yoloFile)}"`,
+    `alias thiscodex-yolo-off="rm -f ${shQuote(yoloFile)}"`,
   ].join('\n') + '\n';
 }
 

@@ -32,3 +32,17 @@ test('aliasBlock enters confirmed repo root and confirmed BOT_WD', () => {
   assert.ok(text.includes("BOT_WD='/bots/sonseokhee'"));
   assert.doesNotMatch(text, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });
+
+test('aliasBlock gives a tmux-only Discord flow and YOLO helpers without cmux', () => {
+  const text = aliasBlock({
+    confirmed_repo_root: '/repo/ThisCodex',
+    confirmed_bot_wd: '/bots/sonseokhee',
+    confirmed_state_dir: '/state/discord-sonseokhee',
+    session: 'thiscodex',
+  });
+  assert.match(text, /thiscodex-discord/);
+  assert.match(text, /thiscodex-yolo-on/);
+  assert.match(text, /thiscodex-yolo-off/);
+  assert.match(text, /tmux attach/);
+  assert.doesNotMatch(text, /cmux/i);
+});
