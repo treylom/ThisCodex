@@ -25,7 +25,7 @@ A `rules/` directory with one small **router** + many **on-demand topical files*
 ├── skill-process.md  ← loaded only when starting a build/debug/verify task
 ├── porting-infra.md  ← loaded only when porting/deploying/adding MCP
 ├── voice.md          ← loaded only when writing a persona response
-└── orchestration.md  ← loaded only when delegating to / waiting on a bot,
+├── orchestration.md  ← loaded only when delegating to / waiting on a bot,
                          asserting a bot's identity/health, or coordinating
                          multiple agents (chain-load identity guard: a shared
                          root context file that doubles as one bot's WD meta
@@ -33,6 +33,9 @@ A `rules/` directory with one small **router** + many **on-demand topical files*
                          chain-loading it don't absorb that identity; teammate
                          idle = drive not wait; meeting = adopt domain frames,
                          no solo lock)
+└── meeting-protocol.md ← loaded only when coordinating an active meeting,
+                          verifying a bot dispatch, writing KST progress rows,
+                          or stopping while a meeting is still active
 ```
 
 - **`INDEX.md`** is a compact trigger table: `situation → rule file → one-line gist`. It is the only thing `CLAUDE.md`/`AGENTS.md` points to (one pointer block, not the rules themselves).
@@ -55,3 +58,19 @@ Progressive disclosure: the router is tiny and always present, so the agent alwa
 ## Applying to a Codex bot (ThisCodex)
 
 The bot's `AGENTS.md` (project-doc auto-loaded, see [skill-portability.md](skill-portability.md) §3) carries **only** the INDEX pointer. The `rules/` dir lives in the bot WD (or a repo-tier path that travels with the persona). The same on-demand discipline applies: the bridge injects dynamic per-turn state; static rules stay in `rules/` and are pulled by trigger — never re-injected per turn (mirrors the P1.5 trim lesson).
+
+### Meeting protocol hooks
+
+ThisCodex also ships optional hook helpers for active meetings:
+
+- `hooks/bot-session-init.sh` is a SessionStart-compatible helper. It appends
+  only generic active-meeting state and the progressive `rules/INDEX.md` when
+  they exist. Paths are derived from `MEETING_PROTOCOL_DIR`,
+  `MEETING_ACTIVE_FILE`, `BOT_WD`, or `PWD`; missing files are a graceful no-op.
+- `hooks/meeting-stop-reread.sh` is a Stop-compatible helper. It returns
+  `continue:true` only for bot sessions with an active meeting file and a
+  non-recursive Stop event. All other cases allow stop silently.
+
+The helpers intentionally avoid maintainer-local vault paths and Discord thread
+IDs. A distribution can install them into its own hook runner, but the shipped
+contract remains path-parameterized and fail-open.
