@@ -4,7 +4,7 @@
 
 > A reproducible setup for running **Claude Code + Codex CLI multi-agent bots** over **Discord**, wired into an **Obsidian vault** with shared folder/memory rules.
 >
-> 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · 📖 [Getting started guide (PDF, beginner · KR/EN bilingual)](docs/getting-started/ThisCode-ThisCodex-getting-started.pdf) · This repo = the **Codex side** + cross-runtime conventions.
+> 🇰🇷 [한국어 README](./README.ko.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · 📖 [Getting started guide (English PDF, beginner, 14p)](docs/getting-started/ThisCode-ThisCodex-getting-started.en.pdf) · This repo = the **Codex side** + cross-runtime conventions.
 
 ![ThisCodex core idea — a structured Obsidian vault, the right bot per working directory, driven from Discord, bots collaborating](assets/core-mental-model.png)
 
