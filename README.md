@@ -44,6 +44,29 @@ ready.
 
 ---
 
+## Help & Getting Started
+
+**First time?** Use `/help` to list all available skills and their subcommands, or start with:
+
+```
+/thiscodex:help              # List all ThisCodex subcommands (init, doctor, run, etc.)
+/thiscodex:init              # Launch interactive guided setup
+/thiscodex:doctor            # Verify setup is complete and working
+```
+
+**Skill reference:**
+
+| Skill | Purpose | Key subcommands |
+|---|---|---|
+| `/thiscodex` | Set up Codex as a Discord bot with Claude Code persona/rules | `init`, `doctor`, `run`, `logs`, `features`, `troubleshoot` |
+| `/prompt` | Generate structured prompts for LLMs, GPTs, Gems, or image generation | `<task description>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
+| `/setup` | Step-by-step onboarding and verification | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
+| `/test` | Run ThisCodex smoke tests (memory, tmux, meetings, rules, hooks) | `<feature name>`, `graphrag-bench`, `--verbose` |
+
+**For each skill**, load its detailed `SKILL.md` file for complete options and usage examples. All skills follow progressive disclosure — start with the summary, load detailed references only when you need them.
+
+---
+
 ## 1. What you get
 
 | Capability | Status | Mechanism |

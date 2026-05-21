@@ -82,6 +82,21 @@ tmux respawn-window -k -t <session>:codex -c <BOT_WD> \
 
 **Fix**: replace the blanket `msg.author.bot` drop with the 3-guard (self-loop / webhook / bot-DM block, else fall through to `gate()`). Full recipe: ThisCode `docs/08-debug-노하우.md` **J-2**. Permanent re-apply layer is **built** — ThisCode `scripts/patch-discord-bot-drop.sh` (idempotent, fail-open, .bak, exact-match-only), wired into `/thiscode:self-update pull` + opt-in SessionStart. Reuse it on the Codex side too (same external plugin). Decision record: `docs/2026-05-18-repo-handoff-interactive-default-design.md` §10.1.
 
+## Subcommands
+
+When you invoke `/thiscodex`, the skill routes by intent. Common subcommands:
+
+| When to use | Call |
+|---|---|
+| Start guided setup | `/thiscodex init` — launches interactive onboarding for repo, workspace, BOT_WD, Discord MCP, Codex hooks, tmux aliases. **Start here** for a fresh Codex bot. |
+| Verify setup readiness | `/thiscodex doctor` — runs full diagnostic (paths, Discord MCP, config.toml, hook trust hashes, tmux, Python websockets). Shows what's missing and how to fix it. |
+| Port Claude Code skills | `/thiscodex port-skills` — adds a Claude Code skill to your Codex skills directory with path adjustments (e.g., `CLAUDE.md` → `AGENTS.md`). |
+| Set up multi-agent conventions | `/thiscodex multi-agent` — generates `bot-roster.yaml`, wires cross-bot addressing, meeting thread rules, and SessionStart roster injection for Claude Code + Codex coexistence. |
+| Launch the bot (tmux) | `/thiscodex run` — starts the infra (app-server + bot.py bridge) and codex TUI windows inside tmux session. Assumes setup is done. |
+| Tail bot logs | `/thiscodex logs` — shows live `bot.py` and app-server logs for debugging turns, tool calls, or Discord events. |
+| Check feature availability | `/thiscodex features` — lists what's working (Discord bot, multi-client same-thread, YOLO, image_gen, web.run) and what's parked (computer_use/browser_use). |
+| Generate troubleshooting guide | `/thiscodex troubleshoot <symptom>` — provides step-by-step fixes. Example: `/thiscodex troubleshoot "codex tui shows nothing"` for the common "TUI on wrong thread" issue. |
+
 ## Reference map (load on demand — GitHub URLs, robust for loose-copy or marketplace install)
 | Need | Source |
 |---|---|

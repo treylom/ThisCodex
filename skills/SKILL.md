@@ -18,6 +18,16 @@ and delegates the full operational procedure to `skills/thiscodex/SKILL.md`.
 3. Load `skills/thiscodex/SKILL.md` for the complete step-by-step procedure,
    troubleshooting, and verification gates.
 
+## Subcommands
+
+Invoke ThisCodex through its main skill:
+
+| When to use | Call |
+|---|---|
+| Start guided setup | `/thiscodex init` — interactive onboarding (repo, workspace, BOT_WD, Discord, Codex config, hooks, tmux). **Start here.** |
+| Check setup status | `/thiscodex doctor` — verify paths, MCP, config, hook trust, dependencies. Shows what's working and what needs fixing. |
+| Full subcommand reference | Load `skills/thiscodex/SKILL.md` for the complete list: `init`, `doctor`, `port-skills`, `multi-agent`, `run`, `logs`, `features`, `troubleshoot`. |
+
 ## Guardrail
 
 Do not report "installed" from a copied `SKILL.md` alone. A completed setup

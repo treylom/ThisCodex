@@ -45,6 +45,20 @@ Procedure:
    mandatory — do not emit a generic XML prompt.
 4. Produce the structured prompt; show the user the final prompt explicitly.
 
+## Subcommands
+
+This is a single-invocation skill — call `/prompt` with your task description (generate, review, refine, GPT/Gem instructions, image, fact-check, research). The skill routes internally to the matched reference (generator, engineering guide, examples, GPT/Gem instructions). Subcommands are:
+
+| When to use | Call |
+|---|---|
+| Generate or refine a prompt | `/prompt <task description>` — turns rough intent into a structured, framework-grounded prompt. |
+| Review a prompt for robustness | `/prompt review: <your prompt>` — checks completeness, phrasing, and edge cases. |
+| Build GPT system instructions | `/prompt gpt: <goal/behavior>` — generates structured GPT instructions using the GPT-Prompt-Generator framework. |
+| Build Gem system instructions | `/prompt gem: <goal/behavior>` — generates structured Gem instructions using the Gems-Prompt-Generator framework. |
+| Image generation prompting | `/prompt image: <subject/scene>` — applies the 5-stage image-generation framework (subject, style, composition, quality, mood). |
+| Fact-check or research prompting | `/prompt research: <topic/claim>` — wraps the IFCN base template for verifiable claims and source-grounded research. |
+| Study the framework | Load `references/prompt-engineering-guide.md` — deep techniques, mental models, and worked examples. |
+
 ## Attribution
 
 - Upstream: `github.com/treylom/prompt-engineering-skills` (public, MIT) —

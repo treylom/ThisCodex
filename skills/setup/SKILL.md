@@ -45,6 +45,17 @@ skipping decisions.
    permanent.
 9. Finish with `thiscodex doctor`.
 
+## Subcommands
+
+| When to use | Call |
+|---|---|
+| Start guided ThisCodex setup | `/setup` or `/setup init` — launches the interactive onboarding wizard. Covers repo root, workspace, BOT_WD, Discord state directory, safe/YOLO mode selection, progress reporting cadence, and Codex hook setup. |
+| View setup progress summary | `/setup status` — shows what's been configured so far (repo, workspace, aliases generated, hooks wired, doctor check done). |
+| Run setup verification | `/setup doctor` — verifies all paths exist, Discord MCP is wired, `~/.codex/config.toml` is readable, hook trust hashes are present, and tmux/Python dependencies are installed. |
+| Re-wire Codex hooks | `/setup hooks` — re-runs the SessionStart + meeting-Stop hook wiring and trust approval in the Codex TUI. Use this if hooks were unwired or the trust hash was removed. |
+| Generate shell aliases | `/setup aliases` — generates convenience shell aliases (`thiscodex_run`, `thiscodex_tui`, `thiscodex_connect`, etc.) and shows you how to `source` or permanently add them. |
+| View guide documents | `/setup guide` — prints paths to SETUP.md, SETUP-BEGINNER.md, and RECENT-CHANGES.md for reference during setup. |
+
 ## Guardrails
 
 - Placement is not onboarding.
