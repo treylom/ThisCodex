@@ -11,7 +11,7 @@
 Copy this into Claude Code or Codex:
 
 ```text
-Follow the install files in https://github.com/treylom/ThisCodex step by step. Start from README.md, run the guided `thiscodex init` setup, ask me before touching credentials or system packages, and finish by running `thiscodex doctor` or the documented verification commands.
+Follow the install files in https://github.com/treylom/ThisCodex step by step. Start from README.md, run the guided `npx github:treylom/ThisCodex init` setup (interactive, no flags), ask me before touching credentials or system packages, and finish by running `npx github:treylom/ThisCodex doctor` or the documented verification commands.
 ```
 
 ![ThisCodex core idea — a structured Obsidian vault, the right bot per working directory, driven from Discord, bots collaborating](assets/core-mental-model.png)
