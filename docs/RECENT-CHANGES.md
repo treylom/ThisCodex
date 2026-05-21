@@ -33,6 +33,18 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-05-21 — Fresh thread rollout materialization
+
+Codex 0.132+ can return a fresh `thread/start` id before the rollout JSONL
+exists on disk. A bridge must force materialization before writing
+`.codex-thread-id`, otherwise the operator TUI can wait forever for a rollout
+that will never appear. The reference bridge now calls `thread/inject_items`
+with a harmless assistant marker immediately after `thread/start`.
+
+See [codex-app-server-bridge-pattern.md](codex-app-server-bridge-pattern.md),
+[bot-launch-pattern.md](bot-launch-pattern.md), and
+[sessionstart-bloat-avoidance.md](sessionstart-bloat-avoidance.md).
+
 ## 2026-05-19 — Meeting Stop-hook output contract fixed (⑨b)
 
 **What changed.** `hooks/meeting-stop-reread.sh` emits the correct Stop
