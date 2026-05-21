@@ -27,7 +27,7 @@
 | Claude-only tool | Codex equivalent | Mechanism |
 |---|---|---|
 | `AskUserQuestion` | **Stateful Discord question shim** (bridge) | Bridge emits a structured question to the origin channel, waits for a matching reply, returns the choice. Security §below. |
-| `TeamCreate`/`TeamDelete`/`TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet`/`SendMessage` (Agent Teams) | **`codex exec` worker orchestrator** (bridge-external) | An orchestrator spawns N `codex exec` workers, each with its own workdir + thread; results relayed to a completion thread. ⚠️ UNCERTAINTY: app-server may not expose a model-visible spawn tool — the **external orchestrator is authoritative**, not an in-model tool. This is the `knowledge-manager-at` quality-equivalence key risk; resolved by the `-at` smoke. |
+| `TeamCreate`/`TeamDelete`/`TaskCreate`/`TaskUpdate`/`TaskList`/`TaskGet`/`SendMessage` (Agent Teams) | **`codex exec` worker orchestrator** (bridge-external) | An orchestrator spawns N `codex exec` workers, each with its own workdir + thread; results relayed to a completion thread. Caveat: app-server may not expose a model-visible spawn tool — the **external orchestrator is authoritative**, not an in-model tool. This is the `knowledge-manager-at` quality-equivalence key risk; resolved by the `-at` smoke. |
 | `mcp__obsidian__*` | **Obsidian CLI wrapper** | Minimum set: `search / read / create / append / backlinks / tags / properties`, with vault-root + relative-path normalization in the wrapper contract. Tool-agnostic, so it is the common path for both runtimes. |
 | `WebFetch`, browser fetch (`mcp__playwright__*` / `mcp__hyperbrowser__*` used for fetch) | Codex **`web.run`** | Direct equivalent for fetch/read. |
 | `mcp__notion__*` (Notion export) | **Out of KM core quality-equivalence scope** | KM core deliverable = vault write (Obsidian CLI path). Notion mirror is a *secondary export*; if Codex lacks a Notion equivalent it is marked **optional-degraded** and explicitly labeled — it does NOT block KM core quality-equivalence. |
@@ -240,7 +240,7 @@ Codex 등가는 progressive disclosure(점진적 노출) `references/codex-adapt
 | Claude 전용 도구 | Codex 등가 | 메커니즘 |
 |---|---|---|
 | `AskUserQuestion` | **상태ful Discord 질문 shim**(bridge) | bridge 가 origin 채널에 구조화 질문 발신→매칭 회신 대기→선택 반환. 보안 §아래. |
-| Agent Teams(`TeamCreate`/`Task*`/`SendMessage` 등) | **`codex exec` worker orchestrator**(bridge 외부) | orchestrator 가 N workers spawn(각 workdir/thread)→completion thread relay. ⚠️ UNCERTAINTY: app-server 가 model-visible spawn tool 보장 안 함 → **외부 orchestrator 가 정본**. `-at` 품질등가 핵심 리스크, `-at` smoke 로 해소. |
+| Agent Teams(`TeamCreate`/`Task*`/`SendMessage` 등) | **`codex exec` worker orchestrator**(bridge 외부) | orchestrator 가 N workers spawn(각 workdir/thread)→completion thread relay. 주의: app-server 가 model-visible spawn tool 보장 안 함 → **외부 orchestrator 가 정본**. `-at` 품질등가 핵심 리스크, `-at` smoke 로 해소. |
 | `mcp__obsidian__*` | **Obsidian CLI wrapper** | 최소셋 `search/read/create/append/backlinks/tags/properties` + vault-root·상대경로 normalization 계약. 도구 무관 = 양 런타임 공통 경로. |
 | `WebFetch`·browser fetch | Codex **`web.run`** | fetch/read 직접 등가. |
 | `mcp__notion__*`(Notion export) | **KM core 품질등가 범위 밖** | KM core 산출=vault write(Obsidian CLI). Notion 미러는 *보조 export* — Codex 등가 없으면 **optional-degraded** 명시(independent review LOW: 스킬 `references/codex-adapter.md` + ThisCode SETUP.md 에 "Codex 에서 Notion write 불가, `export_notion:false`" 명문), KM core 품질등가를 막지 않음. |
