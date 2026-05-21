@@ -1,6 +1,6 @@
 ---
 name: test
-description: Run ThisCodex feature smoke tests through the /test dispatcher. Use when the user asks to test memory, tmux, GraphRAG, meetings, rules, hooks, or installer behavior.
+description: Use when running ThisCodex feature smoke tests through the /test dispatcher for memory, tmux, GraphRAG, meetings, rules, hooks, or installer behavior.
 ---
 
 # /test
