@@ -288,9 +288,27 @@ class CodexRPC:
             tid = res.get("threadId") or (res.get("thread") or {}).get("id")
         if not tid:
             raise RuntimeError(f"thread/start did not return id: {res}")
+        await self.materialize_thread_for_tui(tid)
         THREAD_ID_PATH.write_text(tid)
         print(f"[CODEX-RPC] started new thread {tid} (sandbox={SANDBOX})")
         return tid
+
+    async def materialize_thread_for_tui(self, thread_id: str) -> None:
+        """Force local rollout creation so `codex resume --remote` can attach immediately."""
+        marker = {
+            "type": "message",
+            "role": "assistant",
+            "content": [{
+                "type": "output_text",
+                "text": "[bridge:init] rollout materialized for local TUI attach. No action required.",
+            }],
+            "phase": None,
+        }
+        await self.call("thread/inject_items", {
+            "threadId": thread_id,
+            "items": [marker],
+        })
+        print(f"[CODEX-RPC] materialized thread rollout for TUI attach {thread_id}")
 
     async def send_turn(self, thread_id: str, text: str) -> dict:
         res = await self.call("turn/start", {

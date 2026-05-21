@@ -84,7 +84,7 @@ test('A1: SKILL.md instructs guided init, question relay, and forbids placement-
 });
 
 // A8 (spec §6 test 10): plugin path honestly labeled incomplete on codex 0.130,
-// never presented before the init / loose-skill entry. 손석희 raw verify 2026-05-18.
+// never presented before the init / loose-skill entry. code-review-bot raw verify 2026-05-18.
 test('A8: SKILL.md plugin mention carries the incomplete / future-packaging caveat', () => {
   assert.match(
     skill,

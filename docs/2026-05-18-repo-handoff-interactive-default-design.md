@@ -96,7 +96,7 @@ Code-grounded (read `bin/thiscodex.mjs`, `install/thiscodex.install.json`,
   command in README / README.ko / SKILL.md must be the **interactive guided** one
   (`thiscodex init` → guided); `--non-interactive` / `--yes` / `--answers` appear
   only under an explicit "CI / automation opt-out" subsection, never as step 1.
-- **A8 (verified, codex-cli 0.130 — 손석희 raw, 2026-05-18): the plugin-install
+- **A8 (verified, codex-cli 0.130 — code-review-bot raw, 2026-05-18): the plugin-install
   path is non-functional on Codex; it MUST NOT be an entry step.** Raw findings:
   no `codex plugin install` subcommand (only `marketplace add/upgrade/remove`);
   `codex plugin marketplace add treylom/ThisCodex` fails with
@@ -117,7 +117,7 @@ Code-grounded (read `bin/thiscodex.mjs`, `install/thiscodex.install.json`,
   *5 plugins · 23 skills · 8 agents · 4 hooks* end-to-end. So the honest label
   for ThisCode flips to "plugin-marketplace path verified working; git clone +
   wizard is an equally supported alternative". Codex/ThisCodex side stays
-  broken (above, 손석희) — different harness. GUI `/plugins` auto-recognition
+  broken (above, code-review-bot) — different harness. GUI `/plugins` auto-recognition
   still unverified from CLI → separate GUI check before any GUI-first guidance.
 
 ## 4. Design (Approach 1, both repos)
@@ -306,7 +306,7 @@ proposed; the irreversible/info-poor item (ⓐ master merge) stayed flagged.
 
 Maintainer answered the brainstorming fork in one batch (asleep, "질문 한 번에"):
 **Q1=B** generalize tool-agnostic · **Q2** semantic-token slot schema as the
-1급 first section · **Q3=B** 코난 OCRs the source carousel for the author's exact
+1급 first section · **Q3=B** research-bot OCRs the source carousel for the author's exact
 naming rules (delegated async, non-blocking) · **Q4** non-breaking. Plus:
 "/search vault for awesome-design.md etc. → elevate to a comprehensive frontend
 skill", and "gpt-5.5 (Codex) judgment on all this work".
@@ -323,7 +323,7 @@ corpus discovered via `/search` + direct find: [[바이브코딩-디자인시스
 ecosystem), [[Impeccable-AI-Frontend-Design-Skill-2026-04]] (7-foundation /
 anti-patterns), [[2026-05-18-dddesign.io-design.md-시멘틱토큰]] (the slot
 insight). Vault repo skill committed (`83014c68`); §0 naming rules later
-refined with 코난's OCR result (Q3 closed — author's dot-notation
+refined with research-bot's OCR result (Q3 closed — author's dot-notation
 `category.role` form + design-token-vs-semantic-token rule + base-system
 adoption procedure; source was main-6 + follow-up-4, not 4).
 
