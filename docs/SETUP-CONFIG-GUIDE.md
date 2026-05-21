@@ -27,6 +27,12 @@ You do three things: (1) put one job sheet, (2) pick a personality template, (3)
 
 ![Onboarding decision path — designate workspace → make superpowers available → scan → /prompt draft → /using-superpowers interview, with the Obsidian-less branch](../assets/onboarding-decision-path.png)
 
+Start by giving the installing AI this prompt:
+
+```text
+Configure my Codex bot from this ThisCodex repo. Read docs/SETUP-CONFIG-GUIDE.md first, designate the workspace, make the bundled `/prompt` skill available, scan only the needed files, draft AGENTS.md and soul.md through `/prompt`, then verify the files and explain the result in plain language.
+```
+
 The non-developer path. The installing AI runs it **once**, and the output is
 a finished `AGENTS.md` + `soul.md` per bot — produced by the bundled `/prompt`
 skill and a short `/using-superpowers` interview, not hand-written. §1-§6

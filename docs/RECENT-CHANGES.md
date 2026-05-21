@@ -33,6 +33,18 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-05-21 — README-first AI install prompt
+
+README and setup docs now start with a copy-paste prompt for Claude Code or
+Codex. The prompt tells the installing AI to read the repo docs first, run
+guided `thiscodex init`, ask before credentials or system-package changes, and
+finish with `thiscodex doctor` or the documented verification commands.
+
+Why it matters: a new user can paste one clear instruction into an AI assistant
+instead of guessing which script to run first. The guided onboarding rule still
+holds: placement is not onboarding, and "copied = installed" is not a valid
+completion report.
+
 ## 2026-05-21 — Fresh thread rollout materialization
 
 Codex 0.132+ can return a fresh `thread/start` id before the rollout JSONL
