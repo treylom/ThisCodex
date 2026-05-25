@@ -10,8 +10,8 @@ test('package exposes thiscodex Node bin', () => {
   assert.match(pkg.engines.node, />=18/);
 });
 
-test('package ships installer, skills, rules, docs, plugin, scripts', () => {
-  for (const entry of ['bin/', 'scripts/', 'skills/', 'rules/', 'docs/', '.codex-plugin/', 'examples/']) {
+test('package ships installer, hooks, skills, rules, docs, plugin, scripts', () => {
+  for (const entry of ['bin/', 'scripts/', 'hooks/', 'skills/', 'rules/', 'docs/', '.codex-plugin/', 'examples/']) {
     assert.ok(pkg.files.includes(entry), `${entry} missing from files[]`);
   }
 });

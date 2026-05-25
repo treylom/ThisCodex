@@ -33,6 +33,32 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-05-26 — soft→hard hard hooks ported to ThisCodex
+
+ThisCodex now ships the Codex-side soft→hard enforcement hooks under
+`hooks/`:
+
+- Stop gates: `reply-gate.sh`, `completion-gate.sh`,
+  `dispatch-verify.sh`, `kst-timestamp.sh`.
+- PreToolUse gates: `automation-no-interactive.sh`,
+  `verify-before-push.sh`.
+- Shared library and liveness utility: `hooks/lib/hookkit.sh` and
+  `meeting-liveness.py`.
+
+The Stop hooks emit only `{"decision":"block","reason":"..."}`. The
+PreToolUse hooks emit Codex-compatible JSON deny output with
+`hookSpecificOutput.permissionDecision="deny"` and `exit 0`; the legacy
+exit-2 behavior is not used for newly shipped hooks. Runtime-specific values
+such as completion thread, owner user ID, orchestrator bot name, and watchdog
+state directory are supplied by environment variables rather than hardcoded in
+the public repo.
+
+Before enabling in a live bot, run `node --test tests/init/hard-hooks.test.mjs`
+and `bash hooks/tests/run-hook-tests.sh`, then wire the hooks into
+`~/.codex/hooks.json` and approve them through `/hooks`.
+
+---
+
 ## 2026-05-21 — README-first AI install prompt
 
 README and setup docs now start with a copy-paste prompt for Claude Code or

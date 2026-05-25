@@ -245,7 +245,7 @@ sandbox**. The reference bridge ships in this repo:
 - GitHub: `gh auth login` (or a PAT in the environment) before launch so codex `exec` can push/PR.
 - Superpowers / skills: codex reads `AGENTS.md`; point it at your skills directory and the migration rules (§5) so skill invocations resolve.
 
-### 3.6 Codex hooks (SessionStart + meeting Stop) — wire **and trust**
+### 3.6 Codex hooks — wire **and trust**
 
 The shipped hook helpers only take effect once they are both **wired** into
 `~/.codex/hooks.json` and **trusted** by Codex:
@@ -262,6 +262,21 @@ The shipped hook helpers only take effect once they are both **wired** into
   emits the only valid Stop primitive `{"decision":"block","reason":...}` (the
   Stop event has **no** `hookSpecificOutput` variant), guarded single-shot by
   `stop_hook_active`; every other case allows stop (empty stdout + `exit 0`).
+- **Stop soft→hard gates** → `hooks/reply-gate.sh`,
+  `hooks/completion-gate.sh`, `hooks/dispatch-verify.sh`, and
+  `hooks/kst-timestamp.sh`: these add one-turn reminders for missing Discord
+  replies, completion reports, dispatch execution checks, and KST timestamp
+  drift. They use the same Stop primitive as above:
+  `{"decision":"block","reason":"..."}`.
+- **PreToolUse soft→hard gates** → `hooks/automation-no-interactive.sh` and
+  `hooks/verify-before-push.sh`: these deny risky tool calls with
+  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",...}}`
+  and `exit 0`. This JSON deny shape is covered by the shipped tests for the
+  Codex 0.130+ hook contract. `verify-before-push.sh` defaults to observe mode
+  unless `A1_ENFORCE=1` or `hooks/.a1-enforce` is present.
+- **Meeting liveness** → `hooks/meeting-liveness.py`: a standalone dry-run by
+  default that detects active meeting participants whose `02-progress.md` row
+  is stale and, when explicitly run with `--send`, posts a per-bot nudge.
 
 **Trust is not optional on Codex.** A wired Codex hook does **not** run until
 it is approved through the Codex `/hooks` flow, which writes a `trusted_hash`
@@ -270,7 +285,16 @@ Stop `trusted_hash`, the meeting reread is silently inactive even though
 `hooks.json` is correct. After wiring, run `/hooks` in the Codex TUI, approve
 the Stop (and SessionStart) hook, then verify a `trusted_hash` entry for the
 Stop hook exists in `~/.codex/config.toml`. Claude Code / ThisCode has no
-equivalent trust step — this caveat is Codex-specific.
+equivalent trust step — this caveat is Codex-specific. For automation-only
+verification, `codex --dangerously-bypass-hook-trust` can exercise hooks without
+persisting trust, but normal operators should use `/hooks`.
+
+Run the isolated hook tests before enabling these in a live bot:
+
+```bash
+node --test tests/init/hard-hooks.test.mjs
+bash hooks/tests/run-hook-tests.sh
+```
 
 ---
 

@@ -22,6 +22,7 @@
     "bin/",
     "install/",
     "scripts/",
+    "hooks/",
     "skills/",
     "agents/",
     "rules/",

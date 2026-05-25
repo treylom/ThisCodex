@@ -59,7 +59,7 @@ Progressive disclosure: the router is tiny and always present, so the agent alwa
 
 The bot's `AGENTS.md` (project-doc auto-loaded, see [skill-portability.md](skill-portability.md) §3) carries **only** the INDEX pointer. The `rules/` dir lives in the bot WD (or a repo-tier path that travels with the persona). The same on-demand discipline applies: the bridge injects dynamic per-turn state; static rules stay in `rules/` and are pulled by trigger — never re-injected per turn (mirrors the P1.5 trim lesson).
 
-### Meeting protocol hooks
+### Meeting protocol hooks and soft→hard gates
 
 ThisCodex also ships optional hook helpers for active meetings:
 
@@ -72,6 +72,18 @@ ThisCodex also ships optional hook helpers for active meetings:
   primitive — the Stop event has no hookSpecificOutput variant) only for bot
   sessions with an active meeting file and a non-recursive Stop event. All
   other cases allow stop silently (empty stdout + exit 0).
+- `hooks/lib/hookkit.sh` is the shared fail-open helper library for the
+  soft→hard gates.
+- `hooks/reply-gate.sh`, `hooks/completion-gate.sh`,
+  `hooks/dispatch-verify.sh`, and `hooks/kst-timestamp.sh` are Stop gates.
+  They use `decision:block` to inject one more turn when the transcript shows
+  a likely rule violation.
+- `hooks/automation-no-interactive.sh` and `hooks/verify-before-push.sh` are
+  PreToolUse gates. They deny with
+  `hookSpecificOutput.permissionDecision="deny"` and `exit 0`, matching the
+  Codex 0.130+ contract covered by the test suite.
+- `hooks/meeting-liveness.py` is a standalone KST liveness checker for active
+  meeting participants. It is dry-run by default and sends only with `--send`.
 
 The helpers intentionally avoid maintainer-local vault paths and Discord thread
 IDs. A distribution can install them into its own hook runner, but the shipped

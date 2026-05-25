@@ -169,9 +169,19 @@ const FEATURES = [
   },
   {
     id: 'hooks',
-    aliases: ['hooks', 'session hook', 'stop hook', 'bot session'],
+    aliases: ['hooks', 'session hook', 'stop hook', 'hard hooks', 'bot session'],
     run() {
-      return bashSyntax(['hooks/bot-session-init.sh', 'hooks/meeting-stop-reread.sh']);
+      return bashSyntax([
+        'hooks/bot-session-init.sh',
+        'hooks/meeting-stop-reread.sh',
+        'hooks/reply-gate.sh',
+        'hooks/completion-gate.sh',
+        'hooks/dispatch-verify.sh',
+        'hooks/kst-timestamp.sh',
+        'hooks/automation-no-interactive.sh',
+        'hooks/verify-before-push.sh',
+        'hooks/tests/run-hook-tests.sh',
+      ]);
     },
   },
   {
