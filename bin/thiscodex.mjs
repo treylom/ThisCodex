@@ -128,7 +128,11 @@ if (missingDecision) {
   console.log('Next command: thiscodex init --apply --answers <answers.json>');
   process.exit(2);
 }
-const flowMode = command === 'doctor' && !hasConfirmedInstallState(state) ? 'check' : mode;
+// doctor/smoke on a fresh (un-installed) machine run as 'check': confirmed-path steps stay
+// non-fatal so the flow proves its own integrity end-to-end. rollout-materialized only verifies
+// when there IS a codex thread (impossible pre-install), so check-mode loses no real coverage;
+// an installed machine keeps the strict 'smoke'/'doctor' mode.
+const flowMode = (command === 'doctor' || command === 'smoke') && !hasConfirmedInstallState(state) ? 'check' : mode;
 
 if (has('--resume')) {
   console.log(resumeSummary(state));
@@ -153,7 +157,15 @@ const handlers = {
       const key = step.verify?.state_key || step.id;
       if (ctx.tty === false || ctx.nonInteractive) {
         const prompt = promptForStep(step, state);
-        if (!key.startsWith('confirmed_')) state.answers[key] ??= prompt.defaultValue || 'check_only';
+        if (!key.startsWith('confirmed_')) {
+          // non-interactive (doctor/smoke): an answer-one-of prompt needs a valid choice;
+          // 'check_only' fails its verify (e.g. install_surface ∈ {placement,guided}).
+          // Fall back to the first declared choice so point checks can proceed.
+          const enumFallback = step.verify?.type === 'answer-one-of'
+            ? String(step.verify.choices || '').split(',')[0].trim()
+            : 'check_only';
+          state.answers[key] ??= prompt.defaultValue || enumFallback;
+        }
         return;
       }
       const readline = await import('node:readline/promises');
