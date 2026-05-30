@@ -10,7 +10,7 @@
 
 stdlib only. 시각 = KST. 02-progress 의 '[HH:MM KST] <bot> | ...' 라인 파싱.
 """
-import argparse, json, os, re, time, urllib.request, urllib.error
+import argparse, json, os, re, sys, time, urllib.request, urllib.error
 from datetime import datetime, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))
@@ -125,6 +125,14 @@ def discord_push(thread_id, text, mention_ids):
 
 
 def main(argv=None):
+    # Windows 기본 stdout/stderr 는 cp1252 — '→'·한글 print 시 UnicodeEncodeError(exit 1).
+    # utf-8 로 강제 reconfigure (POSIX 는 이미 utf-8, 무해).
+    for _s in (sys.stdout, sys.stderr):
+        if hasattr(_s, "reconfigure"):
+            try:
+                _s.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
     ap = argparse.ArgumentParser(description="회의 per-bot liveness 강제 push (B1)")
     ap.add_argument("--progress", required=True, help="02-progress.md 경로")
     ap.add_argument("--thread-id", required=True)
