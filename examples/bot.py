@@ -76,6 +76,19 @@ ENV_PATH = Path.home() / ".claude" / "channels" / f"discord-{BOT_NAME}" / ".env"
 DEDUP_PATH = WD / "dedup.json"
 BOT_INFO_PATH = WD / "bot-info.json"
 THREAD_ID_PATH = WD / ".codex-thread-id"
+_THISCODEX_ROOT = Path(__file__).resolve().parents[1]
+for _scripts_dir in (
+    Path(os.environ.get("THISCODEX_ROOT", _THISCODEX_ROOT)) / "scripts",
+    Path.home() / "obsidian-ai-vault/.claude/scripts",
+):
+    if _scripts_dir.exists():
+        sys.path.insert(0, str(_scripts_dir))
+
+try:
+    import memory_s5
+except Exception as e:
+    memory_s5 = None
+    print(f"[WARN] memory_s5 import failed: {e}")
 
 CODEX_WS = os.environ.get("CODEX_WS", "ws://127.0.0.1:4222")
 TURN_TIMEOUT_SEC = int(os.environ.get("CODEX_TURN_TIMEOUT", "300"))
@@ -803,6 +816,14 @@ async def on_message(msg: discord.Message):
         f'</channel>\n'
         f'→ reply to the message above.'
     )
+    if memory_s5 is not None:
+        try:
+            reminder = memory_s5.bridge_reminder_text(clean)
+            if reminder:
+                print(f"[MEMORY-S5] trigger msg={msg.id} query={memory_s5.score_prompt(clean).get('query', '')[:80]}")
+                event = f"{reminder}\n\n{event}"
+        except Exception as e:
+            print(f"[WARN] memory_s5 bridge injection failed: {type(e).__name__}: {e}")
     # Static reply rule lives in AGENTS.md (project-doc auto-loaded), NOT
     # re-injected per turn. Per-turn payload = the dynamic <channel> block +
     # one "→ reply" line only (no persona/SOUL re-announcement noise).
