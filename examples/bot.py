@@ -323,6 +323,38 @@ class CodexRPC:
         })
         print(f"[CODEX-RPC] materialized thread rollout for TUI attach {thread_id}")
 
+    async def _try_reconcile_turn(self, thread_id: str, turn_id: str, fut: asyncio.Future) -> None:
+        """Best-effort poll for a turn that outlived the client soft timeout.
+
+        The normal path is `turn/completed` notification. Polling is only a
+        backup: if this app-server version lacks `thread/read` shape support,
+        the preserved future still lets a late notification reconcile the turn.
+        """
+        if fut.done():
+            return
+        try:
+            res = await self.call("thread/read", {"threadId": thread_id})
+        except Exception as e:
+            print(f"[CODEX-RPC] turn reconcile poll skipped: {type(e).__name__}: {e}")
+            return
+        payload = res.get("result", res) if isinstance(res, dict) else {}
+        thread = payload.get("thread", payload) if isinstance(payload, dict) else {}
+        turns = []
+        if isinstance(thread, dict):
+            turns = thread.get("turns") or thread.get("items") or []
+        if isinstance(payload, dict) and not turns:
+            turns = payload.get("turns") or []
+        for turn in (turns if isinstance(turns, list) else []):
+            if not isinstance(turn, dict) or turn.get("id") != turn_id:
+                continue
+            status = turn.get("status")
+            if status and status not in ("inProgress", "running"):
+                self.turn_done.pop(turn_id, None)
+                if not fut.done():
+                    fut.set_result(turn)
+                print(f"[CODEX-RPC] reconciled late turn via thread/read: {turn_id} status={status}")
+            return
+
     async def send_turn(self, thread_id: str, text: str) -> dict:
         res = await self.call("turn/start", {
             "threadId": thread_id,
@@ -336,15 +368,29 @@ class CodexRPC:
             return turn
         fut = asyncio.get_running_loop().create_future()
         self.turn_done[turn_id] = fut
-        try:
-            # A turn carrying a question must outlive the human wait PLUS
-            # post-answer processing, else a user who answers in time still
-            # gets a false `turn timed out` (independent-review BLOCKER).
-            return await asyncio.wait_for(fut, timeout=EFFECTIVE_TURN_TIMEOUT_SEC)
-        except asyncio.TimeoutError:
-            self.turn_done.pop(turn_id, None)
-            print(f"[CODEX-RPC] turn timeout: {turn_id}")
-            return {"status": "timeout", "turnId": turn_id}
+        started = time.monotonic()
+        soft_reported = False
+        while True:
+            elapsed = time.monotonic() - started
+            if TURN_HARD_TIMEOUT_SEC > 0 and elapsed >= TURN_HARD_TIMEOUT_SEC:
+                self.turn_done.pop(turn_id, None)
+                print(f"[CODEX-RPC] turn hard timeout: {turn_id}")
+                return {"status": "hard_timeout", "turnId": turn_id}
+            wait_for = EFFECTIVE_TURN_TIMEOUT_SEC if not soft_reported else TURN_RECONCILE_INTERVAL_SEC
+            if TURN_HARD_TIMEOUT_SEC > 0:
+                wait_for = min(wait_for, max(1, int(TURN_HARD_TIMEOUT_SEC - elapsed)))
+            try:
+                # Shield is critical: wait_for timeout must not cancel the
+                # future, because a late turn/completed notification is still
+                # the canonical reconciliation path.
+                return await asyncio.wait_for(asyncio.shield(fut), timeout=wait_for)
+            except asyncio.TimeoutError:
+                if not soft_reported:
+                    soft_reported = True
+                    print(f"[CODEX-RPC] turn exceeded soft timeout; preserving future for late completion: {turn_id}")
+                await self._try_reconcile_turn(thread_id, turn_id, fut)
+                if fut.done():
+                    return fut.result()
 
     # ── AskUserQuestion shim (tool-equivalence-contract.md §AskUserQuestion) ──
     async def _handle_request_user_input(self, msg: dict) -> None:
@@ -495,6 +541,11 @@ QUESTION_TIMEOUT_SEC = int(os.environ.get("THISCODEX_QUESTION_TIMEOUT", "300"))
 QA_POST_ANSWER_BUFFER_SEC = int(os.environ.get("THISCODEX_QA_POST_ANSWER_BUFFER", "180"))
 EFFECTIVE_TURN_TIMEOUT_SEC = max(TURN_TIMEOUT_SEC,
                                  QUESTION_TIMEOUT_SEC + QA_POST_ANSWER_BUFFER_SEC)
+# Soft timeout no longer means "failed": it is the first reconciliation beat.
+# The bridge keeps the active future so late `turn/completed` events still
+# close the original Discord request and naturally backpressure later turns.
+TURN_RECONCILE_INTERVAL_SEC = int(os.environ.get("THISCODEX_TURN_RECONCILE_SEC", "30"))
+TURN_HARD_TIMEOUT_SEC = int(os.environ.get("THISCODEX_TURN_HARD_TIMEOUT", "0"))
 # Question/reminder/timeout prompts are skill-supplied text echoed to Discord.
 # Treat them as data — never let an embedded @everyone/@user become a real
 # ping (independent-review P1). All shim sends pass this.
@@ -849,8 +900,8 @@ async def worker():
             print(f"[WORKER-SEND] turn/start to thread {thread_id} ...")
             result = await codex.send_turn(thread_id, event)
             print(f"[TURN-DONE] result keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}")
-            if isinstance(result, dict) and result.get("status") == "timeout":
-                blocked_reason = f"turn timed out after {EFFECTIVE_TURN_TIMEOUT_SEC}s with no result"
+            if isinstance(result, dict) and result.get("status") == "hard_timeout":
+                blocked_reason = f"turn hard-timed out after {TURN_HARD_TIMEOUT_SEC}s with no result"
         except Exception as e:
             blocked_reason = f"turn dispatch error: {type(e).__name__}"
             print(f"[ERROR] turn dispatch: {type(e).__name__}: {e}")

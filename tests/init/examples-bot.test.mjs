@@ -18,3 +18,11 @@ test('reference bridge materializes via thread/inject_items marker', () => {
   assert.match(text, /thread\/inject_items/);
   assert.match(text, /rollout materialized for local TUI attach/);
 });
+
+test('reference bridge preserves active turn after soft timeout for late completion', () => {
+  assert.match(text, /asyncio\.shield\(fut\)/);
+  assert.match(text, /turn exceeded soft timeout; preserving future for late completion/);
+  assert.match(text, /TURN_RECONCILE_INTERVAL_SEC/);
+  assert.match(text, /TURN_HARD_TIMEOUT_SEC/);
+  assert.doesNotMatch(text, /except asyncio\.TimeoutError:\n\s+self\.turn_done\.pop\(turn_id, None\)\n\s+print\(f"\[CODEX-RPC\] turn timeout/);
+});
