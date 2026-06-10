@@ -79,7 +79,8 @@ THREAD_ID_PATH = WD / ".codex-thread-id"
 _THISCODEX_ROOT = Path(__file__).resolve().parents[1]
 for _scripts_dir in (
     Path(os.environ.get("THISCODEX_ROOT", _THISCODEX_ROOT)) / "scripts",
-    Path.home() / "obsidian-ai-vault/.claude/scripts",
+    # VAULT_ROOT = your Obsidian vault path (default kept for the reference deployment)
+    Path(os.environ.get("VAULT_ROOT", str(Path.home() / "obsidian-ai-vault"))) / ".claude/scripts",
 ):
     if _scripts_dir.exists():
         sys.path.insert(0, str(_scripts_dir))
@@ -244,10 +245,48 @@ class CodexRPC:
                 elif method.startswith("item/agentMessage"):
                     # stream notification — log only
                     pass
+            # async-for ended without an exception = server closed the WS
+            # gracefully (ConnectionClosedOK is swallowed by the iterator).
+            # Still a dead bridge — same fail-fast restart path.
+            self._ws_fatal("server closed connection (graceful)")
         except websockets.ConnectionClosed as e:
             print(f"[CODEX-RPC] connection closed: {e}")
+            self._ws_fatal(f"connection closed: {e}")
         except Exception as e:
             print(f"[CODEX-RPC] reader error: {type(e).__name__}: {e}")
+            self._ws_fatal(f"reader error: {type(e).__name__}: {e}")
+
+    def _ws_fatal(self, reason: str) -> None:
+        """App-server WS is gone — exit fast so the supervised launcher restarts us.
+
+        Without this, the bridge becomes a zombie: the reader is dead, every
+        subsequent turn fails with ConnectionClosed, Discord messages pile up,
+        and nothing restarts because the process itself never exits. The
+        supervised loop in scripts/launch.sh (window 0 `while true; do
+        $LAUNCH_CMD ...`) restarts the infra pair (app-server + bridge) within
+        ~5s of our exit; thread continuity survives via .codex-thread-id +
+        thread/resume. Exit code 17 marks a deliberate WS-loss restart."""
+        print(f"[CODEX-RPC][FATAL] app-server websocket lost ({reason}) — "
+              f"exiting so the supervised launcher restarts the bridge (exit 17)",
+              flush=True)
+
+        async def _notify_and_exit() -> None:
+            chan = _active_origin.get("channel")
+            if chan is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(
+                        chan.send("⚠️ codex app-server connection lost — bridge is "
+                                  "restarting (supervised). If no reply lands in ~1 min, "
+                                  "resend your last message.",
+                                  allowed_mentions=_NO_MENTIONS),
+                        timeout=5,
+                    )
+            os._exit(17)
+
+        try:
+            asyncio.get_running_loop().create_task(_notify_and_exit())
+        except RuntimeError:
+            os._exit(17)
 
     async def call(self, method: str, params: dict | None = None) -> dict:
         async with self._lock:

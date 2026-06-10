@@ -36,7 +36,22 @@ cd ~/.agents/thiscodex
 git pull
 ```
 
-## 3. Run The Guided Setup
+## 3. Create A Discord Bot (one-time, in your browser)
+
+The bridge (`examples/bot.py`) logs into Discord with a bot token. Create one:
+
+1. Open https://discord.com/developers/applications → "New Application" → pick a name.
+2. Left "Bot" tab → "Reset Token" → copy the token (you will paste it during setup).
+3. **Same "Bot" tab, scroll to "Privileged Gateway Intents" → turn ON "Message
+   Content Intent" → Save.** Without this the bridge **crashes at startup**
+   (`PrivilegedIntentsRequired`) — the token being valid is not enough.
+4. OAuth2 → URL Generator → Scopes: `bot` → Permissions: Send Messages, Read
+   Message History, Add Reactions, Attach Files → open the generated URL and
+   invite the bot to your server.
+
+Keep the token secret: never paste it into Discord messages, git, or screenshots.
+
+## 4. Run The Guided Setup
 
 ```bash
 npx github:treylom/ThisCodex init
@@ -45,7 +60,7 @@ npx github:treylom/ThisCodex init
 The setup asks questions one by one. If you do not know an answer, ask the AI
 assistant to explain the default in plain words before continuing.
 
-## 4. Verify
+## 5. Verify
 
 ```bash
 node bin/thiscodex.mjs --check

@@ -36,6 +36,7 @@ See `references/` for detailed procedures only when the matched prompt task asks
 | Worked examples (Claude / GPT / image) | [`references/examples/`](references/examples/) |
 | Build a GPTs instruction | [`references/instructions/GPTs-Prompt-Generator.md`](references/instructions/GPTs-Prompt-Generator.md) |
 | Build a Gems instruction | [`references/instructions/Gems-Prompt-Generator.md`](references/instructions/Gems-Prompt-Generator.md) |
+| Build bot meta files (soul.md / CLAUDE.md / AGENTS.md) | [`references/instructions/Bot-Persona-Generator.md`](references/instructions/Bot-Persona-Generator.md) |
 
 Procedure:
 
@@ -55,6 +56,7 @@ This is a single-invocation skill — call `/prompt` with your task description 
 | Review a prompt for robustness | `/prompt review: <your prompt>` — checks completeness, phrasing, and edge cases. |
 | Build GPT system instructions | `/prompt gpt: <goal/behavior>` — generates structured GPT instructions using the GPT-Prompt-Generator framework. |
 | Build Gem system instructions | `/prompt gem: <goal/behavior>` — generates structured Gem instructions using the Gems-Prompt-Generator framework. |
+| Build bot persona/meta files | `/prompt bot-persona: <role> <scope> <discord>` — generates soul.md + CLAUDE.md/AGENTS.md using the Bot-Persona-Generator framework (used by guided onboarding). |
 | Image generation prompting | `/prompt image: <subject/scene>` — applies the 5-stage image-generation framework (subject, style, composition, quality, mood). |
 | Fact-check or research prompting | `/prompt research: <topic/claim>` — wraps the IFCN base template for verifiable claims and source-grounded research. |
 | Study the framework | Load `references/prompt-engineering-guide.md` — deep techniques, mental models, and worked examples. |

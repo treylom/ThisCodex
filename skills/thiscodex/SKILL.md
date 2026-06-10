@@ -86,6 +86,14 @@ tmux respawn-window -k -t <session>:codex -c <BOT_WD> \
 
 When you invoke `/thiscodex`, the skill routes by intent. Common subcommands:
 
+> **Implementation note**: only `init`, `doctor`, and `smoke` are real CLI
+> commands (`npx github:treylom/ThisCodex <cmd>` / `bin/thiscodex.mjs`). The
+> other rows (`port-skills`, `multi-agent`, `run`, `logs`, `features`,
+> `troubleshoot`) are **AI-guided intents** — the assistant reading this skill
+> performs them by following the linked reference docs (e.g. `run` =
+> `scripts/launch.sh` per docs/bot-launch-pattern.md). They are not standalone
+> shell executables; `thiscodex run` typed directly in a terminal will fail by design.
+
 | When to use | Call |
 |---|---|
 | Start guided setup | `/thiscodex init` — launches interactive onboarding for repo, workspace, BOT_WD, Discord MCP, Codex hooks, tmux aliases. **Start here** for a fresh Codex bot. |

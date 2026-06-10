@@ -33,6 +33,32 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-06-10 — Bridge fail-fast on app-server loss + portability fixes
+
+- **bot.py now exits (code 17) the moment the codex app-server websocket
+  dies** — including graceful server-side closes. Before, the bridge became a
+  zombie: the reader died silently, every later turn failed with
+  ConnectionClosed, and nothing restarted because the process never exited.
+  With the supervised launcher (`scripts/launch.sh` window 0) the infra pair
+  now self-heals in ~5s; thread continuity survives via `.codex-thread-id` +
+  `thread/resume`. If a turn was active, the bridge posts a short "restarting,
+  resend if needed" notice to that turn's Discord channel first.
+- **Vault paths are parameterized**: `VAULT_ROOT` env is honored by
+  `examples/bot.py` (memory script discovery), `scripts/memory_s5.py`,
+  `scripts/memory_dreaming.py` (also `MEMORY_SHARED_ROOT`), and the
+  `memory-s5-*` hooks. Defaults keep the reference deployment working.
+- **SKILL.md subcommand table clarified**: only `init` / `doctor` / `smoke`
+  are real CLI commands; `run`, `logs`, `features`, `troubleshoot`,
+  `port-skills`, `multi-agent` are AI-guided intents executed by the
+  assistant following the linked docs.
+- **SETUP-BEGINNER.md** now includes the Discord bot creation step —
+  including the **Message Content Intent** toggle, without which the bridge
+  crashes at startup (`PrivilegedIntentsRequired`).
+- **Generalized personal defaults**: `ORCHESTRATOR_BOT` default is now
+  `orchestrator` (set it to your orchestrator bot's name);
+  `HK_AUTOMATION_BOTS` replaces a hardcoded automation bot name; `/prompt`
+  gained the `Bot-Persona-Generator.md` route for soul.md / AGENTS.md.
+
 ## 2026-05-26 — soft→hard hard hooks ported to ThisCodex
 
 ThisCodex now ships the Codex-side soft→hard enforcement hooks under
