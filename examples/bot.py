@@ -403,6 +403,10 @@ class CodexRPC:
         turn = res if isinstance(res, dict) else {}
         turn_id = turn.get("turnId") or (turn.get("turn") or {}).get("id")
         print(f"[CODEX-RPC] extracted turn_id = {turn_id}")
+        if turn_id:
+            # crash-recovery marker: record the live turn id so a mid-turn
+            # bridge restart can reconcile this exact turn via thread/read.
+            _inflight_update({"turn_id": turn_id})
         if not turn_id:
             return turn
         fut = asyncio.get_running_loop().create_future()
@@ -596,6 +600,112 @@ _NO_MENTIONS = discord.AllowedMentions.none()
 # reach (independent-review P1). Overridable via env for ops.
 AUDIT_PATH = Path(os.environ.get("THISCODEX_QA_AUDIT_FILE",
                                  str(ENV_PATH.parent / ".thiscodex-qa-audit.jsonl")))
+# Mid-turn crash recovery marker: while a turn is in flight, its origin and
+# turn id live here so a bridge restart (exit-17 WS-loss restart or a hard
+# crash) can reconcile the orphaned turn via thread/read instead of dropping
+# the originating Discord request silently. thread/resume restores codex-side
+# context, but the bridge-side future dies with the process — this marker is
+# the only record that a reply was still owed. Lives in the operator-
+# controlled bridge state dir (same tamper-isolation principle as AUDIT_PATH).
+INFLIGHT_PATH = Path(os.environ.get("THISCODEX_INFLIGHT_FILE",
+                                    str(ENV_PATH.parent / ".thiscodex-inflight-turn.json")))
+
+
+def _inflight_write(data: dict) -> None:
+    try:
+        INFLIGHT_PATH.write_text(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        print(f"[INFLIGHT] write failed (fail-open): {type(e).__name__}: {e}")
+
+
+def _inflight_update(extra: dict) -> None:
+    try:
+        cur = json.loads(INFLIGHT_PATH.read_text())
+    except Exception:
+        cur = {}
+    cur.update(extra)
+    _inflight_write(cur)
+
+
+def _inflight_clear() -> None:
+    try:
+        INFLIGHT_PATH.unlink(missing_ok=True)
+    except Exception as e:
+        print(f"[INFLIGHT] clear failed: {type(e).__name__}: {e}")
+
+
+async def _recover_inflight() -> None:
+    """Reconcile a turn orphaned by a mid-turn bridge restart.
+
+    Best-effort and fail-open. Marker is consumed up front so recovery can
+    never loop a restart cycle. Outcomes: turn finished → recovered reply to
+    origin; otherwise → explicit loss notice to origin (never a silent drop).
+    """
+    try:
+        raw = INFLIGHT_PATH.read_text()
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f"[INFLIGHT] read failed: {type(e).__name__}: {e}")
+        return
+    _inflight_clear()
+    try:
+        mark = json.loads(raw)
+    except Exception:
+        print("[INFLIGHT] marker unparsable — dropped")
+        return
+    chat_id = mark.get("chat_id")
+    t_id = mark.get("thread_id")
+    turn_id = mark.get("turn_id")
+    age_min = int((time.time() - float(mark.get("ts") or time.time())) // 60)
+    channel = None
+    if chat_id:
+        channel = client.get_channel(int(chat_id))
+        if channel is None:
+            try:
+                channel = await client.fetch_channel(int(chat_id))
+            except Exception as e:
+                print(f"[INFLIGHT] origin channel fetch failed: {type(e).__name__}: {e}")
+    status, text = "unknown", None
+    if t_id and turn_id:
+        try:
+            res = await codex.call("thread/read", {"threadId": t_id})
+            payload = res.get("result", res) if isinstance(res, dict) else {}
+            thread = payload.get("thread", payload) if isinstance(payload, dict) else {}
+            turns = (thread.get("turns") or thread.get("items") or []) if isinstance(thread, dict) else []
+            if isinstance(payload, dict) and not turns:
+                turns = payload.get("turns") or []
+            for turn in (turns if isinstance(turns, list) else []):
+                if isinstance(turn, dict) and turn.get("id") == turn_id:
+                    status = turn.get("status") or "unknown"
+                    # Shape-defensive (same caveat as _try_reconcile_turn):
+                    # find the last agent-authored text item, if any.
+                    for item in reversed(turn.get("items") or []):
+                        if isinstance(item, dict) and item.get("type") in (
+                                "agentMessage", "agent_message", "assistantMessage"):
+                            text = item.get("text") or item.get("content")
+                            break
+                    break
+        except Exception as e:
+            print(f"[INFLIGHT] thread/read reconcile failed: {type(e).__name__}: {e}")
+    print(f"[INFLIGHT] recovered marker: turn={turn_id} status={status} "
+          f"age={age_min}m text={'yes' if text else 'no'}")
+    if channel is None:
+        return
+    try:
+        if text and status not in ("inProgress", "running"):
+            await channel.send("🔁 bridge restarted mid-turn; the codex turn had already "
+                               f"finished — recovered reply:\n{str(text)[:1800]}",
+                               allowed_mentions=_NO_MENTIONS)
+        else:
+            await channel.send(f"⚠️ bridge restarted mid-turn ({age_min}m ago) and the in-flight "
+                               f"turn could not be recovered (status={status}). "
+                               "Please re-send the request.",
+                               allowed_mentions=_NO_MENTIONS)
+    except Exception as e:
+        print(f"[INFLIGHT] origin notify failed: {type(e).__name__}: {e}")
+
+
 _pending_q: dict[str, asyncio.Future] = {}      # question_id → future(answers map)
 _q_meta: dict[str, dict] = {}                   # question_id → {origin_*, specs[], acc{}, ...}
 # origin of the turn currently being processed (worker sets this); the shim
@@ -791,6 +901,9 @@ async def on_ready():
 
     thread_id = await codex.ensure_thread()
     print(f"[READY] codex thread = {thread_id}")
+    # Reconcile a turn orphaned by a mid-turn restart BEFORE the worker can
+    # start new turns (keeps the single-turn-per-thread invariant).
+    await _recover_inflight()
     asyncio.create_task(worker())
 
 
@@ -937,6 +1050,12 @@ async def worker():
             if thread_id is None:
                 thread_id = await codex.ensure_thread()
             print(f"[WORKER-SEND] turn/start to thread {thread_id} ...")
+            # crash-recovery marker (turn_id filled in by send_turn): if the
+            # bridge dies before the finally below, _recover_inflight() on the
+            # next boot reconciles this turn instead of dropping it silently.
+            _inflight_write({"chat_id": o_chat, "user_id": o_user,
+                             "thread_id": thread_id, "ts": time.time(),
+                             "preview": event[:200]})
             result = await codex.send_turn(thread_id, event)
             print(f"[TURN-DONE] result keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}")
             if isinstance(result, dict) and result.get("status") == "hard_timeout":
@@ -959,6 +1078,10 @@ async def worker():
                                        allowed_mentions=_NO_MENTIONS)
                 except Exception as e:
                     print(f"[BLOCKED-REPORT] send failed: {type(e).__name__}: {e}")
+            # turn over (normal return, timeout, or dispatch error — all
+            # in-process outcomes) → the reply obligation was handled above,
+            # so the crash-recovery marker must not survive into next boot.
+            _inflight_clear()
             # turn over → invalidate origin so a late message can't match a
             # stale question against the wrong turn.
             _active_origin.update({"channel": None, "chat_id": None, "user_id": None})

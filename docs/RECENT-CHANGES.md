@@ -43,6 +43,16 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
   now self-heals in ~5s; thread continuity survives via `.codex-thread-id` +
   `thread/resume`. If a turn was active, the bridge posts a short "restarting,
   resend if needed" notice to that turn's Discord channel first.
+- **Mid-turn crash recovery (in-flight turn reconcile)**: while a turn runs,
+  the bridge persists `{origin chat, thread, turn_id}` to
+  `.thiscodex-inflight-turn.json` (operator state dir, env
+  `THISCODEX_INFLIGHT_FILE`) and clears it when the turn settles in-process.
+  On the next boot, if the marker survived (exit-17 restart or hard crash
+  mid-turn), the bridge calls `thread/read`: if the codex turn actually
+  finished, the recovered agent reply is posted to the originating Discord
+  channel; otherwise an explicit "turn lost, please re-send" notice goes out.
+  Either way the originating request is never a silent drop. Marker is
+  consumed up front, so recovery can never loop a crash cycle (fail-open).
 - **Vault paths are parameterized**: `VAULT_ROOT` env is honored by
   `examples/bot.py` (memory script discovery), `scripts/memory_s5.py`,
   `scripts/memory_dreaming.py` (also `MEMORY_SHARED_ROOT`), and the

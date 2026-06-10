@@ -95,6 +95,17 @@ other is code that cannot):
 > model-layer rule reframes *blocked* as a reportable state; the bridge layer
 > guarantees a signal even if that rule is missed.
 
+### Mid-turn crash recovery (same silent-gap contract, restart edition)
+
+A bridge restart mid-turn (exit-17 WS-loss restart, or a hard crash) must not
+silently drop the request that was in flight. `examples/bot.py` persists an
+in-flight marker (`.thiscodex-inflight-turn.json`, operator state dir, env
+`THISCODEX_INFLIGHT_FILE`) for the duration of every turn. On boot, a
+surviving marker triggers `thread/read` reconciliation: a turn that finished
+server-side gets its recovered reply posted to the origin channel; anything
+else gets an explicit "turn lost, please re-send" notice. The marker is
+consumed before reconciliation starts, so a crashing recovery can never loop.
+
 ## Wiring it (deployed)
 
 ```bash
