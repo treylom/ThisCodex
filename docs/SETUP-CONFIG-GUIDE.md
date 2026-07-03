@@ -87,7 +87,17 @@ Verify the skill resolves with `/skills` (or a description-match invoke).
 3. **Run the `/using-superpowers` advancement interview.** The AI invokes
    `/using-superpowers`, which routes to the brainstorming skill to interview
    you and refine the drafts — **one decision at a time**, not a wall of
-   questions: this bot's role/scope (owns vs. delegates) · persona & voice
+   questions. **The interview starts with the *user*, not the bot** — if
+   `~/.claude/USER-PROFILE.md` does not exist yet, run the 6 anchor questions
+   first (what you spend your weeks on · walk one workflow end-to-end · the
+   most recent genuinely annoying blocker · what repeats that a machine should
+   do · where material piles up and how you re-find it · the one thing this
+   system should give you in 3 months), each with 1–2 adaptive follow-ups
+   (why? in what situation? one concrete recent example?) — free-form
+   conversation, not option clicks. Write the answers to
+   `~/.claude/USER-PROFILE.md` (`schema_version: user-profile-v1`: roles /
+   workflows / pain_points / automation_wishes / info_flow / north_star), then
+   derive the bot decisions from it: this bot's role/scope (owns vs. delegates) · persona & voice
    (template, signature, forced self-check lines) · model id (a real Codex
    `gpt-5.x` id your CLI exposes — not invented) · Discord surface
    (channel/thread, mention id, meeting-thread governance) · vault scope
