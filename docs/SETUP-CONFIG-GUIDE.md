@@ -497,7 +497,16 @@ A. Do only the three steps in "In one minute" first. Skip §1-§6 detail until s
    generic topical 스텁)을 봇 WD 로 복사 — `AGENTS.md` 는 `rules/INDEX.md`
    만 가리킴(§3), 스텁은 다음 단계에서 채움(inline ❌).
 3. **`/using-superpowers` 고도화 인터뷰** — 호출 → brainstorming 라우팅 →
-   **한 번에 한 결정씩**(질문 폭탄 ❌): 역할/범위(직접 vs 위임) ·
+   **한 번에 한 결정씩**(질문 폭탄 ❌). **인터뷰는 봇이 아니라 *사용자*에서
+   시작** — `~/.claude/USER-PROFILE.md` 가 아직 없으면 **6앵커(anchor,
+   기준점) 질문 먼저**(한 주를 주로 무엇에 쓰나 · 워크플로우 하나를
+   처음→끝까지 · 최근 진짜 성가셨던 막힘 · 반복돼서 기계가 해야 할 일 ·
+   자료가 쌓이는 곳과 다시 찾는 법 · 3개월 뒤 이 시스템이 줘야 할 한 가지),
+   각 질문에 적응형 후속 1~2개(왜? 어떤 상황에? 최근 실례 하나?) — 보기
+   클릭이 아닌 자유 대화. 답은 `~/.claude/USER-PROFILE.md`
+   (`schema_version: user-profile-v1`: roles / workflows / pain_points /
+   automation_wishes / info_flow / north_star)에 기록하고, **거기서 봇
+   결정을 유도**: 역할/범위(직접 vs 위임) ·
    페르소나·말투(템플릿·서명·자가점검 줄) · 모델 id(CLI 가 실제 노출하는
    Codex `gpt-5.x` id, 지어냄 ❌) · Discord 표면(채널/스레드·mention id·회의
    스레드 거버넌스) · 볼트 범위(옵시디언 유/무). 답을 초안 반영 후 메타를
