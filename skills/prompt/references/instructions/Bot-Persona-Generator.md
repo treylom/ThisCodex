@@ -17,9 +17,14 @@
 1. **입력 수집 (부족하면 한 번에 하나씩 질문)**
    - **USER-PROFILE 선독**: `~/.claude/USER-PROFILE.md` 가 있으면 먼저 Read —
      roles/pain_points 에서 역할·템플릿을 *유도해 제안*하고, soul.md 말미에
-     `## 사용자 컨텍스트` 절("이 봇의 사용자는 <roles> 업무를 하며 <pain_points>
-     가 페인포인트다 — 응답·제안은 이 맥락 위에서")을 자동 삽입한다.
+     `## 사용자 컨텍스트` 절(응답 톤 보정용 요약 — 보조층)을 삽입한다.
      없으면 온보딩 인터뷰(SETUP-CONFIG-GUIDE §0 step 3 앵커 6종)로 먼저 생성.
+     **프로필의 본 정착지는 구조다**: `north_star` → AGENTS.md/meta 최상단 목표
+     1줄 · `roles`+`automation_wishes` → `## 사용자 업무 컨텍스트` 절 ·
+     `workflows` → WD 폴더 스캐폴드 제안(답변의 실제 단계·산출물 이름, 범용
+     템플릿 ❌) · `pain_points` → `rules/` topical stub 채움(페인포인트 1개 =
+     INDEX 트리거 행 1 + rule stub 1) + 반복 실수형이면 hook 후보 1줄 제안
+     (강제 설치 ❌).
    - 역할/도메인: 이 봇이 *소유*하는 일 vs *위임*하는 일
    - 페르소나: 이름·말투·시그니처 라인 (예: 보고 끝 `— <Bot Name>`)
    - 모델 id: 사용자의 하네스가 실제 노출하는 id 만 (지어내기 금지)
