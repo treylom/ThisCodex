@@ -25,7 +25,9 @@ HAS_VERIFY=unknown
 if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] && command -v python3 >/dev/null 2>&1; then
   HAS_VERIFY="$(TR="$TRANSCRIPT" python3 2>/dev/null <<'PY'
 import json, os, re
-VERIFY = re.compile(r"\b(test|pytest|vitest|jest|tsc|build|lint|py_compile|cargo|go test|npm|run-hook-tests|playwright)\b|git\s+diff|\bdiff\b")
+# \bverify\S*\.(py|sh|mjs|js) matches verify_state.py / verify-*.sh style verification scripts
+# (upstream vault fix 2026-07-07: real verification runs were not recognized).
+VERIFY = re.compile(r"\b(test|pytest|vitest|jest|tsc|build|lint|py_compile|cargo|go test|npm|run-hook-tests|playwright)\b|git\s+diff|\bdiff\b|\bverify\S*\.(py|sh|mjs|js)\b")
 PUSH = re.compile(r"(^|[;&| ])git\s+(push|commit)|gh\s+pr\s+(create|merge)")
 path = os.environ["TR"]
 try:
