@@ -65,3 +65,15 @@ start a fresh remote-only session as a workaround.
 The important decision is not "manual versus automatic" in isolation. The rule
 is: automatic restart is acceptable only after the bridge has a verified
 same-thread attach path and failures remain observable.
+
+## New-bot persona bootstrapping (prompt-engineering pass)
+
+When you stand up a NEW bot (writing its soul/persona file and workspace
+docs for the first time), run a prompt-engineering pass before pasting raw
+answers into templates: if a `/prompt`-style skill is installed, use its
+batch mode to generate the persona/system prompt (role, vocabulary,
+signature, working context) from your interview answers, then inject that
+output into the templates. Without the skill, plain AI generation works —
+installing one is recommended because agent-purpose detection applies
+expert priming and structure automatically. This mirrors ThisCode's
+create-bot Step 4.5, so bots born on either harness get the same treatment.
