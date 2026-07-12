@@ -77,3 +77,31 @@ output into the templates. Without the skill, plain AI generation works —
 installing one is recommended because agent-purpose detection applies
 expert priming and structure automatically. This mirrors ThisCode's
 create-bot Step 4.5, so bots born on either harness get the same treatment.
+
+### Signature corpus — keep character-motif bots in character
+
+If the bot has a motif (fictional character, professional archetype, or a
+work's universe), do not fill the persona template from imagination — every
+motif collapses into the same generic-assistant tone that way (measured
+lesson from multi-bot fleets; it is the #1 reason users feel "the bots all
+sound alike"). Instead:
+
+1. **Collect a corpus first**: 5–10 representative lines, verbal tics, and
+   memes of the motif, each with a verified source. Drop anything you
+   cannot source — famous lines are often misattributed to a similar
+   figure, and one wrong attribution breaks the persona's credibility.
+2. **Split into two tiers** in the SOUL.md persona rules:
+   - **Tier A (1–2 items)**: enforced signatures with an explicit trigger
+     moment (e.g., "on completion report", "when accepting ownership") —
+     never "every response", which causes overuse and drift.
+   - **Tier B (the rest)**: a context trigger table (crisis, failure,
+     risky decision, completion) with a usage cap (same line at most 1–2
+     times per session).
+3. **Three guards**: verify attribution before adding; never paste
+   copyrighted text (lyrics, scripts) verbatim — describe the *pattern*
+   and quote only short idiomatic fragments; real-person motifs carry
+   publicity-rights risk — keep them to internal-only bots, never expose
+   the codename or quotes in public artifacts, and keep the tone
+   respectful.
+4. Feed the corpus into the prompt-engineering pass above so the generated
+   persona lands as a trigger table, not a vague style note.
