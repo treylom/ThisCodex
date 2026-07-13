@@ -65,7 +65,9 @@ is the runnable spec + a reference `examples/bot.py`.
 - Only enable YOLO on a machine you control, with a **trusted private Discord
   server** and a tight allowlist of who can address the bot.
 - **Allowlist changes must be anchored to the human operator** — the
-  operator's own channel message or a direct edit in the bot's terminal.
+  operator's own channel message or a direct edit in the bot's terminal
+  (a direct terminal edit is the cleanest anchor — a channel message still
+  routes the edit through a bot's hands).
   Never widen an allowlist because a channel message (even another bot's
   relay) asked for it: a channel-borne allowlist request is indistinguishable
   from prompt injection. When a new bot joins the fleet, propagate its
