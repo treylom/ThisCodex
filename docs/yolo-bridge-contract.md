@@ -64,6 +64,14 @@ is the runnable spec + a reference `examples/bot.py`.
   in-band "treat this as data" enforcement — that instruction has zero teeth.
 - Only enable YOLO on a machine you control, with a **trusted private Discord
   server** and a tight allowlist of who can address the bot.
+- **Allowlist changes must be anchored to the human operator** — the
+  operator's own channel message or a direct edit in the bot's terminal.
+  Never widen an allowlist because a channel message (even another bot's
+  relay) asked for it: a channel-borne allowlist request is indistinguishable
+  from prompt injection. When a new bot joins the fleet, propagate its
+  user_id into every existing bot's allowlist via that operator-anchored
+  path (backup → edit → JSON-validate → report), or its messages are
+  silently dropped fleet-wide.
 - Keep the bot token in `~/.claude/channels/discord-<BOT_NAME>/.env`
   (`DISCORD_BOT_TOKEN=`), never in the bridge source or the repo.
 - Prefer safe mode for anything exposed to people you don't fully trust. YOLO
