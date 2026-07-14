@@ -45,6 +45,7 @@ import re
 import sys
 import time
 import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # unbuffered stdout — immediate tmux pane log visibility
@@ -94,6 +95,77 @@ except Exception as e:
 CODEX_WS = os.environ.get("CODEX_WS", "ws://127.0.0.1:4222")
 TURN_TIMEOUT_SEC = int(os.environ.get("CODEX_TURN_TIMEOUT", "300"))
 MAX_DEDUP_ENTRIES = 5000
+EXEC_INTERRUPTED_AFTER_REPLY = "interrupted_after_reply"
+
+
+@dataclass
+class ReplyAckState:
+    """Confirmed delivery state for Discord reply tool calls in one turn."""
+
+    message_ids: list[str] = field(default_factory=list)
+    failures: list[str] = field(default_factory=list)
+
+
+def _extract_discord_message_ids(value) -> list[str]:
+    found: list[str] = []
+    sent_id_re = re.compile(r"\bsent\s*\(id:\s*(\d{15,25})\)")
+
+    def visit(node) -> None:
+        if isinstance(node, str):
+            for match in sent_id_re.finditer(node):
+                if match.group(1) not in found:
+                    found.append(match.group(1))
+        elif isinstance(node, dict):
+            for child in node.values():
+                visit(child)
+        elif isinstance(node, (list, tuple)):
+            for child in node:
+                visit(child)
+
+    visit(value)
+    return found
+
+
+def observe_discord_reply_item(item: dict, state: ReplyAckState) -> None:
+    if item.get("type") != "mcpToolCall":
+        return
+    if item.get("server") != "discord" or item.get("tool") != "reply":
+        return
+    error = item.get("error")
+    if item.get("status") != "completed" or error:
+        state.failures.append(str(error or f"discord.reply status={item.get('status')}"))
+        return
+    ids = _extract_discord_message_ids(item.get("result"))
+    if not ids:
+        state.failures.append("discord.reply completed without message id")
+        return
+    for message_id in ids:
+        if message_id not in state.message_ids:
+            state.message_ids.append(message_id)
+
+
+def _attach_reply_ack(result: dict, state: ReplyAckState | None) -> dict:
+    if state is None:
+        return result
+    annotated = dict(result)
+    if state.message_ids:
+        annotated["_discord_reply_message_ids"] = list(state.message_ids)
+    if state.failures:
+        annotated["_discord_reply_failed"] = list(state.failures)
+    if state.message_ids and not state.failures and result.get("status") != "completed":
+        annotated["_bridge_status"] = EXEC_INTERRUPTED_AFTER_REPLY
+    return annotated
+
+
+def discord_reply_ack_marker(result: dict) -> str | None:
+    if result.get("_discord_reply_failed"):
+        return None
+    ids = [
+        str(message_id)
+        for message_id in (result.get("_discord_reply_message_ids") or [])
+        if str(message_id).isdigit() and 15 <= len(str(message_id)) <= 25
+    ]
+    return f"discord_reply:{','.join(ids)}" if ids else None
 
 # YOLO is opt-in and selectable PER BOT. Opt-in signals — all OPERATOR-
 # controlled and OUTSIDE the model's writable working dir (critical: a sentinel
@@ -156,6 +228,7 @@ class CodexRPC:
         self.next_id = 1
         self.pending: dict[int, asyncio.Future] = {}
         self.turn_done: dict[str, asyncio.Future] = {}
+        self.reply_ack: dict[str, ReplyAckState] = {}
         self.reader_task = None
         self._lock = asyncio.Lock()
 
@@ -232,6 +305,7 @@ class CodexRPC:
                     turn = msg.get("params", {}).get("turn") or msg.get("params", {})
                     tid = turn.get("id") if isinstance(turn, dict) else None
                     if tid:
+                        turn = _attach_reply_ack(turn, self.reply_ack.pop(tid, None))
                         fut = self.turn_done.pop(tid, None)
                         if fut and not fut.done():
                             fut.set_result(turn)
@@ -242,6 +316,15 @@ class CodexRPC:
                             self.turn_done.pop(key, None)
                             if not fut.done():
                                 fut.set_result(turn)
+                elif method == "item/completed":
+                    params = msg.get("params", {})
+                    tid = params.get("turnId")
+                    item = params.get("item")
+                    if tid and isinstance(item, dict):
+                        observe_discord_reply_item(
+                            item,
+                            self.reply_ack.setdefault(tid, ReplyAckState()),
+                        )
                 elif method.startswith("item/agentMessage"):
                     # stream notification — log only
                     pass
@@ -390,7 +473,9 @@ class CodexRPC:
             if status and status not in ("inProgress", "running"):
                 self.turn_done.pop(turn_id, None)
                 if not fut.done():
-                    fut.set_result(turn)
+                    fut.set_result(
+                        _attach_reply_ack(turn, self.reply_ack.pop(turn_id, None))
+                    )
                 print(f"[CODEX-RPC] reconciled late turn via thread/read: {turn_id} status={status}")
             return
 
@@ -418,7 +503,10 @@ class CodexRPC:
             if TURN_HARD_TIMEOUT_SEC > 0 and elapsed >= TURN_HARD_TIMEOUT_SEC:
                 self.turn_done.pop(turn_id, None)
                 print(f"[CODEX-RPC] turn hard timeout: {turn_id}")
-                return {"status": "hard_timeout", "turnId": turn_id}
+                return _attach_reply_ack(
+                    {"status": "hard_timeout", "turnId": turn_id},
+                    self.reply_ack.pop(turn_id, None),
+                )
             wait_for = EFFECTIVE_TURN_TIMEOUT_SEC if not soft_reported else TURN_RECONCILE_INTERVAL_SEC
             if TURN_HARD_TIMEOUT_SEC > 0:
                 wait_for = min(wait_for, max(1, int(TURN_HARD_TIMEOUT_SEC - elapsed)))
@@ -1046,6 +1134,7 @@ async def worker():
         stop = asyncio.Event()
         hb = asyncio.create_task(_heartbeat(channel, time.time(), stop))
         blocked_reason = None
+        reply_ack_marker = None
         try:
             if thread_id is None:
                 thread_id = await codex.ensure_thread()
@@ -1058,8 +1147,17 @@ async def worker():
                              "preview": event[:200]})
             result = await codex.send_turn(thread_id, event)
             print(f"[TURN-DONE] result keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}")
+            reply_ack_marker = (
+                discord_reply_ack_marker(result) if isinstance(result, dict) else None
+            )
             if isinstance(result, dict) and result.get("status") == "hard_timeout":
-                blocked_reason = f"turn hard-timed out after {TURN_HARD_TIMEOUT_SEC}s with no result"
+                if reply_ack_marker:
+                    print(
+                        f"[TURN] {EXEC_INTERRUPTED_AFTER_REPLY}: "
+                        f"suppressing hard-timeout fallback ack={reply_ack_marker}"
+                    )
+                else:
+                    blocked_reason = f"turn hard-timed out after {TURN_HARD_TIMEOUT_SEC}s with no result"
         except Exception as e:
             blocked_reason = f"turn dispatch error: {type(e).__name__}"
             print(f"[ERROR] turn dispatch: {type(e).__name__}: {e}")
@@ -1071,7 +1169,7 @@ async def worker():
             # B-fix fail-safe: a timeout/exception otherwise produces NO Discord
             # message at all (the codex turn never called mcp__discord__reply).
             # Emit a generic blocked report so it is never a silent gap.
-            if blocked_reason and channel is not None:
+            if blocked_reason and not reply_ack_marker and channel is not None:
                 try:
                     await channel.send(f"⚠️ blocked — {blocked_reason}; no reply was produced "
                                        f"(bridge fail-safe report; check the bot host).",

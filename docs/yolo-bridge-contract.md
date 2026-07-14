@@ -105,6 +105,16 @@ other is code that cannot):
 > model-layer rule reframes *blocked* as a reportable state; the bridge layer
 > guarantees a signal even if that rule is missed.
 
+### Reply acknowledgement beats the terminal status
+
+The bridge records a successful `discord.reply` tool result, including the
+Discord message ID, as delivery proof for that turn. If a hard deadline later
+interrupts the same turn, the bridge classifies it as
+`interrupted_after_reply` and does not emit the generic timeout fallback.
+Without this ordering rule, users receive a false “timed out before it could
+reply” message after the reply is already visible. A turn with no confirmed
+reply acknowledgement still follows the normal blocked/failure path.
+
 ### Mid-turn crash recovery (same silent-gap contract, restart edition)
 
 A bridge restart mid-turn (exit-17 WS-loss restart, or a hard crash) must not

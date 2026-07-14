@@ -26,3 +26,11 @@ test('reference bridge preserves active turn after soft timeout for late complet
   assert.match(text, /TURN_HARD_TIMEOUT_SEC/);
   assert.doesNotMatch(text, /except asyncio\.TimeoutError:\n\s+self\.turn_done\.pop\(turn_id, None\)\n\s+print\(f"\[CODEX-RPC\] turn timeout/);
 });
+
+test('reference bridge suppresses hard-timeout fallback after confirmed Discord reply', () => {
+  assert.match(text, /ReplyAckState/);
+  assert.match(text, /observe_discord_reply_item/);
+  assert.match(text, /discord_reply_ack_marker/);
+  assert.match(text, /interrupted_after_reply/);
+  assert.match(text, /if blocked_reason and not reply_ack_marker/);
+});
