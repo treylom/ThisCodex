@@ -4,6 +4,8 @@
 
 > **Claude Code + Codex CLI 멀티 에이전트 봇**을 **디스코드**로 운영하고, **옵시디언 볼트(Obsidian vault, 노트 저장소)**의 폴더·메모리 규칙과 연결하는 재현 가능한 세팅 모음.
 >
+> **역할 경계**: ThisCodex = Codex 쪽 봇 하네스 운영 번들. 범용 지식관리 제품은 [knowledge-manager](https://github.com/treylom/knowledge-manager), 플러그인 설치 창구는 [tofukyung-plugins](https://github.com/treylom/tofukyung-plugins)가 정본입니다.
+>
 > 🇺🇸 [English README](./README.md) · 📘 [Setup](docs/SETUP.md) · 🌱 [초보자 설치](docs/SETUP-BEGINNER.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 📖 [시작 안내서 (한국어 PDF, 초보자, 14p)](docs/getting-started/ThisCode-ThisCodex-getting-started.pdf) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
 
 ## AI에게 설치 맡기기

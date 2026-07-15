@@ -4,6 +4,8 @@
 
 > A reproducible setup for running **Claude Code + Codex CLI multi-agent bots** over **Discord**, wired into an **Obsidian vault** with shared folder/memory rules.
 >
+> **Role boundary**: ThisCodex is the Codex-side bot-harness operations bundle. The general-purpose knowledge product is [knowledge-manager](https://github.com/treylom/knowledge-manager); plugin installs go through [tofukyung-plugins](https://github.com/treylom/tofukyung-plugins).
+>
 > 🇰🇷 [한국어 README](./README.ko.md) · 📘 [Setup](docs/SETUP.md) · 🌱 [Beginner setup](docs/SETUP-BEGINNER.md) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · 📖 [Getting started guide (English PDF, beginner, 14p)](docs/getting-started/ThisCode-ThisCodex-getting-started.en.pdf) · This repo = the **Codex side** + cross-runtime conventions.
 
 ## Install With Your AI Assistant
