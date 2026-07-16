@@ -126,6 +126,27 @@ server-side gets its recovered reply posted to the origin channel; anything
 else gets an explicit "turn lost, please re-send" notice. The marker is
 consumed before reconciliation starts, so a crashing recovery can never loop.
 
+### Controlled-restart contract (deploys and upgrades, not crashes)
+
+Restarting a live bridge *on purpose* (deploy, version bump, config change)
+has its own failure mode, measured in production (2026-07-16): the reload
+itself succeeds, but work that was **acknowledged and in progress** at
+restart time is closed as `failed / turn_interrupted` and never resumed —
+the bot then sits idle until the next unrelated inbound, which reads as
+hours of silence. A conforming controlled restart therefore does all four:
+
+1. **Active-turn fence** — check for an in-flight turn before restarting;
+   prefer waiting for the turn boundary. If you must interrupt, record it.
+2. **Stopper record** — persist who/what initiated the restart, when, and
+   the signal used, *before* the process goes down (a restart with no
+   stopper record is indistinguishable from a crash in the post-mortem).
+3. **Readiness probe** — after boot, verify the bridge actually accepts
+   traffic before declaring the restart done.
+4. **Durable replay of acked-incomplete work** — any request that was
+   acknowledged but not completed must be re-queued as a fresh turn (or
+   explicitly reported as dropped to its origin channel). Ack without
+   replay is the silent-gap bug in §Progress-heartbeat, restart edition.
+
 ## Wiring it (deployed)
 
 ```bash
