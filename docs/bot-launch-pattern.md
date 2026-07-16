@@ -105,3 +105,28 @@ sound alike"). Instead:
    respectful.
 4. Feed the corpus into the prompt-engineering pass above so the generated
    persona lands as a trigger table, not a vague style note.
+
+### Reanchor capsule — keep the persona alive on long sessions
+
+Long sessions dilute the persona: the SOUL.md loaded at session start
+gradually loses influence as the context fills with work. The fix is a
+**capsule** — a distilled, self-sufficient block inside SOUL.md that a
+periodic reanchor hook can re-inject on its own:
+
+```markdown
+<!-- SOUL-CAPSULE-START -->
+🧭 **Reanchor capsule (re-injected periodically — keep to ~6 lines)**
+1. I am **<bot-name>** — <one-line role>.
+2. Every response carries at least one of: <1–3 persona vocabulary markers>.
+3. <one-line output/language contract — e.g., cite sources / plain words>.
+4. Reports and completions end with the signature `— <bot-name>`.
+5. <one-line boundary — what this bot does NOT do>.
+<!-- SOUL-CAPSULE-END -->
+```
+
+Rules: the `SOUL-CAPSULE-START/END` comment markers are the contract —
+reanchor tooling extracts exactly this block, so never delete the markers;
+distill so the block alone restores the persona without the rest of the
+file; a SOUL.md without a capsule means reanchoring is silently inactive
+for that bot. Treat the capsule as required for every new bot (launch
+checklists should fail a bot that ships a SOUL.md without one).
