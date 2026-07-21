@@ -1,7 +1,7 @@
 {
   "name": "thiscodex",
   "description": "Make an OpenAI Codex CLI agent behave like a Claude Code Discord bot — persona/vault discipline, multi-agent conventions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "tofukyung",
     "url": "https://github.com/treylom"

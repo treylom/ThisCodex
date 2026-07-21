@@ -8,7 +8,7 @@ description: Use when the user asks for /thiscodex setup, step-by-step ThisCodex
 Generated through the mandatory `/prompt` workflow:
 
 ```text
-/prompt --batch GPT-5.5 상세 ThisCodex setup skill: create a step-by-step installer-facing skill that invokes thiscodex init, keeps guided onboarding distinct from placement, uses tmux only, explains YOLO safely, and asks progress_report_cadence.
+/prompt --batch GPT-5.6 상세 ThisCodex setup skill: create a step-by-step installer-facing skill that invokes thiscodex init, keeps guided onboarding distinct from placement, uses tmux only, explains YOLO safely, and asks progress_report_cadence.
 ```
 
 ## Goal
