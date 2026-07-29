@@ -47,6 +47,16 @@ Trigger: any moment you respond/report/notify to an external channel
   (= effectively unsent). Self-check: if the send result reports "N parts",
   verify each part carries the mention; prefer compressing to one part. Ask
   other bots to do the same when their reports are truncated.
+- **Terminal ack = write "no reply needed" (or "답신 불필요")**: when a
+  bot-to-bot message is a pure closing acknowledgement — no new question, no
+  new task — say so explicitly in the body. Conforming bridge daemons detect
+  the marker and release their forced-reply directive (see
+  `docs/yolo-bridge-contract.md`, "No-reply marker"), which mechanically
+  breaks the "acknowledged"/"confirmed" mutual ack loop caused by delayed
+  queue delivery × an unconditional reply directive. Never attach the marker
+  to a message that carries a real request; the directive keeps an exception
+  for that case, but the sender-side discipline is what makes the loop-break
+  reliable.
 - **Conversation-target mention at start AND end of message**: in a meeting
   thread or shared channel, every outbound message must include **only the
   message's direct conversation target(s) — i.e., the recipient bot(s) you

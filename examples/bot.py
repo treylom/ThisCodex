@@ -1098,6 +1098,20 @@ async def on_message(msg: discord.Message):
     parent_info = ""
     if hasattr(msg.channel, "parent") and msg.channel.parent is not None:
         parent_info = f' parent_chat_id="{msg.channel.parent.id}"'
+    # No-reply marker (2026-07-29): a sender closing a bot-to-bot exchange can
+    # mark the message "답신 불필요" / "회신 불필요" / "no reply needed" to
+    # release the forced-reply directive. Without this, delayed queue delivery
+    # x an unconditional reply directive yields endless mutual ack loops
+    # ("acknowledged" ping-pong between two bridged bots).
+    no_reply_requested = bool(
+        re.search(r"답신\s*불필요|회신\s*불필요|no[- ]?reply needed", clean, re.I)
+    )
+    reply_directive = (
+        "→ the sender marked this as needing no reply — do not reply "
+        "(exception: it also contains a new question or task for you)."
+        if no_reply_requested
+        else "→ reply to the message above."
+    )
     event = (
         f'<channel source="discord" chat_id="{msg.channel.id}"'
         f'{parent_info} message_id="{msg.id}"'
@@ -1105,7 +1119,7 @@ async def on_message(msg: discord.Message):
         f' ts="{msg.created_at.isoformat()}">\n'
         f'{clean}\n'
         f'</channel>\n'
-        f'→ reply to the message above.'
+        f'{reply_directive}'
     )
     if memory_s5 is not None:
         try:

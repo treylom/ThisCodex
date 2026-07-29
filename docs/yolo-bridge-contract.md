@@ -115,6 +115,23 @@ Without this ordering rule, users receive a false “timed out before it could
 reply” message after the reply is already visible. A turn with no confirmed
 reply acknowledgement still follows the normal blocked/failure path.
 
+### No-reply marker (bot-to-bot ack-loop prevention)
+
+The bridge appends a reply directive (`→ reply to the message above.`) to
+every inbound `<channel>` event so the model never silently drops a message.
+Between two bridged bots this has a failure mode: a delayed delivery queue ×
+an unconditional reply directive turns closing acknowledgements into an
+endless "acknowledged" / "confirmed" ping-pong.
+
+A conforming bridge therefore detects an explicit no-reply marker in the
+message body — `답신 불필요`, `회신 불필요`, or `no reply needed` — and swaps
+the directive for a no-reply form ("the sender marked this as needing no
+reply — do not reply"), keeping one exception: if the message also carries a
+new question or task, the model may still answer it. Sender-side convention:
+mark pure closing acks with the phrase; never mark messages that contain a
+real request. (`examples/bot.py` implements the receiving (detection) side
+of this contract; the sender side is bot/model discipline, not code.)
+
 ### Mid-turn crash recovery (same silent-gap contract, restart edition)
 
 A bridge restart mid-turn (exit-17 WS-loss restart, or a hard crash) must not
@@ -240,3 +257,17 @@ YOLO bridge = 신뢰 불가 Discord 텍스트를 호스트 무제한 권한 모�
 > 근본 사건: 생성 작업이 산출은 끝냈으나 다음 단계(bridge writable-root 밖
 > repo 쓰기)가 막혀 봇이 "미완"으로 보고 ping 받기 전까지 침묵. 모델 계층은
 > *blocked* 를 보고 상태로 재정의, bridge 계층은 그 규율 누락돼도 신호 보장.
+
+### "답신 불필요" 마커 (봇간 ack 왕복 방지)
+
+bridge 는 모든 인바운드 `<channel>` 이벤트 끝에 reply 지시문을 붙여 메시지가
+조용히 버려지지 않게 한다. 그런데 bridge 봇 둘 사이에서는 이게 역효과가
+있다 — 배달 지연 큐 × 무조건 reply 강제가 종결 확인("확인했습니다")을 서로
+끝없이 주고받는 왕복으로 만든다.
+
+적합 bridge 는 본문에서 명시 마커(`답신 불필요` · `회신 불필요` ·
+`no reply needed`)를 검출하면 지시문을 no-reply 형("발신자가 답신 불필요를
+명시했다 — reply 하지 말 것")으로 교체한다. 예외 1개 유지: 메시지에 새
+질문·작업이 함께 담겼으면 답할 수 있다. 발신 측 규약: 순수 종결 ack 에만
+마커를 붙이고, 실질 요청이 담긴 메시지엔 붙이지 않는다. (`examples/bot.py`
+가 수신(검출) 측 계약을 구현한다 — 발신 측은 코드가 아니라 봇·모델 규율이다.)
