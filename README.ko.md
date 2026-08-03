@@ -6,7 +6,7 @@
 >
 > **역할 경계**: ThisCodex = Codex 쪽 봇 하네스 운영 번들. 범용 지식관리 제품은 [knowledge-manager](https://github.com/treylom/knowledge-manager), 플러그인 설치 창구는 [tofukyung-plugins](https://github.com/treylom/tofukyung-plugins)가 정본입니다.
 >
-> 🇺🇸 [English README](./README.md) · 📘 [Setup](docs/SETUP.md) · 🌱 [초보자 설치](docs/SETUP-BEGINNER.md) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 📖 [시작 안내서 (한국어 PDF, 초보자, 14p)](docs/getting-started/ThisCode-ThisCodex-getting-started.pdf) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
+> 🇺🇸 [English README](./README.md) · 📘 [Setup](docs/SETUP.md) · 🌱 [초보자 설치](docs/SETUP-BEGINNER.md) · ✅ [봇 건강검진 체크리스트](docs/bot-checkup-checklist.md) — 만든 봇이 적어둔 대로 움직이는지 7항 자가 점검(월 1회 권장) · 함께 쓰는 런타임: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code 쪽) · 📖 [시작 안내서 (한국어 PDF, 초보자, 14p)](docs/getting-started/ThisCode-ThisCodex-getting-started.pdf) · 본 레포 = **Codex 쪽** + 두 런타임 공통 규칙.
 
 ## AI에게 설치 맡기기
 
