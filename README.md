@@ -256,6 +256,9 @@ The shipped hook helpers only take effect once they are both **wired** into
   active-meeting state + the situational rules router `rules/INDEX.md`. This is
   how recent `rules/` changes auto-apply — a new session reads the current
   INDEX, not a frozen copy.
+- **UserPromptSubmit** → `hooks/rule-router.sh`: matches task-type keywords in
+  the prompt and force-surfaces the corresponding rule gates from
+  `rules/INDEX.md` (fail-open — silent when nothing matches).
 - **Stop** → `hooks/meeting-stop-reread.sh`: during an active meeting,
   asks the bot to re-read the meeting progress file before it ends a turn. The
   shipped hook is runtime-agnostic — it auto-detects a bot session from the

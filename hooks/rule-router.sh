@@ -10,11 +10,26 @@
 #
 # fail-open: no jq / empty prompt / no keyword match → emit nothing, exit 0. Never blocks.
 #
-# Register (~/.claude/settings.json) under UserPromptSubmit — see commands/install-hooks.md:
-#   {"type":"command","command":"bash ~/.claude/plugins/thiscode/hooks/rule-router.sh","timeout":3}
-command -v jq >/dev/null 2>&1 || exit 0
+# Register (~/.codex/hooks.json) under UserPromptSubmit, then trust via the Codex
+# /hooks flow — see README §3.6 / the setup skill (a wired-but-untrusted hook is
+# silently inactive):
+#   {"type":"command","command":"bash <bundle>/hooks/rule-router.sh","timeout":3}
 INPUT="$(cat 2>/dev/null || true)"
-P="$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)"
+# Extract .prompt: jq → python3 → python (jq is often absent on Windows). None available → fail-open.
+if command -v jq >/dev/null 2>&1; then
+  P="$(printf '%s' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)"
+else
+  _PY=""
+  for _c in python3 python; do
+    _p="$(command -v "$_c" 2>/dev/null || true)"
+    case "$_p" in ''|*WindowsApps*) continue;; esac
+    _PY="$_p"; break
+  done
+  [ -n "$_PY" ] || exit 0
+  P="$(printf '%s' "$INPUT" | "$_PY" -c 'import json,sys
+try: print(json.load(sys.stdin).get("prompt",""), end="")
+except Exception: pass' 2>/dev/null || true)"
+fi
 [ -n "$P" ] || exit 0
 
 m() { printf '%s' "$P" | grep -iqE "$1"; }

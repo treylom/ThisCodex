@@ -98,6 +98,30 @@ via the Codex `/hooks` flow (a `trusted_hash` must land in
 though `~/.codex/hooks.json` is correct. See README §3.6 and the setup skill
 for the trust step. Claude Code has no equivalent trust gate.
 
+### Hook scope caveat for dual-harness deployments (Claude-side trap)
+
+Codex wiring (`~/.codex/hooks.json`) is user-global by design, so every session
+gets the hooks regardless of working directory. But most deployments of this
+convention run the same personas under **Claude Code too**, and there the scope
+rules differ asymmetrically: Claude Code walks **up** for *instruction* files
+(`CLAUDE.md`, front-loaded rules) but **not** for *settings hooks*. A Claude
+session whose WD is a subdirectory with its own `.claude/settings.json` loads
+none of the parent project's hooks — silently, while the instruction layer
+keeps working and masks the gap. Measured in production (multi-bot vault,
+2026-08-04, n=6 subdirectory-WD bot sessions): hooks registered only in the
+project root had never fired in any of them (one such hook logged 2,064
+injections in root-WD sessions against 0; a second logged 287 against 0 across
+all six). Rule of thumb: mandatory Claude-side hooks go in
+`~/.claude/settings.json` (user-global), with a cwd guard wrapper scoping them
+to the workspace. Match the root with two patterns —
+`case "$CWD" in "$ROOT"|"$ROOT"/*)` — so a single prefix glob cannot match a
+sibling directory. Extract the cwd with `jq -r '.cwd // empty'`: a bare `.cwd`
+yields the *string* "null", which silently disarms the guard everywhere. See
+the ThisCode companion's `docs/rules-system.md` section "Hook scope: settings
+do NOT walk up" for the full shipped pattern, and verify a migration by a
+**natural firing inside a real subdirectory-WD session** — a direct wrapper
+smoke test cannot prove the settings-loading layer.
+
 ## Root-instruction unification (CLAUDE.md / AGENTS.md single source)
 
 When one deployment serves both Claude Code (auto-loads `CLAUDE.md`) and Codex-style agents (auto-load `AGENTS.md`), do not maintain two rule bodies:
