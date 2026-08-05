@@ -97,13 +97,15 @@ app.message(re.compile(".*", re.DOTALL))(agent_bridge_callback)
 3. 모르면 모른다고 말한다. 위험한 요청(삭제·결제)은 거절한다.
 ```
 
-**⚠️ codex 전역 설정 충돌 (같은 머신에 다른 codex 봇이 살 때)**: codex 는 `~/.codex/AGENTS.md`(전역)도 읽는다. 전역에 다른 페르소나가 있으면 로컬 파일과 경합해 **다른 봇 이름으로 답할 수 있다** (실측: 2회 재현). 해법 = 전용 `CODEX_HOME` 격리:
+**⚠️ codex 전역 설정 충돌 (같은 머신에 다른 codex 봇이 살 때)**: codex 는 `~/.codex/AGENTS.md`(전역)도 읽는다. 전역에 다른 페르소나가 있으면 로컬 파일과 경합해 **다른 봇 이름으로 답할 수 있다** (실측: 2회 재현). 해법 = 전용 `CODEX_HOME` 으로 **상태·세션·페르소나·hook 격리**:
 
 ```bash
 mkdir -p bot-home/.codex
 ln -s ~/.codex/auth.json bot-home/.codex/auth.json   # 인증만 승계
 cp bot-home/AGENTS.md bot-home/.codex/AGENTS.md       # 규칙은 봇 것만
 ```
+
+⚠️ **`auth.json` 은 심링크라 계정·자격증명은 이 격리 밖이다** — `bot-home/.codex/auth.json` 이 `~/.codex/auth.json` 을 그대로 가리키므로 상태·세션·페르소나·hook 은 봇 전용이어도 로그인 계정은 전역과 공유된다. 계정까지 분리하려면 심링크 대신 별도로 로그인한 `auth.json` 을 `bot-home/.codex/` 에 직접 두면 된다.
 
 깨끗한 머신(수강생 환경)에서는 전역 AGENTS.md 가 비어 있어 이 단계가 없어도 로컬이 그대로 이긴다.
 
@@ -161,6 +163,8 @@ else:
 **라이브 검증(2026-08-05)**: 한 스레드에서 "내 별명은 두부야" 전송 후 되묻기("내 별명이 뭐라고 했지?") → `[claude] 두부님이에요! — 토푸 🫘`. 같은 스레드에 `codex: 내 별명이 뭐라고 했지?` → `[codex] 두부라고 했어! — 토푸 🫘`. 두 엔진 모두 세션 기억 복원 + 페르소나 서명 유지를 확인했다.
 
 **세션 맵 크기(정직 표기)**: 오래 쓰면 `.sessions.json` 이 자란다(실습 규모 기준 수 KB 수준) — 지워도 안전하다. 지우면 스레드 기억만 리셋되고, 다음 메시지부터 그 스레드는 새 대화로 시작한다.
+
+**codex resume 동시성(정직 표기)**: `_CODEX_LOCK` 은 **신규 세션 생성 구간만** 직렬화한다 — 이미 세션이 있는 스레드의 `codex exec resume` 자체는 잠금이 없다. 같은 Slack 스레드에 메시지가 거의 동시에 여러 개 오면 같은 codex 세션이 겹쳐 실행될 수 있다. 강의에서 다루는 단일 왕복(사람이 한 번에 한 메시지)에서는 문제가 되지 않지만, 운영으로 확장하려면 스레드별 직렬 큐가 필요하다.
 
 진짜 라이브 TUI 상주 세션(우리 Discord 봇 방식)에 붙이려면 브리지 데몬 구조가 별도로 필요하다 — 이건 여전히 참이다.
 
@@ -247,6 +251,58 @@ if in_meeting or text.startswith(MEETING_TRIGGER):
 ```
 
 **라이브 검증(2026-08-05)**: 스레드에 `회의: <주제>` 로 개시 → 두 엔진이 각자 제안 발신하는 것을 확인 → 후속 메시지(접두사 없이)로 토론 유도 → 상호 참조 통합안 확인(claude = "타이머 딜 + 쿠폰 즉시 지급", codex = "7일 스탬프 패스" — 서로의 앞선 발언을 인용하며 좁혀짐) → `회의 종료` 전송 → `[claude] 📋 회의 요약: …` 발신 확인. **개시 → 토론 → 요약 전 구간 Slack 라이브 GREEN.**
+
+## hook 절 — SessionStart 공지 주입
+
+두 엔진 모두 세션 시작 시 훅으로 공지를 주입할 수 있다 — 스키마는 대칭이다.
+
+- **claude**: `bot-home/.claude/settings.json` 에 `SessionStart` 훅을 등록하고, `bot-home/.claude/hooks/notice.sh` 가 `additionalContext` JSON 을 표준출력으로 반환한다.
+- **codex**: `bot-home/.codex/hooks.json` 에 같은 이벤트를 같은 스키마로 등록한다.
+
+```json
+// bot-home/.claude/settings.json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash bot-home/.claude/hooks/notice.sh" } ] }
+    ]
+  }
+}
+```
+
+```bash
+# bot-home/.claude/hooks/notice.sh
+#!/usr/bin/env bash
+echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"공지: 오늘 회의는 15:00."}}'
+```
+
+```json
+// bot-home/.codex/hooks.json — claude 와 동일 스키마
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command", "command": "bash bot-home/.codex/hooks/notice.sh" } ] }
+    ]
+  }
+}
+```
+
+⚠️ **codex 는 미신뢰 hook 을 에러 없이 조용히 스킵한다(무징후)** — hook 이 등록돼 있어도 신뢰 승인이 없으면 아무 표시 없이 실행되지 않는다. 문서화된 우회는 `codex exec --dangerously-bypass-hook-trust` 이지만, 이 우회는 **격리 CODEX_HOME 안 자기소유 hook 한정**이다 — 전역 codex 나 타인 hook 에는 쓰지 않는다.
+
+⚠️ **hook 파일이 owner-writable 이면 변경 뒤 무검토 실행 여지가 남는다** — 완화: `chmod a-w bot-home/.codex/hooks.json bot-home/.claude/hooks/notice.sh`. 운영으로 확장할 때는 시작 시 SHA·owner·mode 검증도 필요하다.
+
+## 8단계 — B-split: 엔진별 별도 Slack 봇 (2026-08-05 라이브 실측 GREEN)
+
+7단계 회의 모드가 **한 봇 안에서** 접두사로 엔진을 나눴다면, 본 단계는 **엔진마다 별도 Slack 앱·봇**을 두는 확장이다 — 각 봇이 엔진 하나만 전담해 페르소나·서명이 완전히 갈린다.
+
+1. 두 번째 앱 생성: `slack create` 로 매니페스트 이름만 바꿔 신설(예: `tofu-codex`).
+2. `agent_bridge.py` 를 그대로 복제해 두 번째 앱에 배치.
+3. 환경변수 `AGENT_BRIDGE_ENGINE=claude|codex` 로 앱마다 엔진을 고정한다 — 미설정 시 3단계/6단계의 `codex:` 접두사 라우팅이 그대로 살아 있어 **하위호환**이다.
+4. `bot-home` 은 앱마다 별도로 둔다 — CLAUDE.md/AGENTS.md 의 페르소나·서명이 봇마다 갈린다.
+5. 봇간 무한루프 가드: 수신 메시지에 `bot_id` 가 실려 있으면(다른 봇의 발화) 응답하지 않는다.
+6. 실행: 터미널 2개를 열어 각 앱 폴더에서 각각 전경으로 `slack run`.
+
+**검증**: ① 정체성 왕복 — 각 봇에게 "너는 누구야?" → 각자 서명 확인. ② 회의 모드에서 봇 대 봇 상호 논평 — 한 스레드에서 각 봇이 자기 엔진으로 1회씩 응답해 서로의 발화를 참고하는지 확인.
 
 ## Discord 쪽 (반자동 — API 로 앱 생성 불가)
 
