@@ -114,6 +114,7 @@ slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode�
 1. Slack 에서 채널에 봇 초대: `/invite @<봇이름>` (⚠️ Bolt 기본 manifest 는 DM 탭 비활성 + `message.channels` 구독 = **채널 멤버여야 반응**)
 2. **왕복 검증(합격선)**: 채널에 질문 → `[claude] …` 스레드 답 확인 → `codex: 질문` → `[codex] …` 확인
 3. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
+4. **프로세스 수명(정직 표기)**: `slack run` 을 띄운 실행 터미널을 닫으면 봇이 멈춘다 — 에러가 아니라 프로세스가 그 터미널에 붙어 있기 때문이다. 복구는 같은 폴더에서 `slack run` 재실행뿐이고, 스레드 기억은 `bot-home/.sessions.json` 에 남아 있어 기존 스레드에서 그대로 이어진다.
 
 ## 6단계 — 스레드 연속 대화 (구현·실측 완료)
 
@@ -157,7 +158,93 @@ else:
 
 **라이브 검증(2026-08-05)**: 한 스레드에서 "내 별명은 두부야" 전송 후 되묻기("내 별명이 뭐라고 했지?") → `[claude] 두부님이에요! — 토푸 🫘`. 같은 스레드에 `codex: 내 별명이 뭐라고 했지?` → `[codex] 두부라고 했어! — 토푸 🫘`. 두 엔진 모두 세션 기억 복원 + 페르소나 서명 유지를 확인했다.
 
+**세션 맵 크기(정직 표기)**: 오래 쓰면 `.sessions.json` 이 자란다(실습 규모 기준 수 KB 수준) — 지워도 안전하다. 지우면 스레드 기억만 리셋되고, 다음 메시지부터 그 스레드는 새 대화로 시작한다.
+
 진짜 라이브 TUI 상주 세션(우리 Discord 봇 방식)에 붙이려면 브리지 데몬 구조가 별도로 필요하다 — 이건 여전히 참이다.
+
+## 7단계 — 회의 모드 (구현·라이브 실측 완료 2026-08-05)
+
+> 정본 코드 = `tofu-agent-bridge/listeners/messages/agent_bridge.py`. 이 실습 리포지토리는 git 저장소가 아니다 — **본 SKILL.md 가 이 코드의 유일한 git 추적본**이라 발췌를 넉넉히 남긴다.
+
+`회의:` 로 시작하는 메시지가 오면 그 스레드를 회의 모드로 전환한다. 이후 접두사 없는 모든 메시지에 **claude → codex 순서로 두 엔진이 순차 응답**한다(디스코드 회의처럼). `회의 종료` 로 시작하면 claude 가 대화록을 요약해 발신하고 모드를 해제한다.
+
+⚠️ **회의 모드는 6단계의 세션 resume 을 쓰지 않는다.** 엔진별 세션 기억은 자기 발언만 담고 있어 상대 엔진의 발언을 못 보기 때문에, 매 턴 Slack API(`conversations_replies`)로 스레드 대화록 전체를 새로 읽어 프롬프트에 실어 두 엔진이 서로의 발언을 참고하게 한다(무상태). 즉 **일반 모드(1:1 왕복, 6단계)는 세션 resume**, **회의 모드(N:N 토론, 본 단계)는 대화록 재주입** — 상황이 다른 두 메커니즘이지 서로 모순이 아니다.
+
+```python
+MEETING_TRIGGER = "회의:"
+MEETING_END = "회의 종료"
+MEETING_HISTORY_LIMIT = 30  # 대화록 최근 N개 메시지만 프롬프트에 포함
+MEETING_CHAR_LIMIT = 6000  # 대화록 총 문자수 상한 — 넘으면 앞부분부터 절단
+MEETING_PARTICIPANT_PROMPT = (
+    "너는 이 회의의 참석자 '{engine}'다. 아래는 지금까지의 회의 대화록이다. "
+    "다른 참석자([claude]/[codex])의 발언을 참고해 세 문장 이내로 의견을 내라. 이미 나온 말 반복 금지.\n\n"
+    "{transcript}"
+)
+MEETING_SUMMARY_PROMPT = "너는 이 회의의 서기다. 아래 회의 대화록을 세 문장 이내로 요약하라.\n\n{transcript}"
+
+
+def _set_meeting(thread_key: str, active: bool) -> None:
+    with _MAP_LOCK:
+        m = _session_map()
+        entry = m.setdefault(thread_key, {})
+        if active:
+            entry["meeting"] = True
+        else:
+            entry.pop("meeting", None)
+        tmp = SESSIONS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(m, f)
+        os.replace(tmp, SESSIONS_FILE)
+
+
+def _meeting_transcript(client: WebClient, channel: str, thread_ts: str) -> str:
+    # 회의 대화록 실시간 취득 — 사용자 발언은 "참석자: "로, 봇 발언은 이미 [claude]/[codex] 라벨이 있어 그대로.
+    resp = client.conversations_replies(channel=channel, ts=thread_ts)
+    lines = []
+    for m in resp.get("messages", []):
+        t = (m.get("text") or "").strip()
+        if not t:
+            continue
+        lines.append(t if m.get("bot_id") else f"참석자: {t}")
+    transcript = "\n".join(lines[-MEETING_HISTORY_LIMIT:])
+    return transcript[-MEETING_CHAR_LIMIT:]
+
+
+def _meeting_reply(client: WebClient, channel: str, thread_ts: str, engine: str, cmd: list[str]) -> str:
+    # 매 턴 대화록을 새로 읽어 프롬프트에 실음(무상태) — 직전 발언(claude 등)까지 반영해야 하므로 캐시하지 않는다.
+    transcript = _meeting_transcript(client, channel, thread_ts)
+    prompt = MEETING_PARTICIPANT_PROMPT.format(engine=engine, transcript=transcript)
+    return _run_engine(cmd, prompt, engine=engine)
+```
+
+콜백 안 분기 순서(회의 종료 → 회의 진행/트리거 → 기존 라우팅 순으로 검사, 6단계 코드 앞에 온다):
+
+```python
+# 회의 종료: claude 가 대화록 기반 요약 1회 발신 후 회의 모드 해제
+if text.startswith(MEETING_END):
+    summary = _run_engine(
+        CLAUDE_CMD,
+        MEETING_SUMMARY_PROMPT.format(transcript=_meeting_transcript(client, channel, thread_ts)),
+        engine="claude",
+    )
+    say(text=f"[claude] 📋 회의 요약: {summary[:SLACK_MSG_LIMIT]}", thread_ts=thread_ts)
+    _set_meeting(thread_key, False)
+    return
+
+# 회의 모드: `회의:` 트리거 또는 이미 진행 중인 스레드 → 접두사 불요, claude → codex 순차 응답.
+in_meeting = _session_map().get(thread_key, {}).get("meeting", False)
+if in_meeting or text.startswith(MEETING_TRIGGER):
+    if not in_meeting:
+        _set_meeting(thread_key, True)
+    for engine, cmd in (("claude", CLAUDE_CMD), ("codex", CODEX_CMD)):
+        reply = _meeting_reply(client, channel, thread_ts, engine, cmd)
+        say(text=f"[{engine}] {reply[:SLACK_MSG_LIMIT]}", thread_ts=thread_ts)
+    return
+
+# (여기서부터 6단계의 codex:/claude 일반 라우팅 — 세션 resume 사용)
+```
+
+**라이브 검증(2026-08-05)**: 스레드에 `회의: <주제>` 로 개시 → 두 엔진이 각자 제안 발신하는 것을 확인 → 후속 메시지(접두사 없이)로 토론 유도 → 상호 참조 통합안 확인(claude = "타이머 딜 + 쿠폰 즉시 지급", codex = "7일 스탬프 패스" — 서로의 앞선 발언을 인용하며 좁혀짐) → `회의 종료` 전송 → `[claude] 📋 회의 요약: …` 발신 확인. **개시 → 토론 → 요약 전 구간 Slack 라이브 GREEN.**
 
 ## Discord 쪽 (반자동 — API 로 앱 생성 불가)
 
@@ -176,3 +263,6 @@ Discord 는 앱 생성·봇 토큰 발급 API 가 없다(2026-08-04 실측 확�
 | 티켓 유효시간 | 재부팅·지연 후 인증 실패 | 티켓은 쓰기 직전 발급 |
 | cwd 를 홈으로 둠 | 페르소나·규칙 미주입("나는 그냥 Claude") | cwd = bot-home |
 | codex 신규 세션 id 를 최신 rollout 파일 mtime 으로 역산 | 동시 실행 시 다른 스레드 세션 id 로 오귀속 위험 | 신규 세션 생성 구간을 락(`_CODEX_LOCK`)으로 직렬화 |
+| 회의 모드 응답 대기 | 메시지 1개당 claude+codex 를 **순차** 호출 — 체감 1~2분 소요 | 기대치를 미리 안내(병렬 아님, 느린 게 정상) |
+
+> 위 함정 표는 작성자 실측(2026-08-05 macOS) 기반이다 — 비작성자(수강생) 환경에서의 검증은 아직 실시되지 않았다.
