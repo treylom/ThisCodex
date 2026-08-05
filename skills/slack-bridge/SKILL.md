@@ -10,7 +10,8 @@ Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Clau
 ## 전제
 
 - Slack CLI v4.6+ — macOS: `curl -fsSL https://downloads.slack-edge.com/slack-cli/install.sh | bash` / Windows: https://tools.slack.dev/slack-cli 의 Windows 설치 안내(공식) 사용
-- 로컬에 `claude`(Claude Code) 또는 `codex`(Codex CLI) 중 최소 1개 설치·로그인 상태
+- Slack 워크스페이스 = **본인이 앱을 설치할 권한이 있는 곳**이어야 한다 — 수강생 실습은 본인 무료 워크스페이스 신설로 충분(생성자 = 관리자). ⚠️ 회사 워크스페이스는 관리자 승인 정책에 걸릴 수 있다.
+- 로컬에 `claude`(Claude Code) 또는 `codex`(Codex CLI) 중 최소 1개 설치·로그인 상태 — **엔진 1개만으로도 전 과정 재현 가능**: codex 미설치 상태에서 `codex:` 접두사 메시지는 스레드에 오류 답변으로 돌아올 뿐, claude 만으로 왕복 검증(5단계)·스레드 연속 대화(6단계) 모두 재현된다.
 - Slack 워크스페이스에 로그인된 브라우저 (자동화 시: 브라우저 조작 도구)
 
 ## 1단계 — Slack CLI 인증 (사람 관문 1곳, 브라우저 자동화로 0곳 가능)
