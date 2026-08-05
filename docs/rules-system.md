@@ -129,9 +129,12 @@ When one deployment serves both Claude Code (auto-loads `CLAUDE.md`) and Codex-s
 - **`AGENTS.md` = the shared operational rules (SSOT)** — progressive-disclosure pointer to `rules/INDEX.md`, completion gates, core paths.
 - **`CLAUDE.md` = `@AGENTS.md` import at the top** + Claude-specific blocks only (identity guard, tool wrappers).
 
-Caveats learned in production (obsidian-ai-vault charness adoption, 2026-06-11):
+Caveats learned in production (obsidian-ai-vault charness adoption, 2026-06-11; items 3–5 from the 2026-08-05 mirror-staleness incident):
 1. A whitelist-style `.gitignore` (`*` then `!` exceptions) silently untracks a new root file — add an explicit `!/AGENTS.md`.
 2. Verifying that a Codex agent actually receives the chain: echo-style probes get **contaminated** — the injected rules change the probe's own behavior. Use session-transcript forensics (inspect the injected payload in the agent's rollout log) with a read-only sandbox instead.
+3. **Make the chain visible at the top of every per-bot WD instruction file.** A Codex bot's WD `AGENTS.md` *receives* the shared rules via the 3-chain (`~/.codex/AGENTS.md` → git-root `AGENTS.md` → WD), but anyone auditing just the WD file cannot see that — which reads as "this bot has no shared rules." Document the chain in the file's opening lines (the shipped bot templates model this). Never paste the shared body into the WD file — the chain already delivers it; a copy forks the SSOT.
+4. **Mirrors of live instruction files must be script-generated, never hand-copied.** If `AGENTS.md`/`CLAUDE.md`/persona files are mirrored into a human-readable wiki for owner review, the mirror must be produced by a maintained sync script — verbatim content plus an `AUTO-MIRROR` header naming the origin path. Orphan hand-made copies rot silently: in production, six hand-copied mirrors froze for 5+ weeks and the owner audited stale rules and model names as if they were current. Register every new bot's files in the sync script's mirror list as part of bot creation.
+5. **Derived surfaces quote exact launch flags and name the launch SoT.** Model/effort mentions in bot docs must carry the real launch arguments plus where they are launched from (shell alias, launchd plist, launch script). Alias-form snapshots go stale silently when the alias retargets to a new model generation.
 
 ## Enforcement: when the self-check gets skipped (rule-router + action gates)
 
