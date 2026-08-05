@@ -21,7 +21,8 @@ slack login --no-prompt
 ```
 
 1. 위 `/slackauthticket …` 한 줄을 **Slack 아무 채널·DM 에 붙여넣고 전송** → 권한 모달에서 **Confirm** → 챌린지 코드 표시됨.
-   - 자동화: 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기. (재경님 워크플로 실측: claude-in-chrome 으로 완전 자동 성공)
+   - 자동화: 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기.
+   - Claude Code 환경 = claude-in-chrome 으로 완전 자동 실측 성공(2026-08-05). **Codex 앱 환경 = browser-use 도구로 같은 3동작(입력→Confirm→코드 회수)을 수행** — Codex 에서 이 스킬을 쓸 때는 수동 안내 대신 browser-use 자동화를 기본 경로로 시도하고, 도구가 없으면 사람 관문 1곳으로 안내한다.
 2. 코드로 인증 완료:
 
 ```bash
@@ -110,6 +111,10 @@ slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode�
 1. Slack 에서 채널에 봇 초대: `/invite @<봇이름>` (⚠️ Bolt 기본 manifest 는 DM 탭 비활성 + `message.channels` 구독 = **채널 멤버여야 반응**)
 2. **왕복 검증(합격선)**: 채널에 질문 → `[claude] …` 스레드 답 확인 → `codex: 질문` → `[codex] …` 확인
 3. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
+
+## 한계 — 대화 연속성 (정직 표기)
+
+현 브리지는 메시지마다 엔진을 **새로 단발 호출**한다(`claude -p` / `codex exec`) — 왕복은 되지만 **스레드에서 이어 물어도 이전 대화를 기억하지 못한다**. 확장 경로(플래그 실재 실측 완료·구현은 미착수): claude `--continue`/`--resume <세션id>` · codex `exec resume` — Slack 스레드 ts ↔ 엔진 세션 id 매핑을 두면 스레드 단위 연속 대화가 된다. 진짜 라이브 TUI 세션에 붙이려면(우리 Discord 봇 방식) 브리지 데몬 구조가 별도로 필요하다.
 
 ## Discord 쪽 (반자동 — API 로 앱 생성 불가)
 
