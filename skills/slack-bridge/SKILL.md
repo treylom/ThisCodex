@@ -1,6 +1,6 @@
 ---
 name: slack-bridge
-description: Use when creating a Slack bot that bridges to local AI engines (Claude Code / Codex CLI). Covers Slack CLI authentication (near-full automation), app creation, engine-prefix routing, per-bot persona loading via CLAUDE.md/AGENTS.md, and round-trip verification. Also covers the Discord semi-auto path.
+description: Use when creating a Slack bot that bridges to local AI engines (Claude Code / Codex CLI). Covers Slack CLI authentication (near-full automation), app creation, engine-prefix routing, per-bot persona loading via CLAUDE.md/AGENTS.md, thread-scoped conversation continuity (claude --resume / codex exec resume), and round-trip verification. Also covers the Discord semi-auto path.
 ---
 
 # Slack Agent Bridge — Slack 봇 ↔ 로컬 엔진(claude/codex) 연결
@@ -81,6 +81,8 @@ def agent_bridge_callback(context: BoltContext, say: Say, logger, message: dict)
 app.message(re.compile(".*", re.DOTALL))(agent_bridge_callback)
 ```
 
+> 위는 메시지마다 엔진을 새로 단발 호출하는 버전이다. 스레드 안에서 이어 물었을 때 이전 대화를 기억하게 하려면 **6단계 — 스레드 연속 대화** 참고.
+
 ## 4단계 — 봇 페르소나·규칙 (soul 입히기)
 
 `bot-home/` 폴더를 만들고 **CLAUDE.md**(claude 엔진용)와 **AGENTS.md**(codex 엔진용)에 같은 규칙을 쓴다 — 각 엔진이 자기 정식 설정 파일로 규칙을 문다:
@@ -112,9 +114,49 @@ slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode�
 2. **왕복 검증(합격선)**: 채널에 질문 → `[claude] …` 스레드 답 확인 → `codex: 질문` → `[codex] …` 확인
 3. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
 
-## 한계 — 대화 연속성 (정직 표기)
+## 6단계 — 스레드 연속 대화 (구현·실측 완료)
 
-현 브리지는 메시지마다 엔진을 **새로 단발 호출**한다(`claude -p` / `codex exec`) — 왕복은 되지만 **스레드에서 이어 물어도 이전 대화를 기억하지 못한다**. 확장 경로(플래그 실재 실측 완료·구현은 미착수): claude `--continue`/`--resume <세션id>` · codex `exec resume` — Slack 스레드 ts ↔ 엔진 세션 id 매핑을 두면 스레드 단위 연속 대화가 된다. 진짜 라이브 TUI 세션에 붙이려면(우리 Discord 봇 방식) 브리지 데몬 구조가 별도로 필요하다.
+Slack 스레드 `thread_ts`(또는 최상위 메시지면 `ts`) 를 엔진 세션 id 에 매핑해 **스레드 단위로 대화가 이어지게** 한다. 매핑은 `bot-home/.sessions.json` 에 스레드별 `{"claude": "<uuid>", "codex": "<session_id>"}` 로 원자 갱신 저장(`.tmp` 파일 후 `os.replace`).
+
+- **claude**: 스레드 첫 메시지 = `--session-id <신규 uuid>` 로 세션 id 를 직접 지정해 생성. 이후 같은 스레드는 저장해둔 id 로 `--resume <id>` 재개.
+- **codex**: 저장된 세션이 있으면 `codex exec resume <SESSION_ID>` 로 재개. 없으면 평소대로 `codex exec` 실행 후, codex 가 세션 id 를 표준출력으로 안 주므로 **`CODEX_HOME/sessions/**/*.jsonl` 중 가장 최근 mtime 파일명에서 역산**해 저장한다 — 동시 요청이 겹치면 다른 스레드의 파일을 최신으로 잘못 집을 수 있어 신규 세션 생성 구간을 락으로 직렬화한다(아래 `_CODEX_LOCK`).
+
+```python
+SESSIONS_FILE = os.path.join(BOT_HOME, ".sessions.json")
+_MAP_LOCK = threading.Lock()    # 맵 파일 원자 갱신
+_CODEX_LOCK = threading.Lock()  # codex 신규 세션 = 실행 후 최신 rollout 파일로 id 귀속 → 직렬화 필요
+
+def _newest_codex_session() -> str | None:
+    files = glob(os.path.join(CODEX_HOME, "sessions", "**", "*.jsonl"), recursive=True)
+    if not files:
+        return None
+    m = re.search(r"([0-9a-f-]{36})\.jsonl$", max(files, key=os.path.getmtime))
+    return m.group(1) if m else None
+
+# codex 분기
+sid = _session_map().get(thread_key, {}).get("codex")
+if sid:
+    reply = _run_engine([*CODEX_CMD, "resume", sid], prompt, engine="codex")
+else:
+    with _CODEX_LOCK:                      # 동시 실행 시 mtime 오귀속 방지
+        reply = _run_engine(CODEX_CMD, prompt, engine="codex")
+        new_sid = _newest_codex_session()
+    if new_sid:
+        _remember(thread_key, "codex", new_sid)
+
+# claude 분기
+sid = _session_map().get(thread_key, {}).get("claude")
+if sid:
+    reply = _run_engine([*CLAUDE_CMD, "--resume", sid], text, engine="claude")
+else:
+    sid = str(uuid.uuid4())
+    reply = _run_engine([*CLAUDE_CMD, "--session-id", sid], text, engine="claude")
+    _remember(thread_key, "claude", sid)
+```
+
+**라이브 검증(2026-08-05)**: 한 스레드에서 "내 별명은 두부야" 전송 후 되묻기("내 별명이 뭐라고 했지?") → `[claude] 두부님이에요! — 토푸 🫘`. 같은 스레드에 `codex: 내 별명이 뭐라고 했지?` → `[codex] 두부라고 했어! — 토푸 🫘`. 두 엔진 모두 세션 기억 복원 + 페르소나 서명 유지를 확인했다.
+
+진짜 라이브 TUI 상주 세션(우리 Discord 봇 방식)에 붙이려면 브리지 데몬 구조가 별도로 필요하다 — 이건 여전히 참이다.
 
 ## Discord 쪽 (반자동 — API 로 앱 생성 불가)
 
@@ -132,3 +174,4 @@ Discord 는 앱 생성·봇 토큰 발급 API 가 없다(2026-08-04 실측 확�
 | codex 전역 AGENTS.md 경합 | 다른 봇 이름으로 답함 | CODEX_HOME 격리 |
 | 티켓 유효시간 | 재부팅·지연 후 인증 실패 | 티켓은 쓰기 직전 발급 |
 | cwd 를 홈으로 둠 | 페르소나·규칙 미주입("나는 그냥 Claude") | cwd = bot-home |
+| codex 신규 세션 id 를 최신 rollout 파일 mtime 으로 역산 | 동시 실행 시 다른 스레드 세션 id 로 오귀속 위험 | 신규 세션 생성 구간을 락(`_CODEX_LOCK`)으로 직렬화 |
