@@ -1,11 +1,11 @@
 ---
 name: slack-bridge
-description: Use when creating a Slack bot that bridges to local AI engines (Claude Code / Codex CLI). Covers Slack CLI authentication (near-full automation), app creation, engine-prefix routing, per-bot persona loading via CLAUDE.md/AGENTS.md, thread-scoped conversation continuity (claude --resume / codex exec resume), and round-trip verification. Also covers the Discord semi-auto path.
+description: Use when creating a Slack bot that bridges to local AI engines (Claude Code / Codex CLI). Covers Slack CLI authentication (near-full automation), app creation, engine-prefix routing, per-bot persona loading via CLAUDE.md/AGENTS.md, per-bot acknowledgement reactions, thread-scoped conversation continuity (claude --resume / codex exec resume), and round-trip verification. Also covers the Discord semi-auto path.
 ---
 
 # Slack Agent Bridge — Slack 봇 ↔ 로컬 엔진(claude/codex) 연결
 
-> claude-우선 판(Claude Code 사용자 1차 독자용) = ThisCode `skills/slack-bridge/SKILL.md` (commit c404ebf — 본 문서와 같은 실측, 서술 관점만 반전. 실측·정직 표기 갱신 시 양쪽 동시 반영).
+> claude-우선 짝 문서 = ThisCode `skills/slack-bridge/SKILL.md`. 두 문서는 프로토콜과 코드가 다르다(ThisCode = 공식 `claude/channel` MCP·TypeScript, ThisCodex = Slack Bolt Python·로컬 엔진 호출). **교차 갱신 계약**: Slack scope의 선언↔실부여·재설치 의미, 검증 급, 보안 경계처럼 공유되는 사실은 양쪽에 동시에 반영하고, 구현 고유 코드는 각 소유 문서에만 둔다.
 
 Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Claude Code `claude -p` / Codex CLI `codex exec`)으로 라우팅해 스레드로 답하게 하는 전 공정. 2026-08-05 macOS 에서 전 단계 실측 검증됨(왕복·페르소나 로딩 포함). Windows 는 설치 명령만 다르고 공정은 동일하다 — Windows 실측은 아직 없으므로 어긋나는 단계가 나오면 그 단계를 기록하고 멈춘다.
 
@@ -42,6 +42,22 @@ slack create my-agent-bridge   # 템플릿 선택: Bolt Python starter
 cd my-agent-bridge && pip install -r requirements.txt
 ```
 
+### 2-A. 수신 확인 이모지 권한
+
+Bolt 앱 매니페스트의 `oauth_config.scopes.bot`에 `reactions:write`를 포함한다. 아래는 기존 목록에 합칠 최소 조각이며, 나머지 scope·이벤트 구독을 지우는 전체 교체본이 아니다.
+
+```json
+{
+  "oauth_config": {
+    "scopes": {
+      "bot": ["reactions:write"]
+    }
+  }
+}
+```
+
+🔴 **매니페스트 갱신은 scope 선언이고, 기존 설치 토큰의 실부여가 아니다.** 이미 설치된 앱에 `reactions:write`를 추가했다면 사용자가 새 탭에서 `https://api.slack.com/apps/<APP_ID>/install-on-team`을 열어 승인 목록에 `reactions:write`가 보이는지 확인한 뒤 재설치해야 한다. 재설치 승인 전에는 라이브 react를 GREEN으로 판정하지 않는다. 다만 아래 콜백은 `missing_scope`를 조용히 건너뛰므로 기존 메시지 응답 본선은 계속 동작한다.
+
 ## 3단계 — 엔진 브리지 리스너
 
 `listeners/messages/agent_bridge.py` 생성(핵심부 — 전체 규칙: 메시지가 `codex:` 로 시작하면 codex, 그 외 claude. 답은 항상 스레드로):
@@ -49,8 +65,11 @@ cd my-agent-bridge && pip install -r requirements.txt
 ```python
 import os, subprocess
 from slack_bolt import BoltContext, Say
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
 ENGINE_TIMEOUT_SEC = int(os.environ.get("AGENT_BRIDGE_TIMEOUT", "180"))
+AGENT_BRIDGE_EMOJI = (os.environ.get("AGENT_BRIDGE_EMOJI", "eyes").strip().strip(":") or "eyes")
 CLAUDE_CMD = [os.path.expanduser("~/.local/bin/claude"), "-p", "--strict-mcp-config"]
 CODEX_CMD = [os.path.expanduser("~/.nvm/versions/node/v24.14.1/bin/codex"), "exec", "--skip-git-repo-check"]
 # ⚠️ 경로는 절대경로로 — `which` 는 세션 셸의 가짜 경로(shim)를 줄 수 있어 slack run 프로세스와 어긋난다 (실측 함정)
@@ -66,10 +85,29 @@ def _run_engine(cmd, prompt, engine="claude"):
                        timeout=ENGINE_TIMEOUT_SEC, cwd=BOT_HOME, env=env)
     return (p.stdout or "").strip() or (p.stderr or "").strip() or f"(빈 출력 — exit {p.returncode})"
 
-def agent_bridge_callback(context: BoltContext, say: Say, logger, message: dict):
+def _ack_message(client: WebClient, message: dict, logger) -> None:
+    """Best-effort acknowledgement; reaction failure must never block the engine reply."""
+    try:
+        client.reactions_add(
+            channel=message["channel"],
+            timestamp=message["ts"],
+            name=AGENT_BRIDGE_EMOJI,
+        )
+    except SlackApiError as exc:
+        error = exc.response.get("error", "unknown_error")
+        if error in {"already_reacted", "missing_scope"}:
+            logger.debug("Ack reaction skipped: %s", error)
+        else:
+            logger.warning("Ack reaction failed (non-blocking): %s", error)
+    except Exception as exc:
+        logger.warning("Ack reaction failed (non-blocking): %s", type(exc).__name__)
+
+
+def agent_bridge_callback(client: WebClient, context: BoltContext, say: Say, logger, message: dict):
     text = (message.get("text") or "").strip()
     if not text:
         return
+    _ack_message(client, message, logger)  # 수신 확인은 엔진 호출보다 먼저, 실패해도 본선 계속
     try:
         if text.lower().startswith("codex:"):
             engine, reply = "codex", _run_engine(CODEX_CMD, text[6:].strip(), "codex")
@@ -117,10 +155,13 @@ cp bot-home/AGENTS.md bot-home/.codex/AGENTS.md       # 규칙은 봇 것만
 slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode·매니페스트 자동 설치)
 ```
 
-1. Slack 에서 채널에 봇 초대: `/invite @<봇이름>` (⚠️ Bolt 기본 manifest 는 DM 탭 비활성 + `message.channels` 구독 = **채널 멤버여야 반응**)
+1. Slack 에서 채널에 봇 초대: `/invite @<멘션 핸들>` — `@` 자동완성은 한글 표시명도 잡히지만(2026-08-07 라이브 재실측) 미초대·이름 반영 직후엔 안 뜨는 사례가 있다(2026-08-06 오전 실측). 안 뜨면 manifest 의 `bot_user.display_name`(영문 핸들)로 치면 확실하다. (⚠️ Bolt 기본 manifest 는 DM 탭 비활성 + `message.channels` 구독 = **채널 멤버여야 반응**)
 2. **왕복 검증(합격선)**: 채널에 질문 → `[claude] …` 스레드 답 확인 → `codex: 질문` → `[codex] …` 확인
-3. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
-4. **프로세스 수명(정직 표기)**: `slack run` 을 띄운 실행 터미널을 닫으면 봇이 멈춘다 — 에러가 아니라 프로세스가 그 터미널에 붙어 있기 때문이다. 복구는 같은 폴더에서 `slack run` 재실행뿐이고, 스레드 기억은 `bot-home/.sessions.json` 에 남아 있어 기존 스레드에서 그대로 이어진다.
+3. **이모지 검증은 페르소나 지문으로**: 질문 메시지에 `AGENT_BRIDGE_EMOJI` 반응이 붙는지 확인한다. 텍스트 끝 서명처럼 이모지도 봇별 페르소나를 구분하는 서명이므로, 여러 봇이면 서로 다른 값이어야 한다.
+4. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
+5. **프로세스 수명(정직 표기)**: `slack run` 을 띄운 실행 터미널을 닫으면 봇이 멈춘다 — 에러가 아니라 프로세스가 그 터미널에 붙어 있기 때문이다. 복구는 같은 폴더에서 `slack run` 재실행뿐이고, 스레드 기억은 `bot-home/.sessions.json` 에 남아 있어 기존 스레드에서 그대로 이어진다.
+
+**react 증보 검증 급(2026-08-06)**: **GREEN — ① deterministic만**. 본 문서의 Python 발췌 compile, manifest JSON parse, nominal·`already_reacted`·`missing_scope`·기타 Slack 오류·일반 예외 5분기 fixture에서 모두 엔진 답변 보존을 확인했다. **라이브 미실측 — 재설치 승인 대기**: e2e 앱 `A0BP0EEMCUQ`의 구세대 런타임은 사용자 지시로 종료돼 bot token이 디스크에 없고 현재 실부여 scope를 조회할 수 없다. 재기동하지 않으며, 닫는 조건은 사용자가 `reactions:write`가 보이는 재설치를 승인한 뒤 새 입력 1건에서 해당 반응과 정상 답변을 함께 확인하는 것이다.
 
 ## 6단계 — 스레드 연속 대화 (구현·실측 완료)
 
@@ -301,10 +342,11 @@ echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":
 2. `agent_bridge.py` 를 그대로 복제해 두 번째 앱에 배치.
 3. 환경변수 `AGENT_BRIDGE_ENGINE=claude|codex` 로 앱마다 엔진을 고정한다 — 미설정 시 3단계/6단계의 `codex:` 접두사 라우팅이 그대로 살아 있어 **하위호환**이다.
 4. `bot-home` 은 앱마다 별도로 둔다 — CLAUDE.md/AGENTS.md 의 페르소나·서명이 봇마다 갈린다.
-5. 봇간 무한루프 가드: 수신 메시지에 `bot_id` 가 실려 있으면(다른 봇의 발화) 응답하지 않는다.
-6. 실행: 터미널 2개를 열어 각 앱 폴더에서 각각 전경으로 `slack run`.
+5. 앱마다 `AGENT_BRIDGE_EMOJI`를 명시적으로 다르게 둔다(예: claude=`eyes`, codex=`robot_face`). 미설정 기본값은 `eyes`지만, B-split에서는 기본값 공유로 두 봇이 같은 지문을 쓰지 않게 한다.
+6. 봇간 무한루프 가드: 수신 메시지에 `bot_id` 가 실려 있으면(다른 봇의 발화) 응답하지 않는다.
+7. 실행: 터미널 2개를 열어 각 앱 폴더에서 각각 전경으로 `slack run`.
 
-**검증**: ① 정체성 왕복 — 각 봇에게 "너는 누구야?" → 각자 서명 확인. ② 회의 모드에서 봇 대 봇 상호 논평 — 한 스레드에서 각 봇이 자기 엔진으로 1회씩 응답해 서로의 발화를 참고하는지 확인.
+**검증**: ① 정체성 왕복 — 각 봇에게 "너는 누구야?" → 각자 텍스트 서명 확인. ② 입력 메시지에 각자의 `AGENT_BRIDGE_EMOJI`가 붙는지 확인 — 이모지는 텍스트 서명과 같은 페르소나 지문이다. ③ 회의 모드에서 봇 대 봇 상호 논평 — 한 스레드에서 각 봇이 자기 엔진으로 1회씩 응답해 서로의 발화를 참고하는지 확인.
 
 ## Discord 쪽 (반자동 — API 로 앱 생성 불가)
 
@@ -324,5 +366,6 @@ Discord 는 앱 생성·봇 토큰 발급 API 가 없다(2026-08-04 실측 확�
 | cwd 를 홈으로 둠 | 페르소나·규칙 미주입("나는 그냥 Claude") | cwd = bot-home |
 | codex 신규 세션 id 를 최신 rollout 파일 mtime 으로 역산 | 동시 실행 시 다른 스레드 세션 id 로 오귀속 위험 | 신규 세션 생성 구간을 락(`_CODEX_LOCK`)으로 직렬화 |
 | 회의 모드 응답 대기 | 메시지 1개당 claude+codex 를 **순차** 호출 — 체감 1~2분 소요 | 기대치를 미리 안내(병렬 아님, 느린 게 정상) |
+| `reactions_add`가 `missing_scope` | 매니페스트에는 `reactions:write`가 있는데 이모지만 안 붙고 답변은 계속됨 | 선언만 바꾼 상태다. 새 탭의 설치 URL에서 `reactions:write`를 눈으로 확인하고 사용자 재설치 승인을 받은 뒤 다시 검증한다 |
 
 > 위 함정 표는 작성자 실측(2026-08-05 macOS) 기반이다 — 비작성자(수강생) 환경에서의 검증은 아직 실시되지 않았다.
