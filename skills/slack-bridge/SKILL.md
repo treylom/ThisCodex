@@ -161,7 +161,7 @@ slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode�
 4. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
 5. **프로세스 수명(정직 표기)**: `slack run` 을 띄운 실행 터미널을 닫으면 봇이 멈춘다 — 에러가 아니라 프로세스가 그 터미널에 붙어 있기 때문이다. 복구는 같은 폴더에서 `slack run` 재실행뿐이고, 스레드 기억은 `bot-home/.sessions.json` 에 남아 있어 기존 스레드에서 그대로 이어진다.
 
-**react 증보 검증 급(2026-08-06)**: **GREEN — ① deterministic만**. 본 문서의 Python 발췌 compile, manifest JSON parse, nominal·`already_reacted`·`missing_scope`·기타 Slack 오류·일반 예외 5분기 fixture에서 모두 엔진 답변 보존을 확인했다. **라이브 미실측 — 재설치 승인 대기**: e2e 앱 `A0BP0EEMCUQ`의 구세대 런타임은 사용자 지시로 종료돼 bot token이 디스크에 없고 현재 실부여 scope를 조회할 수 없다. 재기동하지 않으며, 닫는 조건은 사용자가 `reactions:write`가 보이는 재설치를 승인한 뒤 새 입력 1건에서 해당 반응과 정상 답변을 함께 확인하는 것이다.
+**react 증보 검증 급(2026-08-06 → 2026-08-08 라이브 승급)**: **GREEN — ① deterministic + ② live e2e**. ①(2026-08-06) 본 문서의 Python 발췌 compile, manifest JSON parse, nominal·`already_reacted`·`missing_scope`·기타 Slack 오류·일반 예외 5분기 fixture에서 모두 엔진 답변 보존을 확인했다. ②(2026-08-08) e2e 앱 `A0BP0EEMCUQ`에 manifest `reactions:write` 선언 + ack 콜백 이식 후 재기동 — `slack run`(local app dev 흐름)이 manifest 갱신과 재설치를 함께 수행해 토큰에 scope 실부여를 확인했고(`auth.test` 응답 헤더 `x-oauth-scopes` 실독), 사용자 새 입력 1건에서 봇의 이모지 반응(8초 내)과 정상 답변(페르소나 서명 포함, 같은 스레드)을 함께 확인했다. 함정 재확인(2026-08-08 실측): 사용자가 재설치를 먼저 승인해도 manifest 에 선언이 없으면 scope 는 그대로다 — 선언이 항상 먼저다(§매니페스트 갱신 절의 🔴 순서 그대로).
 
 ## 6단계 — 스레드 연속 대화 (구현·실측 완료)
 
