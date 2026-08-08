@@ -23,20 +23,27 @@ Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Clau
 사용자가 설치 명령을 칠 필요가 없다 — 이 스킬을 실행하는 엔진이 아래 블록을 그대로 수행한다. 이미 설치돼 있으면 아무것도 바꾸지 않는다(멱등).
 
 ```bash
-if ! command -v slack >/dev/null 2>&1; then
+# 존재 판정은 두 자로: PATH + 실파일 — 비대화형 셸은 PATH 만으로 「미설치」 오판 → 불필요 재다운로드 (2026-08-08 WSL E2E 실측)
+if ! command -v slack >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/slack" ]; then
   curl -fsSL https://downloads.slack-edge.com/slack-cli/install.sh | bash
-  # 함정(실측): 설치 성공 메시지가 떠도 현재 셸에서 `slack` 이 안 잡힐 수 있다 —
+  # 함정(실측): 설치 성공 메시지가 떠도 새 셸에서 `slack` 이 안 잡힐 수 있다 —
   # 설치기는 $HOME/.slack 에 내려받고 $HOME/.local/bin 에 링크만 걸며, PATH 등록은 사람 몫으로 남긴다(Required manual setup).
-  export PATH="$HOME/.local/bin:$PATH"
-  if command -v slack >/dev/null 2>&1; then
-    # 새 셸에서도 잡히게 영구 등록(중복 추가 없음)
-    persisted=0
-    for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
-      [ -f "$profile" ] || continue
+fi
+export PATH="$HOME/.local/bin:$PATH"   # 현재 셸 보정 — 설치 여부와 무관(중복 무해)
+if command -v slack >/dev/null 2>&1; then
+  # 새 셸에서도 잡히게 영구 등록(중복 추가 없음)
+  persisted=0
+  for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    [ -f "$profile" ] || continue
+    grep -qs 'HOME/.local/bin' "$profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$profile"
+    persisted=1
+  done
+  if [ "$persisted" != 1 ]; then
+    # 프로필 전무 환경: .profile(로그인 셸용)만 만들면 대화형 비로그인 셸(bash -ic)이 못 읽는다(실측 exit 127 —
+    # 이때 우분투 command-not-found 가 «sudo snap install slack»[데스크톱 앱, CLI 아님]을 오권유) → 둘 다 기록
+    for profile in "$HOME/.bashrc" "$HOME/.profile"; do
       grep -qs 'HOME/.local/bin' "$profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$profile"
-      persisted=1
     done
-    [ "$persisted" = 1 ] || grep -qs 'HOME/.local/bin' "$HOME/.profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.profile"
   fi
 fi
 slack version   # 버전이 출력되면 완료 (실측 기준 v4.6.0)
