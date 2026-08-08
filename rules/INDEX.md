@@ -14,7 +14,7 @@
 > Front-loading is an accepted trade-off on large-context models; if your
 > model context is small, move rules out of the auto-loaded directory and rely
 > on this INDEX alone.
-> Full convention + the Claude Code / Codex variants: [rules-system.md](../docs/rules-system.md) (shipped in this repo; the ThisCodex companion ships the matching copy).
+> Full convention + the Codex-bot variant: [docs/rules-system.md](../docs/rules-system.md).
 >
 > **How to use (self-check every turn)**: scan the trigger table below → if a
 > row matches the current situation, Read that row's rule file → apply it. No
