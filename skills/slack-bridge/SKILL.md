@@ -11,12 +11,41 @@ Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Clau
 
 ## 전제
 
-- Slack CLI v4.6+ — macOS: `curl -fsSL https://downloads.slack-edge.com/slack-cli/install.sh | bash` / Windows: https://tools.slack.dev/slack-cli 의 Windows 설치 안내(공식) 사용
+- Slack CLI v4.6+ — **직접 설치하지 않는다. 아래 0단계가 자동 확보한다**(없으면 설치·PATH 보정·확인까지 — 2026-08-08 재경님 결정 "slack cli 는 알아서 설치하도록 동봉"). Windows 네이티브(WSL 아님)만 예외: https://tools.slack.dev/slack-cli 의 공식 Windows 안내 사용
 - Slack 워크스페이스 = **본인이 앱을 설치할 권한이 있는 곳**이어야 한다 — 수강생 실습은 본인 무료 워크스페이스 신설로 충분(생성자 = 관리자). ⚠️ 회사 워크스페이스는 관리자 승인 정책에 걸릴 수 있다.
 - 로컬에 `claude`(Claude Code) 또는 `codex`(Codex CLI) 중 최소 1개 설치·로그인 상태 — **엔진 1개만으로도 전 과정 재현 가능**: codex 미설치 상태에서 `codex:` 접두사 메시지는 스레드에 오류 답변으로 돌아올 뿐, claude 만으로 왕복 검증(5단계)·스레드 연속 대화(6단계) 모두 재현된다.
 - Slack 워크스페이스에 로그인된 브라우저 (자동화 시: 브라우저 조작 도구)
 
 > **포털(api.slack.com)에서 앱을 만들지 마세요** — 이 공정은 Slack CLI 가 앱 생성·설치·토큰 발급을 전부 처리합니다(`slack create`→`slack run`). 웹에 흔한 '봇 토큰 복사' 방식 튜토리얼과 다른 공식 경로라, 토큰을 직접 다룰 일이 없습니다.
+
+## 0단계 — Slack CLI 확보 [자동 — 엔진이 알아서 설치]
+
+사용자가 설치 명령을 칠 필요가 없다 — 이 스킬을 실행하는 엔진이 아래 블록을 그대로 수행한다. 이미 설치돼 있으면 아무것도 바꾸지 않는다(멱등).
+
+```bash
+if ! command -v slack >/dev/null 2>&1; then
+  curl -fsSL https://downloads.slack-edge.com/slack-cli/install.sh | bash
+  # 함정(실측): 설치 성공 메시지가 떠도 현재 셸에서 `slack` 이 안 잡힐 수 있다 —
+  # 설치기는 $HOME/.slack 에 내려받고 $HOME/.local/bin 에 링크만 걸며, PATH 등록은 사람 몫으로 남긴다(Required manual setup).
+  export PATH="$HOME/.local/bin:$PATH"
+  if command -v slack >/dev/null 2>&1; then
+    # 새 셸에서도 잡히게 영구 등록(중복 추가 없음)
+    persisted=0
+    for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
+      [ -f "$profile" ] || continue
+      grep -qs 'HOME/.local/bin' "$profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$profile"
+      persisted=1
+    done
+    [ "$persisted" = 1 ] || grep -qs 'HOME/.local/bin' "$HOME/.profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$HOME/.profile"
+  fi
+fi
+slack version   # 버전이 출력되면 완료 (실측 기준 v4.6.0)
+```
+
+- 🔴 **패키지 매니저(apt/dnf 등 sudo 동반) 경유로 짜지 않는다** — 대상 환경이 무-sudo 일 수 있다(WSL 실측). 공식 설치기는 sudo 를 요구하지 않고 전부 홈 디렉토리 아래에 설치한다.
+- 실측 라벨: WSL2 · Ubuntu 24.04.1 · x86_64 · 2026-08-08 · v4.6.0 — 클린룸 설치 5초(다운로드 포함), "설치 성공 ≠ 명령이 잡힌다" PATH 함정 재현 후 위 보정으로 해소.
+- 한계(공유 사실): 프로필 영구 등록은 표준 구성(`~/.bashrc`·`~/.zshrc`·`~/.profile`) 기준 — 비표준 프로필 구성이면 빗나갈 수 있다. 그 경우 `export PATH="$HOME/.local/bin:$PATH"` 를 실제 사용하는 프로필에 직접 추가한다.
+- claude-우선 짝 = ThisCode `skills/slack-configure/SKILL.md` Step 1 (교차 갱신 계약 — 설치 공정·함정·한계는 양쪽 동시 반영).
 
 ## 1단계 — Slack CLI 인증 (사람 관문 1곳, 브라우저 자동화로 0곳 가능)
 
