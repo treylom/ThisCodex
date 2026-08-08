@@ -54,7 +54,7 @@ slack version   # 버전이 출력되면 완료 (실측 기준 v4.6.0)
 - 검증 급(블록 E2E · 2026-08-08 클린룸 WSL): **사람 경로** = 프로필 전무·전형 우분투 두 시나리오 각 2회 — 완주 exit 0·재다운로드 0·새 셸 `bash -lc`/`bash -ic` 모두 잡힘 / **codex 경로**(codex-cli 0.145.0) = SKILL 을 읽고 블록 그대로 실행, 실설치 39초 완주 + 2회차 멱등.
 - ⚠️ **codex 로 이 단계를 실행할 때는 네트워크 허용이 필요하다** — `codex exec -c sandbox_workspace_write.network_access=true …`. 기본 샌드박스가 curl 을 막아 증상이 "네트워크 장애"처럼 보여 오진하기 쉽다(실측).
 - 한계(공유 사실): 프로필 영구 등록은 표준 구성(`~/.bashrc`·`~/.zshrc`·`~/.profile`) 기준 — 비표준 프로필 구성이면 빗나갈 수 있다. 그 경우 `export PATH="$HOME/.local/bin:$PATH"` 를 실제 사용하는 프로필에 직접 추가한다.
-- claude-우선 짝 = ThisCode `skills/slack-configure/SKILL.md` Step 1 (교차 갱신 계약 — 설치 공정·함정·한계는 양쪽 동시 반영).
+- claude-우선 짝 = ThisCode `skills/slack-configure/SKILL.md` Step 1 (**설치 단계 한정** 교차 계약 — 설치 공정·PATH 함정·실측 라벨·한계는 양쪽 동시 반영. 문서 전체 범위의 교차 계약은 본 파일 상단 :8 의 것이다).
 
 ## 1단계 — Slack CLI 인증 (사람 관문 1곳, 브라우저 자동화로 0곳 가능)
 
