@@ -5,7 +5,7 @@ description: Use when creating a Slack bot that bridges to local AI engines (Cla
 
 # Slack Agent Bridge — Slack 봇 ↔ 로컬 엔진(claude/codex) 연결
 
-> claude-우선 짝 문서 = ThisCode `skills/slack-bridge/SKILL.md`. 두 문서는 프로토콜과 코드가 다르다(ThisCode = 공식 `claude/channel` MCP·TypeScript, ThisCodex = Slack Bolt Python·로컬 엔진 호출). **교차 갱신 계약**: Slack scope의 선언↔실부여·재설치 의미, 검증 급, 보안 경계처럼 공유되는 사실은 양쪽에 동시에 반영하고, 구현 고유 코드는 각 소유 문서에만 둔다.
+> claude-우선 짝 문서 = ThisCode `skills/slack-bridge/SKILL.md`. 두 문서는 프로토콜과 코드가 다르다(ThisCode = 공식 `claude/channel` MCP·TypeScript, ThisCodex = Slack Bolt Python·로컬 엔진 호출). **교차 갱신 계약**: Slack scope의 선언↔실부여·재설치 의미, 검증 급, 보안 경계처럼 공유되는 사실은 양쪽에 동시에 반영하고, 구현 고유 코드·실행 환경(엔진별 샌드박스·플래그 등)은 각 소유 문서에만 둔다.
 
 Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Claude Code `claude -p` / Codex CLI `codex exec`)으로 라우팅해 스레드로 답하게 하는 전 공정. 2026-08-05 macOS 에서 전 단계 실측 검증됨(왕복·페르소나 로딩 포함). Windows 는 설치 명령만 다르고 공정은 동일하다 — Windows 실측은 아직 없으므로 어긋나는 단계가 나오면 그 단계를 기록하고 멈춘다.
 
