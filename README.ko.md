@@ -32,15 +32,17 @@ ThisCodex는 OpenAI의 `codex` CLI 에이전트를 Claude Code 디스코드 봇�
 
 ## 도움말 & 시작하기
 
-**처음이신가요?** `/help`로 모든 스킬과 서브커맨드 목록을 보거나 다음부터 시작하세요:
+**처음이신가요?** Codex 에게 **"help 스킬 실행해줘"** 라고 말하면 전체 스킬 안내와 막힘 진단을 받을 수 있고, 터미널에서는 다음부터 시작하세요:
 
 ```
-/thiscodex:help              # ThisCodex 모든 서브커맨드 나열 (init, doctor, run 등)
-/thiscodex:init              # 상호작용형 안내식 설정 시작
-/thiscodex:doctor            # 설정이 완료되고 작동하는지 검증
+"help 스킬 실행해줘"                              # (Codex 대화창) 전체 스킬 안내 + 막힘 진단
+thiscodex init                                    # (터미널) 안내식 설치 시작
+node bin/thiscodex.mjs doctor --non-interactive   # (터미널) 설치 검증 보고서 — 질문 없이 결과만
 ```
 
 **스킬 참고표:**
+
+> 표의 `/이름` 은 **스킬 이름 표기**입니다 — Codex 입력창에 슬래시 명령으로 치는 것이 아니라(Codex CLI v0.145 기준 사용자 정의 슬래시 기제 없음), Codex 에게 **"«이름» 스킬 실행해줘"** 라고 요청하면 됩니다.
 
 | 스킬 | 용도 | 주요 서브커맨드 |
 |---|---|---|

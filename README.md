@@ -48,15 +48,17 @@ ready.
 
 ## Help & Getting Started
 
-**First time?** Use `/help` to list all available skills and their subcommands, or start with:
+**First time?** Ask Codex to **"run the help skill"** for the full skill map and stuck-point diagnosis, or start with:
 
 ```
-/thiscodex:help              # List all ThisCodex subcommands (init, doctor, run, etc.)
-/thiscodex:init              # Launch interactive guided setup
-/thiscodex:doctor            # Verify setup is complete and working
+"run the help skill"                              # (Codex chat) full skill map + stuck-point diagnosis
+thiscodex init                                    # (terminal) guided install
+node bin/thiscodex.mjs doctor --non-interactive   # (terminal) verification report — no questions, results only
 ```
 
 **Skill reference:**
+
+> `/name` in this table is **skill-name notation** — it is not a slash command you type into Codex (Codex CLI v0.145 has no user-defined slash command surface). Ask Codex to **"run the «name» skill"** instead.
 
 | Skill | Purpose | Key subcommands |
 |---|---|---|

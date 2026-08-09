@@ -5,7 +5,9 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 사용자가 이 스킬을 호출했다 — 아래 단계를 순서대로 지금 수행한다.
 
-# /help — ThisCodex 에서 막히면 부르는 명령
+# help 스킬 — ThisCodex 에서 막히면 부르는 안내
+
+> 호출 방법: 사용자가 Codex 에게 **"help 스킬 실행해줘"** 라고 말한다. (`/help` 슬래시 타이핑은 Codex CLI 에서 인식되지 않는다 — v0.145 실측.)
 
 너의 역할: **아주 친절한 안내자**다. 사용자는 개발자가 아닐 수 있다. 말투 규칙 (hard):
 
@@ -18,7 +20,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 ## STEP 0 — 호출 형태 분기
 
 - 인자 없음: "어떤 걸 도와드릴까요?" — ⓐ 뭐가 있는지 궁금 → STEP 3 스킬 지도 ⓑ 막혔음 → STEP 1.
-- 막힌 내용 동반 (예: `/help 봇이 대답을 안 해요`): 바로 STEP 1.
+- 막힌 내용 동반 (예: "help 스킬 실행해줘 — 봇이 대답을 안 해요"): 바로 STEP 1.
 
 ## STEP 1 — 상황 파악
 
@@ -28,7 +30,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 | 증상 | 먼저 확인 | 흔한 원인과 해결 |
 |---|---|---|
-| 설치됐는지 모르겠음 | `node bin/thiscodex.mjs --tone=plain` — 설치 상태를 점검해서 **쉬운 말로** 결과를 알려주는 자가 진단 한 줄이다(점검만 하고 아무것도 바꾸지 않는다). 그대로 복사해 붙이면 된다 | 부분 설치 → `/setup` 재실행(이어하기 됨) |
+| 설치됐는지 모르겠음 | `node bin/thiscodex.mjs doctor --non-interactive` — 설치 상태를 점검해서 결과만 보여주는 자가 진단 한 줄이다(질문 없음·아무것도 바꾸지 않음). 그대로 복사해 붙이면 된다 | 부분 설치 → setup 스킬 재실행(이어하기 됨) |
 | 온보딩(안내 설치)이 중간에 멈춤 | 마지막 화면 문구 | 대부분 이전 단계 미완 — `thiscodex init` 재실행이 안전한 이어하기 |
 | Windows 인데 경로·명령이 자꾸 어긋남 | WSL 안에서 실행 중인지 (`uname -a`) | ThisCodex 봇은 WSL 안이 정위치 — Windows 터미널에서 직접 치면 어긋난다 |
 | Discord 개발자 포털에서 길을 잃음 | 지금 어느 페이지인지 | **최다 막힘 구간** — 앱 생성·토큰 발급은 원리상 사람 몫. STEP 2.5 로 같이 보기 |
@@ -51,6 +53,8 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 ## STEP 3 — 스킬 지도
 
+**이 표를 사용자 화면에 그대로 출력한다** — 스킬 문서가 네 컨텍스트에 보인다고 해서 "위에 있다"고 생략하지 마라; 사용자에게는 네가 출력한 것만 보인다. 표를 보여줄 때 이 한 줄을 함께 안내한다: "아래 `/이름` 은 스킬 이름이에요 — 저에게 **«이름» 스킬 실행해줘** 라고 말씀하시면 됩니다."
+
 | 명령 | 언제 |
 |---|---|
 | `/setup` (또는 `thiscodex init`) | 처음 설치 — 환경 감지부터 봇 작업공간 구성까지 안내 |
@@ -58,7 +62,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 | `/slack-bridge` | Slack 봇 연결 (0단계: Slack CLI 를 봇이 알아서 설치) |
 | `/prompt` | AI 프롬프트 생성기 |
 | `/test` | 기능별 자가 점검 (메모리·tmux·회의·훅·설치) |
-| `/help` | 바로 이 명령 — 막힌 상황을 같이 풀어준다 |
+| `/help` | 바로 이 스킬 — 막힌 상황을 같이 풀어준다 ("help 스킬 실행해줘") |
 
 ## Learn More
 
