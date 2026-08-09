@@ -14,7 +14,9 @@ cannot run a full-access Codex Discord bot. See docs/yolo-bridge-contract.md.
     ↓ JSON-RPC over WebSocket → codex app-server
   codex app-server (ws://127.0.0.1:4222)
     ↓ thread/start (1x) → turn/start (per mention)
-    ↓ codex auto-calls the mcp__discord__reply tool
+    ↓ codex calls the mcp__discord__reply tool (taught by BOT_WD/AGENTS.md —
+      with no instruction file it writes text and calls NOTHING, measured
+      2026-08-09; the bridge relays the text as a fail-safe in that case)
   Discord plugin (reused as a codex MCP server)
     ↓ Discord REST API
   → Discord message sent
@@ -1140,6 +1142,36 @@ async def on_message(msg: discord.Message):
     await queue.put((event, msg.channel, msg.channel.id, msg.author.id))
 
 
+async def _fallback_agent_text(turn: dict) -> str | None:
+    """Last agent-authored text for a completed turn — inline items first, then
+    a thread/read re-fetch (turn/completed payloads don't always carry items;
+    same shape-defensive walk as the inflight recovery path)."""
+    for item in reversed(turn.get("items") or []):
+        if isinstance(item, dict) and item.get("type") in (
+                "agentMessage", "agent_message", "assistantMessage"):
+            return item.get("text") or item.get("content")
+    t_id, turn_id = thread_id, turn.get("id")
+    if not (t_id and turn_id):
+        return None
+    try:
+        res = await codex.call("thread/read", {"threadId": t_id})
+        payload = res.get("result", res) if isinstance(res, dict) else {}
+        thread = payload.get("thread", payload) if isinstance(payload, dict) else {}
+        turns = (thread.get("turns") or thread.get("items") or []) if isinstance(thread, dict) else []
+        if isinstance(payload, dict) and not turns:
+            turns = payload.get("turns") or []
+        for t in (turns if isinstance(turns, list) else []):
+            if isinstance(t, dict) and t.get("id") == turn_id:
+                for item in reversed(t.get("items") or []):
+                    if isinstance(item, dict) and item.get("type") in (
+                            "agentMessage", "agent_message", "assistantMessage"):
+                        return item.get("text") or item.get("content")
+                break
+    except Exception as e:
+        print(f"[FALLBACK-RELAY] thread/read failed: {type(e).__name__}: {e}")
+    return None
+
+
 async def worker():
     """Serialize turns — the codex app-server is single-turn-per-thread here."""
     global thread_id
@@ -1177,6 +1209,28 @@ async def worker():
                     )
                 else:
                     blocked_reason = f"turn hard-timed out after {TURN_HARD_TIMEOUT_SEC}s with no result"
+            # 막힘 17 fail-safe (2026-08-09 WSL field): a turn can complete
+            # "normally" with agent text but ZERO discord reply calls — e.g.
+            # the bot-WD instruction file is missing, so the model never
+            # learned that its text does not reach the user. That used to be
+            # a silent gap (mute bot, no error anywhere). If nothing was sent
+            # and nothing failed, the bridge relays the final text itself.
+            elif (isinstance(result, dict)
+                    and not reply_ack_marker
+                    and not result.get("_discord_reply_failed")
+                    and channel is not None):
+                fb_text = await _fallback_agent_text(result)
+                if fb_text:
+                    try:
+                        await channel.send(
+                            "📨 (bridge relay — the model wrote this reply but did not call "
+                            "the discord reply tool; check BOT_WD/AGENTS.md instructions)\n"
+                            + str(fb_text)[:1800],
+                            allowed_mentions=_NO_MENTIONS)
+                        print("[FALLBACK-RELAY] sent agent text via bridge "
+                              "(no reply tool call this turn)")
+                    except Exception as e:
+                        print(f"[FALLBACK-RELAY] send failed: {type(e).__name__}: {e}")
         except Exception as e:
             blocked_reason = f"turn dispatch error: {type(e).__name__}"
             print(f"[ERROR] turn dispatch: {type(e).__name__}: {e}")
@@ -1210,6 +1264,20 @@ def main():
     print(f"[INFO] CODEX_WS: {CODEX_WS}")
     print(f"[INFO] ENV: {ENV_PATH}")
     print(f"[INFO] YOLO: {'ON' if YOLO else 'off'}  SANDBOX: {SANDBOX}  APPROVAL: {APPROVAL_POLICY}")
+    # Pre-flight for the two silent-mute causes measured 2026-08-09 (WSL):
+    # both leave bot.py healthy while the discord MCP tool dies, so the
+    # symptom is "bot logged in, never answers". Warn where the operator looks.
+    try:
+        if b"\r" in ENV_PATH.read_bytes():
+            print(f"[WARN] {ENV_PATH} has CRLF line endings — bot.py tolerates them, "
+                  f"but the discord MCP tool dies with 'DISCORD_BOT_TOKEN required'. "
+                  f"Fix: sed -i 's/\\r$//' '{ENV_PATH}'")
+    except OSError:
+        pass
+    _access = ENV_PATH.parent / "access.json"
+    if not _access.exists():
+        print(f"[WARN] {_access} missing — the discord MCP tool fails its handshake "
+              f"without it, so codex cannot send replies (bot.py itself still runs).")
     client.run(TOKEN, log_handler=None)
 
 

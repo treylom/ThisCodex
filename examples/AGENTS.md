@@ -4,6 +4,23 @@
 
 Use this pattern when a Codex bot writes user-facing reports.
 
+## Discord Reply Rule (CRITICAL — read first)
+
+**Your assistant text does NOT reach the human.** This session is a headless
+bridge: whatever you write ends up in the rollout log and the operator's
+terminal, never in Discord. The user only sees what you send by **calling the
+discord MCP `reply` tool** (pass back the `chat_id` from the inbound
+`<channel source="discord" ...>` block; the message body parameter is `text`).
+
+- Every user-facing answer = one `reply` tool call. No tool call = the user
+  sees a mute bot, and nothing anywhere reports an error.
+- Measured basis (2026-08-09 WSL): with no instruction file in the bot WD the
+  model produced correct answers and called the reply tool **0 times**; after
+  this file existed, **every** turn called it. The tool being available is not
+  enough — this instruction is the trigger.
+- If the reply tool is missing or fails, say so in your text (the bridge logs
+  it) — do not silently continue.
+
 ## Report Rule
 
 Do not force fixed report labels. Write in plain prose while keeping these

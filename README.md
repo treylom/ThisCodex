@@ -305,6 +305,22 @@ bash hooks/tests/run-hook-tests.sh
 
 ---
 
+### 3.7 Troubleshooting — bot logs in but never replies
+
+Four distinct causes share this one symptom (all field-measured 2026-08-09,
+WSL). Check in order — the bridge log (`run.sh` window `infra`) now warns on
+each:
+
+| Check | What broke | Fix |
+|---|---|---|
+| `~/.codex/config.toml` has `[mcp_servers.discord]`? | codex has no reply tool at all (fresh machines) | add the §3.2 block |
+| That entry's `DISCORD_STATE_DIR` = **this** bot? | replies go out as another bot, or die on its token | generated `infra-launch.sh` now pins it via `-c`; align config.toml for manual runs |
+| `.env` line endings LF? (Windows paste = CRLF) | bot.py logs in fine, the discord MCP dies with "DISCORD_BOT_TOKEN required" | `sed -i 's/\r$//' <state dir>/.env` |
+| `BOT_WD/AGENTS.md` exists (§3.3)? | model writes answers but **calls no tool** — mute bot, zero errors | `init --apply` now materializes it; keep the Discord Reply Rule section |
+
+Existence is not behavior: after fixing, prove it with **one actual round trip
+sent after the fix** (a reply that predates the fix proves nothing).
+
 ## 4. The multi-agent conventions (why this is more than one bot)
 
 These are the rules that make Claude Code + Codex agents coexist. They live in `bot-roster.yaml` (single source of truth, injected at SessionStart):

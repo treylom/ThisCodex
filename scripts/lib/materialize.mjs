@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { rejectProvisionalPath } from './state.mjs';
 import { progressConfigForState, progressEnvForState } from './progress.mjs';
@@ -71,7 +71,20 @@ cd "${plan.bot}"
 # this app-server is actually up. One prior boot is kept in READY_LOG.prev so a
 # crash loop (5s supervisor restarts) cannot erase its own evidence.
 [ -f "\$READY_LOG" ] && mv -f "\$READY_LOG" "\$READY_LOG.prev"
-codex app-server --listen "\$CODEX_WS" >"\$READY_LOG" 2>&1 &
+# No instruction file = the model answers in text and calls NO tool (mute bot,
+# zero errors — 2026-08-09 field). init materializes it; this is the backstop.
+[ -f "\$BOT_WD/AGENTS.md" ] || \\
+  echo "[thiscodex][WARN] \$BOT_WD/AGENTS.md missing — the model never learns the Discord Reply Rule. See README §3.3."
+# The reply path needs the discord MCP server registered in ~/.codex/config.toml
+# ([mcp_servers.discord] — see README "bot logs in but never replies"). Absent
+# registration = codex has no reply tool at all; warn loudly, do not die (the
+# bridge itself still runs and receives).
+command grep -q '^\\[mcp_servers.discord\\]' "\$HOME/.codex/config.toml" 2>/dev/null || \\
+  echo "[thiscodex][WARN] ~/.codex/config.toml has no [mcp_servers.discord] — codex cannot send Discord replies. See README troubleshooting."
+# -c pins the discord tool to THIS bot's state dir (token + access.json) even
+# when config.toml's default entry points at another bot — the 2026-08-09
+# wrong-bot field failure. Same mechanism as the reference deployment.
+codex app-server -c "mcp_servers.discord.env.DISCORD_STATE_DIR=\$DISCORD_STATE_DIR" --listen "\$CODEX_WS" >"\$READY_LOG" 2>&1 &
 APP_PID=\$!
 trap 'kill \${APP_PID:-} \${BOT_PID:-} 2>/dev/null || true' EXIT
 "\$PY" "${plan.repo}/examples/bot.py" &
@@ -115,5 +128,15 @@ export function materializeBotFiles(state) {
   writeFileSync(plan.infra, infraScript(state));
   chmodSync(plan.run, 0o755);
   chmodSync(plan.infra, 0o755);
+  // 막힘 20 (2026-08-09 WSL, root-cause confirmed by timing: 0 reply-tool calls
+  // before an instruction file existed, 7 after): config points codex at
+  // SOUL.md/AGENTS.md as project docs, but nothing ever CREATED one — so the
+  // model never learns that its text does not reach Discord. Materialize the
+  // reference AGENTS.md into the bot WD; never overwrite an existing one.
+  const agentsDoc = join(plan.bot, 'AGENTS.md');
+  const agentsSrc = join(plan.repo, 'examples', 'AGENTS.md');
+  if (!existsSync(agentsDoc) && existsSync(agentsSrc)) {
+    copyFileSync(agentsSrc, agentsDoc);
+  }
   return plan;
 }

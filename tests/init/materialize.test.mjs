@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { planBotFiles, materializeBotFiles, aliasBlock } from '../../scripts/lib/materialize.mjs';
@@ -25,7 +25,7 @@ test('materializeBotFiles writes run and infra launch files with parameterized p
   // A guided install must end in a bootable bot: infra-launch.sh wires the
   // reference bridge instead of leaving a placeholder guide (2026-08-09 field
   // finding — the placeholder meant "follow every step, bot never starts").
-  assert.match(infra, /codex app-server --listen/);
+  assert.match(infra, /codex app-server .*--listen/);
   assert.match(infra, new RegExp(`${root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/examples/bot\\.py`));
   assert.match(infra, /requirements\.txt/);
   assert.doesNotMatch(infra, /replace this guide command/);
@@ -39,6 +39,11 @@ test('materializeBotFiles writes run and infra launch files with parameterized p
   assert.match(infra, /PY="\$\{THISCODEX_PYTHON:-python3\}"/);
   assert.doesNotMatch(infra, /^python3 /m);
   assert.doesNotMatch(infra, /pipx/);
+  // 막힘 19/20 (2026-08-09): pin the discord tool to THIS bot's state dir, and
+  // warn when the instruction file / MCP registration is absent.
+  assert.match(infra, /-c "mcp_servers\.discord\.env\.DISCORD_STATE_DIR=\$DISCORD_STATE_DIR"/);
+  assert.match(infra, /AGENTS\.md missing/);
+  assert.match(infra, /mcp_servers.discord\] —/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });
@@ -79,6 +84,23 @@ test('per_task cadence does not create a heartbeat timer', () => {
   assert.equal(cfg.heartbeat_interval_sec, 0);
   assert.equal(cfg.mode, 'on_complete');
   assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_HEARTBEAT_SEC="0"/);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(state, { recursive: true, force: true });
+});
+
+test('materializeBotFiles seeds BOT_WD/AGENTS.md from examples and never overwrites', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  mkdirSync(join(root, 'examples'), { recursive: true });
+  writeFileSync(join(root, 'examples', 'AGENTS.md'), '# ref\nDiscord Reply Rule\n');
+  const s = { confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state };
+  materializeBotFiles(s);
+  assert.match(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), /Discord Reply Rule/);
+  writeFileSync(join(bot, 'AGENTS.md'), '# customized by operator\n');
+  materializeBotFiles(s);
+  assert.match(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), /customized by operator/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });
