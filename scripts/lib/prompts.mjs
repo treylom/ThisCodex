@@ -24,7 +24,7 @@ const PROMPTS = {
     defaultKey: 'cwd',
   },
   confirm_state_dir: {
-    question: 'Confirm the Discord state directory outside BOT_WD',
+    question: 'Confirm the Discord state directory (kept outside the bot working folder)',
     defaultKey: 'state_dir',
   },
   codex_skill_layer: {

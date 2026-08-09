@@ -55,6 +55,7 @@ function applyConfirmedPath(state, key, value) {
   // freshly chosen by the user, so apply mode creates them before path verification.
   if (mode === 'apply' && key !== 'confirmed_repo_root' && !existsSync(abs)) {
     mkdirSync(abs, { recursive: true });
+    console.log(`Created: ${abs}`);
   }
   return confirmPath(state, key, abs);
 }

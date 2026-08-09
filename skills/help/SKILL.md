@@ -28,7 +28,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 | 증상 | 먼저 확인 | 흔한 원인과 해결 |
 |---|---|---|
-| 설치됐는지 모르겠음 | `node bin/thiscodex.mjs --check --tone=plain` — 설치 상태를 점검해서 **쉬운 말로** 결과를 알려주는 자가 진단 한 줄이다. 그대로 복사해 붙이면 된다 | 부분 설치 → `/setup` 재실행(이어하기 됨) |
+| 설치됐는지 모르겠음 | `node bin/thiscodex.mjs --tone=plain` — 설치 상태를 점검해서 **쉬운 말로** 결과를 알려주는 자가 진단 한 줄이다(점검만 하고 아무것도 바꾸지 않는다). 그대로 복사해 붙이면 된다 | 부분 설치 → `/setup` 재실행(이어하기 됨) |
 | 온보딩(안내 설치)이 중간에 멈춤 | 마지막 화면 문구 | 대부분 이전 단계 미완 — `thiscodex init` 재실행이 안전한 이어하기 |
 | Windows 인데 경로·명령이 자꾸 어긋남 | WSL 안에서 실행 중인지 (`uname -a`) | ThisCodex 봇은 WSL 안이 정위치 — Windows 터미널에서 직접 치면 어긋난다 |
 | Discord 개발자 포털에서 길을 잃음 | 지금 어느 페이지인지 | **최다 막힘 구간** — 앱 생성·토큰 발급은 원리상 사람 몫. STEP 2.5 로 같이 보기 |

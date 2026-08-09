@@ -63,7 +63,7 @@ assistant to explain the default in plain words before continuing.
 ## 5. Verify
 
 ```bash
-node bin/thiscodex.mjs --check
+node bin/thiscodex.mjs
 npm test
 ```
 

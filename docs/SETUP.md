@@ -42,7 +42,7 @@ guided onboarding are different steps.
 ## 3. Verification
 
 ```bash
-node bin/thiscodex.mjs --check
+node bin/thiscodex.mjs
 npm test
 ```
 
