@@ -104,7 +104,7 @@ Claude Code 봇도 모양이 같습니다. 다만 들어오는 이벤트 주입�
 ## 3. 세팅
 
 ### 3.1 사전 준비
-- `codex` CLI, `tmux`, 파이썬3+`websockets`, Claude Code 디스코드 플러그인(codex MCP 서버로 재사용).
+- `codex` CLI, `tmux`, 파이썬3 + 브리지 의존성 `discord.py`·`websockets`(`python3 -m pip install -r requirements.txt`), Claude Code 디스코드 플러그인(codex MCP 서버로 재사용).
 - 플랫폼: macOS / Linux / **WSL2(Ubuntu 22.04+)**. 네이티브 윈도우 → WSL 사용. `computer_use`는 macOS Apple Events 의존이라 WSL/Linux에선 업스트림과 무관하게 불가.
 
 ### 3.1a Node installer

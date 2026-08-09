@@ -20,7 +20,15 @@ test('materializeBotFiles writes run and infra launch files with parameterized p
   const files = materializeBotFiles({ confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state });
   assert.ok(existsSync(files.run));
   assert.match(readFileSync(files.run, 'utf8'), new RegExp(`BOT_WD="${bot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  assert.match(readFileSync(files.infra, 'utf8'), /DISCORD_STATE_DIR=/);
+  const infra = readFileSync(files.infra, 'utf8');
+  assert.match(infra, /DISCORD_STATE_DIR=/);
+  // A guided install must end in a bootable bot: infra-launch.sh wires the
+  // reference bridge instead of leaving a placeholder guide (2026-08-09 field
+  // finding — the placeholder meant "follow every step, bot never starts").
+  assert.match(infra, /codex app-server --listen/);
+  assert.match(infra, new RegExp(`${root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/examples/bot\\.py`));
+  assert.match(infra, /requirements\.txt/);
+  assert.doesNotMatch(infra, /replace this guide command/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });

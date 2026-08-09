@@ -1,0 +1,4 @@
+# Runtime deps for the reference bridge (examples/bot.py).
+# Install: python3 -m pip install -r requirements.txt
+discord.py>=2.3
+websockets>=12

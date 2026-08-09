@@ -38,13 +38,30 @@ exec "${plan.repo}/scripts/launch.sh"
 
 export function infraScript(state) {
   const plan = planBotFiles(state);
+  const session = state.session || 'thiscodex';
   return `#!/usr/bin/env bash
 set -euo pipefail
 export BOT_WD="${plan.bot}"
 export DISCORD_STATE_DIR="${plan.stateDir}"
+export BOT_NAME="\${BOT_NAME:-${session}}"
+export THISCODEX_ROOT="${plan.repo}"
+export CODEX_WS="\${CODEX_WS:-ws://127.0.0.1:4222}"
+READY_LOG="\${READY_LOG:-/tmp/\${SESSION:-${session}}-bridge.log}"
 cd "${plan.bot}"
-echo "[thiscodex] start app-server + bridge here"
-echo "[thiscodex] replace this guide command with your bridge daemon command"
+
+# Reference wiring (supervised by launch.sh window 'infra' — restarts on exit):
+#   1) codex app-server — headless runtime. Its output feeds READY_LOG, which
+#      launch.sh greps ("app-server ready|Listening") before attaching the TUI.
+#   2) examples/bot.py — reference bridge; the process that actually talks to
+#      Discord and owns the sandbox per docs/yolo-bridge-contract.md.
+python3 -c 'import discord, websockets' 2>/dev/null || {
+  echo "[thiscodex] missing bridge deps — run: python3 -m pip install -r ${plan.repo}/requirements.txt"
+  exit 1
+}
+codex app-server --listen "\$CODEX_WS" >"\$READY_LOG" 2>&1 &
+APP_PID=\$!
+trap 'kill "\$APP_PID" 2>/dev/null || true' EXIT
+python3 "${plan.repo}/examples/bot.py"
 `;
 }
 

@@ -68,12 +68,17 @@ _bw = os.environ.get("BOT_WD")
 WD = Path(_bw).resolve() if _bw else Path.cwd()
 
 # Bot identity is NOT hardcoded — set BOT_NAME to your bot's channel-state slug.
-# The Discord plugin keeps per-bot token/state at
-#   ~/.claude/channels/discord-<BOT_NAME>/.env   (DISCORD_BOT_TOKEN=...)
-# This mirrors the Claude Code Discord plugin layout so one plugin install
-# serves both Claude Code and Codex bots.
+# Token/state dir resolution (.env with DISCORD_BOT_TOKEN=..., yolo/QA sentinels):
+#   1) $DISCORD_STATE_DIR — the guided installer's promise (confirm_state_dir
+#      keeps token state OUTSIDE the bot working dir) and what the generated
+#      run.sh / infra-launch.sh export. Claude Code plugin hosts set it too.
+#   2) ~/.claude/channels/discord-<BOT_NAME>/ — Claude Code Discord plugin
+#      layout, kept as fallback so one plugin install serves both bot families.
 BOT_NAME = os.environ.get("BOT_NAME", "mybot")
-ENV_PATH = Path.home() / ".claude" / "channels" / f"discord-{BOT_NAME}" / ".env"
+_state_dir = os.environ.get("DISCORD_STATE_DIR", "").strip()
+ENV_PATH = (Path(_state_dir) / ".env") if _state_dir else (
+    Path.home() / ".claude" / "channels" / f"discord-{BOT_NAME}" / ".env"
+)
 DEDUP_PATH = WD / "dedup.json"
 BOT_INFO_PATH = WD / "bot-info.json"
 THREAD_ID_PATH = WD / ".codex-thread-id"
