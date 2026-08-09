@@ -37,7 +37,7 @@ export const MESSAGES = {
   },
   checkOnly: {
     plain: '점검만 완료했습니다. 파일은 바꾸지 않았습니다. 적용하려면 --apply 로 다시 실행하세요.',
-    dev: '--check complete; zero writes. Apply with --apply.',
+    dev: 'check mode complete; zero writes. Apply with --apply.',
   },
   applyDone: {
     plain: '적용이 끝났습니다. 변경 전 백업을 남겼고, 다음 실행 때 이어서 진행할 수 있습니다.',

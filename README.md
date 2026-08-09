@@ -51,9 +51,9 @@ ready.
 **First time?** Ask Codex to **"run the help skill"** for the full skill map and stuck-point diagnosis, or start with:
 
 ```
-"run the help skill"                              # (Codex chat) full skill map + stuck-point diagnosis
-thiscodex init                                    # (terminal) guided install
-node bin/thiscodex.mjs doctor --non-interactive   # (terminal) verification report — no questions, results only
+"run the help skill"                                    # (Codex chat) full skill map + stuck-point diagnosis
+npx github:treylom/ThisCodex init                       # (terminal) guided install
+npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verification report — no questions, results only
 ```
 
 **Skill reference:**
@@ -158,7 +158,7 @@ Non-interactive mode is only for CI or diagnosis, and must be requested with an
 explicit flag:
 
 ```bash
-npx github:treylom/ThisCodex init --check --non-interactive
+npx github:treylom/ThisCodex init --non-interactive
 npx github:treylom/ThisCodex init --apply --yes --answers <answers.json>
 ```
 

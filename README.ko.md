@@ -35,9 +35,9 @@ ThisCodex는 OpenAI의 `codex` CLI 에이전트를 Claude Code 디스코드 봇�
 **처음이신가요?** Codex 에게 **"help 스킬 실행해줘"** 라고 말하면 전체 스킬 안내와 막힘 진단을 받을 수 있고, 터미널에서는 다음부터 시작하세요:
 
 ```
-"help 스킬 실행해줘"                              # (Codex 대화창) 전체 스킬 안내 + 막힘 진단
-thiscodex init                                    # (터미널) 안내식 설치 시작
-node bin/thiscodex.mjs doctor --non-interactive   # (터미널) 설치 검증 보고서 — 질문 없이 결과만
+"help 스킬 실행해줘"                                    # (Codex 대화창) 전체 스킬 안내 + 막힘 진단
+npx github:treylom/ThisCodex init                       # (터미널) 안내식 설치 시작
+npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검증 보고서 — 질문 없이 결과만
 ```
 
 **스킬 참고표:**
@@ -140,7 +140,7 @@ superpowers, runner 안내, 최종 doctor 검증까지 확인한 뒤에만 봇 �
 비대화형은 CI·진단 전용이며, 반드시 명시 플래그로 요청해야 합니다:
 
 ```bash
-npx github:treylom/ThisCodex init --check --non-interactive
+npx github:treylom/ThisCodex init --non-interactive
 npx github:treylom/ThisCodex init --apply --yes --answers <answers.json>
 ```
 

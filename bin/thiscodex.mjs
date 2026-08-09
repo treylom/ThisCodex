@@ -194,6 +194,7 @@ const handlers = {
       return;
     }
     if (step.action === 'apply' && step.id === 'config_ceiling_patch') {
+      if (ctx.mode !== 'apply') return;
       patchCodexConfig(homedir(), false, { yoloCeiling: true });
       return;
     }

@@ -291,7 +291,7 @@ optionally appends a persona signature.
 Prefer the Node entry over shell scripts:
 
 ```bash
-node bin/thiscodex.mjs init --check --non-interactive
+node bin/thiscodex.mjs init --non-interactive
 node bin/thiscodex.mjs init --apply
 ```
 
@@ -335,7 +335,7 @@ Next command rather than silently treating the interview as complete.
 Run these checks after install:
 
 ```bash
-node bin/thiscodex.mjs init --check --non-interactive
+node bin/thiscodex.mjs init --non-interactive
 node bin/thiscodex.mjs doctor --non-interactive
 ```
 
