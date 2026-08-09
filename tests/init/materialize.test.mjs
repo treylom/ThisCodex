@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { planBotFiles, materializeBotFiles, aliasBlock } from '../../scripts/lib/materialize.mjs';
+import { planBotFiles, materializeBotFiles, aliasBlock, runScript, infraScript } from '../../scripts/lib/materialize.mjs';
 
 test('planBotFiles rejects provisional BOT_WD', () => {
   assert.throws(() => planBotFiles({
@@ -161,4 +161,86 @@ test('aliasBlock exports heartbeat env from selected progress cadence', () => {
   });
   assert.match(text, /THISCODEX_PROGRESS_CADENCE='1m'/);
   assert.match(text, /THISCODEX_HEARTBEAT_SEC='60'/);
+});
+
+// B3/B4 (2026-08-10 night batch, PRD 59-pm-prd-night-batch success criteria 3-8):
+// rules-seed.md copy-once install + first-class OPTIONAL wiki (Obsidian vault) path.
+
+test('materializeBotFiles seeds rules-seed.md from examples and never overwrites', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  mkdirSync(join(root, 'examples'), { recursive: true });
+  writeFileSync(join(root, 'examples', 'rules-seed.md'), '<!-- rules-seed v1.0.0 -->\nRule 1\nRule 2\n');
+  const s = { confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state };
+  materializeBotFiles(s);
+  assert.match(readFileSync(join(bot, 'rules-seed.md'), 'utf8'), /rules-seed v1\.0\.0/);
+  writeFileSync(join(bot, 'rules-seed.md'), '<!-- rules-seed v1.0.0 -->\ncustomized by operator\n');
+  materializeBotFiles(s);
+  assert.match(readFileSync(join(bot, 'rules-seed.md'), 'utf8'), /customized by operator/);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(state, { recursive: true, force: true });
+});
+
+test('materializeBotFiles skips rules-seed.md seeding when no source exists (no crash, bot creation proceeds)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  // deliberately no examples/rules-seed.md under root
+  const files = materializeBotFiles({ confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state });
+  assert.ok(existsSync(files.run));
+  assert.equal(existsSync(join(bot, 'rules-seed.md')), false);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(state, { recursive: true, force: true });
+});
+
+test('infra-launch.sh carries a boot-time rules-seed staleness WARN that never auto-merges', () => {
+  const infra = infraScript({ confirmed_repo_root: '/repo', confirmed_bot_wd: '/bot', confirmed_state_dir: '/state' });
+  assert.match(infra, /rules-seed v\[0-9\.\]\+/);
+  assert.match(infra, /rules-seed \$BOT_RULES_VER -> \$PRODUCT_RULES_VER available — update by explicit command only/);
+  assert.match(infra, /never auto-merges or auto-updates/);
+});
+
+test('materializeBotFiles lands THISCODEX_WIKI_PATH in run.sh and infra-launch.sh when a wiki path is provided', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const wiki = mkdtempSync(join(tmpdir(), 'tcx-wiki-'));
+  const files = materializeBotFiles({
+    confirmed_repo_root: root,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: state,
+    answers: { wiki_path: wiki },
+  });
+  const runText = readFileSync(files.run, 'utf8');
+  const infraText = readFileSync(files.infra, 'utf8');
+  assert.match(runText, new RegExp(`THISCODEX_WIKI_PATH="${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  assert.match(infraText, new RegExp(`THISCODEX_WIKI_PATH="${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(state, { recursive: true, force: true });
+  rmSync(wiki, { recursive: true, force: true });
+});
+
+test('materializeBotFiles omits THISCODEX_WIKI_PATH when no wiki path is provided, and bot creation still succeeds', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  // no answers.wiki_path at all — the PRD constraint: absence never blocks creation.
+  const files = materializeBotFiles({ confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state });
+  assert.ok(existsSync(files.run));
+  assert.ok(existsSync(files.infra));
+  assert.doesNotMatch(readFileSync(files.run, 'utf8'), /THISCODEX_WIKI_PATH/);
+  assert.doesNotMatch(readFileSync(files.infra, 'utf8'), /THISCODEX_WIKI_PATH/);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(state, { recursive: true, force: true });
+});
+
+test('runScript/infraScript also omit THISCODEX_WIKI_PATH for an explicit empty-string wiki_path answer', () => {
+  const state = { confirmed_repo_root: '/repo', confirmed_bot_wd: '/bot', confirmed_state_dir: '/state', answers: { wiki_path: '' } };
+  assert.doesNotMatch(runScript(state), /THISCODEX_WIKI_PATH/);
+  assert.doesNotMatch(infraScript(state), /THISCODEX_WIKI_PATH/);
 });

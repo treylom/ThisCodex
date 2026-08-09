@@ -63,6 +63,16 @@
       "on_fail": { "next_command": "thiscodex init --apply --bot-wd <path>" }
     },
     {
+      "id": "confirm_wiki_path",
+      "order": 45,
+      "when": "answers.install_surface == 'guided'",
+      "action": "prompt",
+      "reason": "Connecting an Obsidian wiki (vault) path lets this bot save chat-directed Markdown output there. This is a first-class but OPTIONAL question: leaving it blank never blocks bot creation, and the completion notice explains how to start from a sample vault and connect later.",
+      "safety": "none",
+      "verify": { "type": "wiki-path-optional", "state_key": "wiki_path" },
+      "on_fail": { "next_command": "thiscodex init --apply --answers <answers.json>" }
+    },
+    {
       "id": "confirm_state_dir",
       "order": 50,
       "when": "always",

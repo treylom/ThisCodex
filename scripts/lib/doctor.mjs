@@ -54,6 +54,16 @@ export async function verifyStep(step, state, env = process.env) {
       ? { ok: true }
       : { ok: false, message: `${step.verify.state_key} missing or not writable` };
   }
+  if (type === 'wiki-path-optional') {
+    // The wiki (Obsidian vault) path is opt-in (PRD constraint: absence must
+    // never block bot creation), so this verify NEVER fails — it only decides
+    // what advisory message (if any) the caller should print.
+    const value = state.answers?.[step.verify.state_key];
+    if (!value) return { ok: true, message: 'wiki path not provided — connection skipped (sample-vault guidance at completion)' };
+    return existsSync(value)
+      ? { ok: true }
+      : { ok: true, message: `WARN: wiki path does not exist yet: ${value} — continuing without blocking bot creation` };
+  }
   if (type === 'answer-one-of') {
     const choices = String(step.verify.choices || '').split(',').filter(Boolean);
     const value = state.answers?.[step.verify.state_key];

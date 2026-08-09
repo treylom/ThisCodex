@@ -77,3 +77,21 @@ test('manifest interviews for progress reporting cadence', () => {
   assert.equal(step.verify.state_key, 'progress_report_cadence');
   assert.match(step.reason, /progress|report/i);
 });
+
+// B4 (PRD 59-pm-prd-night-batch success criteria 6-8): the wiki (Obsidian vault)
+// path is a first-class guided-init question, but its verify must never be
+// consent-gated or otherwise able to block bot creation when left blank.
+test('manifest asks a first-class, non-blocking wiki path question', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const step = manifest.steps.find(s => s.id === 'confirm_wiki_path');
+  assert.ok(step, 'confirm_wiki_path missing');
+  assert.equal(step.action, 'prompt');
+  assert.equal(step.verify.type, 'wiki-path-optional');
+  assert.equal(step.verify.state_key, 'wiki_path');
+  assert.notEqual(step.safety, 'consent-gated');
+  assert.match(step.reason, /optional/i);
+  // ordered before confirm_state_dir, alongside the other confirm_* guided questions
+  const wikiOrder = step.order;
+  const stateDirOrder = manifest.steps.find(s => s.id === 'confirm_state_dir').order;
+  assert.ok(wikiOrder < stateDirOrder);
+});

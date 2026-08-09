@@ -27,6 +27,10 @@ const PROMPTS = {
     question: 'Confirm the Discord state directory (kept outside the bot working folder)',
     defaultKey: 'state_dir',
   },
+  confirm_wiki_path: {
+    question: 'Obsidian wiki (vault) path to connect — chat-directed Markdown output saves there and the reply names the saved path. Optional: leave blank to skip and start from a sample wiki later',
+    defaultKey: 'wiki_path',
+  },
   codex_skill_layer: {
     question: 'Choose the Codex skill layer',
     defaultKey: 'codex_skill_layer',

@@ -157,3 +157,89 @@ test('answers file confirms guided paths and persists them explicitly', () => {
   rmSync(bot, { recursive: true, force: true });
   rmSync(stateDir, { recursive: true, force: true });
 });
+
+// B4 (PRD 59-pm-prd-night-batch): the wiki path prompt is free text, not an
+// enum — the generic non-interactive fallback ('check_only') must never land
+// as a literal wiki_path value, and its absence must never block --apply.
+test('non-interactive guided apply without a wiki path completes with wiki_path empty, not check_only, and prints sample-vault guidance', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const workspace = mkdtempSync(join(tmpdir(), 'tcx-workspace-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const answers = join(home, 'answers.json');
+  writeFileSync(answers, JSON.stringify({
+    install_surface: 'guided',
+    confirmed_repo_root: process.cwd(),
+    confirmed_workspace_root: workspace,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    codex_skill_layer: 'user',
+    codex_marketplace: 'no',
+    codex_yolo: 'safe',
+    progress_report_cadence: 'per_task',
+    alias_consent: 'no',
+    daemon_guide: 'yes',
+    // wiki_path deliberately omitted
+  }));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
+  assert.notEqual(state.answers.wiki_path, 'check_only');
+  assert.ok(!state.answers.wiki_path, `wiki_path should be empty/unset, got ${JSON.stringify(state.answers.wiki_path)}`);
+  assert.match(result.stdout, /No Obsidian wiki \(vault\) connected/);
+  assert.doesNotMatch(readFileSync(join(bot, 'run.sh'), 'utf8'), /THISCODEX_WIKI_PATH/);
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+  rmSync(workspace, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(stateDir, { recursive: true, force: true });
+});
+
+test('answers file with a wiki path lands THISCODEX_WIKI_PATH in the generated run.sh', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const workspace = mkdtempSync(join(tmpdir(), 'tcx-workspace-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const wiki = mkdtempSync(join(tmpdir(), 'tcx-wiki-'));
+  const answers = join(home, 'answers.json');
+  writeFileSync(answers, JSON.stringify({
+    install_surface: 'guided',
+    confirmed_repo_root: process.cwd(),
+    confirmed_workspace_root: workspace,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    codex_skill_layer: 'user',
+    codex_marketplace: 'no',
+    codex_yolo: 'safe',
+    progress_report_cadence: 'per_task',
+    alias_consent: 'no',
+    daemon_guide: 'yes',
+    wiki_path: wiki,
+  }));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
+  assert.equal(state.answers.wiki_path, wiki);
+  assert.match(readFileSync(join(bot, 'run.sh'), 'utf8'), new RegExp(`THISCODEX_WIKI_PATH="${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  assert.doesNotMatch(result.stdout, /No Obsidian wiki \(vault\) connected/);
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+  rmSync(workspace, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(stateDir, { recursive: true, force: true });
+  rmSync(wiki, { recursive: true, force: true });
+});

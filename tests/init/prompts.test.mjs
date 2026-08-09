@@ -16,3 +16,16 @@ test('unknown prompt falls back to reason text', () => {
   assert.equal(prompt.question, 'Explain custom step');
   assert.equal(prompt.defaultValue, '');
 });
+
+test('confirm_wiki_path prompt names the wiki (Obsidian vault) connection as optional', () => {
+  const prompt = promptForStep({ id: 'confirm_wiki_path', reason: 'fallback' }, { answers: {} });
+  assert.match(prompt.question, /wiki|vault/i);
+  assert.match(prompt.question, /optional/i);
+  assert.doesNotMatch(prompt.question, /^confirm_wiki_path:/);
+  assert.equal(prompt.defaultValue, '');
+});
+
+test('confirm_wiki_path prompt resumes a previously answered wiki path as its default', () => {
+  const prompt = promptForStep({ id: 'confirm_wiki_path', reason: 'fallback' }, { answers: { wiki_path: '/Users/x/vault' } });
+  assert.equal(prompt.defaultValue, '/Users/x/vault');
+});

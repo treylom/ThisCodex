@@ -1,6 +1,8 @@
 # Example AGENTS.md — source-backed plain reporting pattern
 
 > **Loading note (convention)**: a bot-WD `AGENTS.md` like this one is the *end* of the Codex 3-chain (`~/.codex/AGENTS.md` → git-root `AGENTS.md` → this file). Shared operational rules arrive via the earlier links — state that in your WD file's opening lines like this, and never paste the shared rules body in (a copy forks the SSOT). See `docs/rules-system.md` §Root-instruction unification, caveat 3.
+>
+> **Rules seed**: this working directory also carries `rules-seed.md` (copied once at guided init, same never-overwrite contract as this file) — DM reply-thread echo policy and wiki save policy. Read it alongside this file.
 
 Use this pattern when a Codex bot writes user-facing reports.
 

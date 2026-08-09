@@ -81,6 +81,33 @@ test('rollout-materialized skips with reason when no codex thread exists (CI-lik
   rmSync(home, { recursive: true, force: true });
 });
 
+test('wiki-path-optional verify never fails when no wiki path was provided', async () => {
+  const result = await verifyStep({ verify: { type: 'wiki-path-optional', state_key: 'wiki_path' } }, { answers: {} });
+  assert.equal(result.ok, true);
+  assert.match(result.message, /not provided/i);
+});
+
+test('wiki-path-optional verify never fails when the given path does not exist, but warns', async () => {
+  const result = await verifyStep(
+    { verify: { type: 'wiki-path-optional', state_key: 'wiki_path' } },
+    { answers: { wiki_path: '/definitely/no/such/wiki/path' } },
+  );
+  assert.equal(result.ok, true);
+  assert.match(result.message, /WARN/);
+  assert.match(result.message, /does not exist/i);
+});
+
+test('wiki-path-optional verify passes silently when the given path exists', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tcx-wiki-'));
+  const result = await verifyStep(
+    { verify: { type: 'wiki-path-optional', state_key: 'wiki_path' } },
+    { answers: { wiki_path: dir } },
+  );
+  assert.equal(result.ok, true);
+  assert.equal(result.message, undefined);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('rollout-materialized hard-fails when thread exists but rollout missing', async () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));

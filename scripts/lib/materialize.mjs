@@ -23,12 +23,18 @@ export function planBotFiles(state) {
     repo,
     bot,
     stateDir,
+    // Wiki (Obsidian vault) path is OPTIONAL (PRD: its absence never blocks bot
+    // creation) — '' when not connected, never a provisional-path check target.
+    wikiPath: state.answers?.wiki_path || '',
   };
 }
 
 export function runScript(state) {
   const plan = planBotFiles(state);
   const env = progressEnvForState(state);
+  // Only present when a wiki (vault) path was actually connected — an unset
+  // var (not an empty string) is what "wiki not provided" looks like downstream.
+  const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH="${plan.wikiPath}"\n` : '';
   return `#!/usr/bin/env bash
 set -euo pipefail
 export BOT_WD="${plan.bot}"
@@ -36,7 +42,7 @@ export DISCORD_STATE_DIR="${plan.stateDir}"
 export SESSION="${state.session || 'thiscodex'}"
 export THISCODEX_PROGRESS_CADENCE="${env.THISCODEX_PROGRESS_CADENCE}"
 export THISCODEX_HEARTBEAT_SEC="${env.THISCODEX_HEARTBEAT_SEC}"
-export LAUNCH_CMD="${plan.infra}"
+${wikiExport}export LAUNCH_CMD="${plan.infra}"
 cd "${plan.repo}"
 exec "${plan.repo}/scripts/launch.sh"
 `;
@@ -45,13 +51,14 @@ exec "${plan.repo}/scripts/launch.sh"
 export function infraScript(state) {
   const plan = planBotFiles(state);
   const session = state.session || 'thiscodex';
+  const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH="${plan.wikiPath}"\n` : '';
   return `#!/usr/bin/env bash
 set -euo pipefail
 export BOT_WD="${plan.bot}"
 export DISCORD_STATE_DIR="${plan.stateDir}"
 export BOT_NAME="\${BOT_NAME:-${session}}"
 export THISCODEX_ROOT="${plan.repo}"
-export CODEX_WS="\${CODEX_WS:-ws://127.0.0.1:4222}"
+${wikiExport}export CODEX_WS="\${CODEX_WS:-ws://127.0.0.1:4222}"
 READY_LOG="\${READY_LOG:-/tmp/\${SESSION:-${session}}-bridge.log}"
 # PY: the ONE python this script both probes and runs. A venv install only
 # counts if THISCODEX_PYTHON points at that venv's python — shell activation
@@ -81,6 +88,19 @@ cd "${plan.bot}"
 # zero errors — 2026-08-09 field). init materializes it; this is the backstop.
 [ -f "\$BOT_WD/AGENTS.md" ] || \\
   echo "[thiscodex][WARN] \$BOT_WD/AGENTS.md missing — the model never learns the Discord Reply Rule. See README §3.3."
+# rules-seed.md is copied into BOT_WD once, at guided init, and never
+# overwritten by a later run (same never-overwrite contract as AGENTS.md
+# above). This boot-time check only WARNS when the bot's copy-once stamp is
+# older than the product-bundled examples/rules-seed.md — it
+# never auto-merges or auto-updates the bot's file; that stays an explicit
+# operator/bot command (B3).
+if [ -f "\$BOT_WD/rules-seed.md" ] && [ -f "${plan.repo}/examples/rules-seed.md" ]; then
+  BOT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "\$BOT_WD/rules-seed.md" | head -1 | awk '{print \$2}')
+  PRODUCT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "${plan.repo}/examples/rules-seed.md" | head -1 | awk '{print \$2}')
+  if [ -n "\$BOT_RULES_VER" ] && [ -n "\$PRODUCT_RULES_VER" ] && [ "\$BOT_RULES_VER" != "\$PRODUCT_RULES_VER" ]; then
+    echo "[thiscodex][WARN] rules-seed \$BOT_RULES_VER -> \$PRODUCT_RULES_VER available — update by explicit command only"
+  fi
+fi
 # The reply path needs the discord MCP server registered in ~/.codex/config.toml
 # ([mcp_servers.discord] — see README "bot logs in but never replies"). Absent
 # registration = codex has no reply tool at all; warn loudly, do not die (the
@@ -143,6 +163,16 @@ export function materializeBotFiles(state) {
   const agentsSrc = join(plan.repo, 'examples', 'AGENTS.md');
   if (!existsSync(agentsDoc) && existsSync(agentsSrc)) {
     copyFileSync(agentsSrc, agentsDoc);
+  }
+  // B3 (2026-08-09/10 night batch, PRD success criteria 3-5): copy-once rules
+  // seed — DM reply-thread echo policy + wiki save policy. Same never-overwrite
+  // contract as AGENTS.md above: copied only if the bot's own copy is absent.
+  // infra-launch.sh (infraScript, above) carries the staleness WARN at boot;
+  // nothing here ever auto-merges or auto-updates an existing bot copy.
+  const rulesSeedDoc = join(plan.bot, 'rules-seed.md');
+  const rulesSeedSrc = join(plan.repo, 'examples', 'rules-seed.md');
+  if (!existsSync(rulesSeedDoc) && existsSync(rulesSeedSrc)) {
+    copyFileSync(rulesSeedSrc, rulesSeedDoc);
   }
   // 막힘 21 (2026-08-09 WSL, controlled pair 19:53/20:01): without access.json
   // the discord MCP starts in static allowlist mode and REFUSES every send —

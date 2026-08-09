@@ -171,9 +171,14 @@ const handlers = {
           // non-interactive (doctor/smoke): an answer-one-of prompt needs a valid choice;
           // 'check_only' fails its verify (e.g. install_surface ∈ {placement,guided}).
           // Fall back to the first declared choice so point checks can proceed.
+          // wiki-path-optional is free text, not an enum — 'check_only' would land
+          // as a literal (bogus) wiki path, so its silent default is '' (not
+          // connected), matching the PRD: absence never blocks bot creation.
           const enumFallback = step.verify?.type === 'answer-one-of'
             ? String(step.verify.choices || '').split(',')[0].trim()
-            : 'check_only';
+            : step.verify?.type === 'wiki-path-optional'
+              ? ''
+              : 'check_only';
           state.answers[key] ??= prompt.defaultValue || enumFallback;
         }
         return;
@@ -205,7 +210,14 @@ const handlers = {
     }
   },
   async verify(step) {
-    return verifyStep(step, state, process.env);
+    const result = await verifyStep(step, state, process.env);
+    // wiki-path-optional never fails (PRD: absence must never block bot
+    // creation) — its advisory (missing path / not provided) surfaces here
+    // instead of through the pass/fail event stream.
+    if (step.verify?.type === 'wiki-path-optional' && result.message) {
+      console.log(`[thiscodex] ${result.message}`);
+    }
+    return result;
   },
 };
 
@@ -221,6 +233,11 @@ if (mode === 'apply' && result.ok) {
   console.log(`Installed skills (${install.installed.join(', ')}): ${join(repoRoot, 'skills')} -> ${dirname(install.dest)}`);
   const hint = marketplaceHint(repoRoot, state.answers.codex_marketplace === 'yes');
   if (hint) console.log(`Marketplace hint: ${hint}`);
+  // PRD success criterion 8: no wiki path is a supported, non-blocking outcome —
+  // point the operator at the sample-vault path instead of leaving it unsaid.
+  if (state.answers.install_surface === 'guided' && !state.answers.wiki_path) {
+    console.log('No Obsidian wiki (vault) connected. Start from a sample wiki: create an empty folder, then reconnect this bot to it (thiscodex init --apply --answers <answers.json> with wiki_path set).');
+  }
   saveInstallState(state);
 }
 
