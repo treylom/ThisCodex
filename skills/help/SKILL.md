@@ -27,7 +27,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 | 증상 | 먼저 확인 | 흔한 원인과 해결 |
 |---|---|---|
-| 설치됐는지 모르겠음 | `node bin/thiscodex.mjs --check --tone=plain` | 부분 설치 → `/setup` 재실행(이어하기 됨) |
+| 설치됐는지 모르겠음 | `node bin/thiscodex.mjs --check --tone=plain` — 설치 상태를 점검해서 **쉬운 말로** 결과를 알려주는 자가 진단 한 줄이다. 그대로 복사해 붙이면 된다 | 부분 설치 → `/setup` 재실행(이어하기 됨) |
 | 온보딩(안내 설치)이 중간에 멈춤 | 마지막 화면 문구 | 대부분 이전 단계 미완 — `thiscodex init` 재실행이 안전한 이어하기 |
 | Windows 인데 경로·명령이 자꾸 어긋남 | WSL 안에서 실행 중인지 (`uname -a`) | ThisCodex 봇은 WSL 안이 정위치 — Windows 터미널에서 직접 치면 어긋난다 |
 | Discord 개발자 포털에서 길을 잃음 | 지금 어느 페이지인지 | **최다 막힘 구간** — 앱 생성·토큰 발급은 원리상 사람 몫. STEP 2.5 로 같이 보기 |
@@ -43,7 +43,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 1. **가능한 경로 = playwright MCP** — `~/.codex/config.toml` 의 `mcp_servers` 에 playwright 계열이 등록돼 있으면, 그 도구로 Discord 포털·Slack 웹 관문을 같이 열어 클릭 위치 안내·대신 조작.
 2. **없으면 설치 제안**: "브라우저를 같이 볼 수 있는 도구를 붙일 수 있어요. 붙일까요?" → 승인 시 config.toml `mcp_servers` 에 playwright MCP 추가 안내(`npx @playwright/mcp@latest` 실행형) → codex 재시작 → 재탐지.
-3. **computer_use / browser_use 는 제안하지 마라** — codex CLI 에선 기능 플래그만 있고 **호출 가능한 도구가 아니다**(공식 명령 부재, openai/codex#20851 — README 「알려진 제약」 절과 동일 표기). 있는 척 ❌, 우회 시도 ❌.
+3. **computer_use / browser_use 는 제안하지 마라** — codex CLI 에선 기능 플래그만 있고 **호출 가능한 도구가 아니다**(공식 명령 부재·데스크톱 앱 번들 MCP 전용, openai/codex#20851 — README §1 기능 표의 ⏸️ 보류 행·§6 과 동일 표기). 있는 척 ❌, 우회 시도 ❌.
 4. **최종 폴백**: 화면 단계별 텍스트 안내 ("왼쪽 위 New Application 파란 버튼을 눌러주세요" 수준).
 
 **개입 중 안전 경계 (hard)**: 토큰·시크릿 단계 = 조작 중단·사용자에게 넘김(값 읽기·저장·채팅 복사 ❌) · 삭제·재설치·초기화 = 실행 전 1줄 확인 · 조작은 사용자가 보는 화면에서만.
@@ -61,5 +61,5 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 ## Learn More
 
-- **한국어 안내**: [README.ko.md](../../README.ko.md) — 구조 그림·알려진 제약(§끝) 포함
+- **한국어 안내**: [README.ko.md](../../README.ko.md) — 구조 그림(§2)·기능 표의 ⏸️ 보류 항목(§1)·검증 기록(§6) 포함
 - **English**: [README.md](../../README.md)
