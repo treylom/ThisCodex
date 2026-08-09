@@ -120,7 +120,7 @@ Claude Code bots use the same shape, except the inbound-event injection is built
 ## 3. Setup
 
 ### 3.1 Prerequisites
-- `codex` CLI (OpenAI), `tmux`, Python 3 with the bridge deps `discord.py` + `websockets` (`python3 -m pip install -r requirements.txt`), the Claude Code Discord plugin (reused as a codex MCP server).
+- `codex` CLI (OpenAI), `tmux`, Python 3 with the bridge deps `discord.py` + `websockets` (`python3 -m pip install -r requirements.txt` — on Ubuntu 24.04+/PEP 668 add `--break-system-packages`, or use `uv venv`/pipx), the Claude Code Discord plugin (reused as a codex MCP server).
 - Platforms: macOS / Linux / **WSL2 (Ubuntu 22.04+)**. Native Windows → use WSL. `computer_use` is macOS-Apple-Events-bound and N/A on WSL/Linux regardless of upstream.
 
 ### 3.1a Node installer

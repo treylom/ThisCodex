@@ -30,6 +30,7 @@
     ".codex-plugin/",
     "plugin.lock.json",
     "examples/",
+    "requirements.txt",
     "README.md",
     "README.ko.md",
     "LICENSE"

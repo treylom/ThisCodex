@@ -55,7 +55,10 @@ cd "${plan.bot}"
 #   2) examples/bot.py — reference bridge; the process that actually talks to
 #      Discord and owns the sandbox per docs/yolo-bridge-contract.md.
 python3 -c 'import sys, discord, websockets; sys.exit(0 if tuple(map(int, discord.__version__.split(".")[:2])) >= (2, 3) else 1)' 2>/dev/null || {
-  echo "[thiscodex] bridge deps missing or too old (need discord.py>=2.3 + websockets) — run: python3 -m pip install -r ${plan.repo}/requirements.txt"
+  echo "[thiscodex] bridge deps missing or too old (need discord.py>=2.3 + websockets)"
+  echo "[thiscodex]   install: python3 -m pip install -r ${plan.repo}/requirements.txt"
+  echo "[thiscodex]   Ubuntu 24.04+/Debian (PEP 668 'externally-managed-environment'):"
+  echo "[thiscodex]   add --break-system-packages, or use 'uv venv' / pipx instead"
   exit 1
 }
 # READY_LOG is truncated (>) BY DESIGN: launch.sh's readiness gate greps it, and

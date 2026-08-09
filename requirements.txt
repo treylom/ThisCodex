@@ -1,4 +1,10 @@
 # Runtime deps for the reference bridge (examples/bot.py).
 # Install: python3 -m pip install -r requirements.txt
+#
+# Ubuntu 24.04+/Debian refuse system-python installs (PEP 668,
+# "externally-managed-environment"). Working paths, measured 2026-08-09 WSL:
+#   python3 -m pip install --break-system-packages -r requirements.txt
+#   — or use `uv venv` / pipx. Plain `python3 -m venv` may also fail when the
+#   python3-venv package is missing (pip-less shell venv).
 discord.py>=2.3
 websockets>=12
