@@ -1204,6 +1204,12 @@ async def worker():
         hb = asyncio.create_task(_heartbeat(channel, time.time(), stop))
         blocked_reason = None
         reply_ack_marker = None
+        # initialized here (not just inside the try) so the finally block
+        # below can safely inspect it even if an exception fires before
+        # send_turn() ever assigns it (e.g. ensure_thread()/_inflight_write()
+        # raising) — an unguarded reference would otherwise be a NameError
+        # that skips the rest of finally, including _inflight_clear().
+        result = None
         try:
             if thread_id is None:
                 thread_id = await codex.ensure_thread()
@@ -1298,8 +1304,24 @@ async def worker():
             # message at all (the codex turn never called mcp__discord__reply).
             # Emit a generic blocked report so it is never a silent gap.
             if blocked_reason and not reply_ack_marker and channel is not None:
+                # 2026-08-10 review (글재경 🔴, latent since 7b90193): the tail
+                # states only what was checked. discord_reply_ack_marker()
+                # returns None whenever ANY reply failed this turn, even if
+                # OTHER replies in the same turn succeeded and delivered —
+                # so "no reply was produced" was asserting a fact this branch
+                # never verified. Check the delivered-id list directly.
+                _delivered_ids = (
+                    result.get("_discord_reply_message_ids")
+                    if isinstance(result, dict) else None
+                ) or []
+                if _delivered_ids:
+                    _n = len(_delivered_ids)
+                    _tail = (f"{_n} repl{'y was' if _n == 1 else 'ies were'} "
+                             f"delivered before the timeout")
+                else:
+                    _tail = "no reply was produced"
                 try:
-                    await channel.send(f"⚠️ blocked — {blocked_reason}; no reply was produced "
+                    await channel.send(f"⚠️ blocked — {blocked_reason}; {_tail} "
                                        f"(bridge fail-safe report; check the bot host).",
                                        allowed_mentions=_NO_MENTIONS)
                 except Exception as e:
