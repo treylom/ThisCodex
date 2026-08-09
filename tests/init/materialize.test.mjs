@@ -34,6 +34,11 @@ test('materializeBotFiles writes run and infra launch files with parameterized p
   assert.match(infra, /READY_LOG\.prev/);
   assert.match(infra, /BOT_PID/);
   assert.match(infra, />= \(2, 3\)/);
+  // B1: probe and launch must use the SAME interpreter, overridable via
+  // THISCODEX_PYTHON (venv installs are unreachable otherwise).
+  assert.match(infra, /PY="\$\{THISCODEX_PYTHON:-python3\}"/);
+  assert.doesNotMatch(infra, /^python3 /m);
+  assert.doesNotMatch(infra, /pipx/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });

@@ -47,6 +47,10 @@ export BOT_NAME="\${BOT_NAME:-${session}}"
 export THISCODEX_ROOT="${plan.repo}"
 export CODEX_WS="\${CODEX_WS:-ws://127.0.0.1:4222}"
 READY_LOG="\${READY_LOG:-/tmp/\${SESSION:-${session}}-bridge.log}"
+# PY: the ONE python this script both probes and runs. A venv install only
+# counts if THISCODEX_PYTHON points at that venv's python — shell activation
+# does not cross into tmux windows (launch.sh bakes this var through).
+PY="\${THISCODEX_PYTHON:-python3}"
 cd "${plan.bot}"
 
 # Reference wiring (supervised by launch.sh window 'infra' — restarts on exit):
@@ -54,11 +58,12 @@ cd "${plan.bot}"
 #      launch.sh greps ("app-server ready|Listening") before attaching the TUI.
 #   2) examples/bot.py — reference bridge; the process that actually talks to
 #      Discord and owns the sandbox per docs/yolo-bridge-contract.md.
-python3 -c 'import sys, discord, websockets; sys.exit(0 if tuple(map(int, discord.__version__.split(".")[:2])) >= (2, 3) else 1)' 2>/dev/null || {
-  echo "[thiscodex] bridge deps missing or too old (need discord.py>=2.3 + websockets)"
-  echo "[thiscodex]   install: python3 -m pip install -r ${plan.repo}/requirements.txt"
-  echo "[thiscodex]   Ubuntu 24.04+/Debian (PEP 668 'externally-managed-environment'):"
-  echo "[thiscodex]   add --break-system-packages, or use 'uv venv' / pipx instead"
+"\$PY" -c 'import sys, discord, websockets; sys.exit(0 if tuple(map(int, discord.__version__.split(".")[:2])) >= (2, 3) else 1)' 2>/dev/null || {
+  echo "[thiscodex] bridge deps missing or too old for \$PY (need discord.py>=2.3 + websockets)"
+  echo "[thiscodex]   install: \$PY -m pip install -r ${plan.repo}/requirements.txt"
+  echo "[thiscodex]   Ubuntu 24.04+/Debian (PEP 668 'externally-managed-environment'), either:"
+  echo "[thiscodex]   - add --break-system-packages (installs into system python), or"
+  echo "[thiscodex]   - uv venv && install there, then set THISCODEX_PYTHON to that venv's python before run.sh"
   exit 1
 }
 # READY_LOG is truncated (>) BY DESIGN: launch.sh's readiness gate greps it, and
@@ -69,7 +74,7 @@ python3 -c 'import sys, discord, websockets; sys.exit(0 if tuple(map(int, discor
 codex app-server --listen "\$CODEX_WS" >"\$READY_LOG" 2>&1 &
 APP_PID=\$!
 trap 'kill \${APP_PID:-} \${BOT_PID:-} 2>/dev/null || true' EXIT
-python3 "${plan.repo}/examples/bot.py" &
+"\$PY" "${plan.repo}/examples/bot.py" &
 BOT_PID=\$!
 # Exit when EITHER side dies so launch.sh's supervisor restarts the PAIR —
 # a foreground-only bot.py left a half-dead infra when app-server died first.

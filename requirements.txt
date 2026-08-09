@@ -3,8 +3,12 @@
 #
 # Ubuntu 24.04+/Debian refuse system-python installs (PEP 668,
 # "externally-managed-environment"). Working paths, measured 2026-08-09 WSL:
-#   python3 -m pip install --break-system-packages -r requirements.txt
-#   — or use `uv venv` / pipx. Plain `python3 -m venv` may also fail when the
-#   python3-venv package is missing (pip-less shell venv).
+#   a) python3 -m pip install --break-system-packages -r requirements.txt
+#      (system python — the launcher's default interpreter sees it), or
+#   b) uv venv && install there, then set THISCODEX_PYTHON=.venv/bin/python
+#      before run.sh — the launcher only runs $THISCODEX_PYTHON (or python3);
+#      activating a venv in your shell does NOT reach the tmux windows.
+# Note: plain `python3 -m venv` can yield a pip-less venv when the
+# python3-venv package is missing.
 discord.py>=2.3
 websockets>=12

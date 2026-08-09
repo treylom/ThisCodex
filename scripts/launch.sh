@@ -56,6 +56,10 @@ STOP_FILE="${STOP_FILE:-$BOT_WD/.thiscodex-stop}"
 READY_LOG="${READY_LOG:-/tmp/$SESSION-bridge.log}"
 THISCODEX_SHELL="${THISCODEX_SHELL:-${SHELL:-/bin/sh}}"
 CODEX_RESUME_FLAGS="${CODEX_RESUME_FLAGS:-}"
+# Python for the bridge (empty = infra script falls back to python3). Baked
+# into the infra window below — venv activation in the caller's shell never
+# crosses into a tmux window.
+THISCODEX_PYTHON="${THISCODEX_PYTHON:-}"
 
 command -v tmux  >/dev/null || { echo "[FATAL] tmux not found"; exit 1; }
 command -v codex >/dev/null || { echo "[FATAL] codex CLI not found"; exit 1; }
@@ -76,7 +80,7 @@ rm -f "$STOP_FILE" 2>/dev/null || true
 # window and the infra's READY_LOG default would silently diverge from the one
 # this script greps for readiness.
 tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
-  "while true; do SESSION='$SESSION' READY_LOG='$READY_LOG' $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec \"$THISCODEX_SHELL\""
+  "while true; do SESSION='$SESSION' READY_LOG='$READY_LOG' THISCODEX_PYTHON='$THISCODEX_PYTHON' $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec \"$THISCODEX_SHELL\""
 
 # window 1 'codex' — operator TUI joined to the SAME thread as the bridge.
 # Hard guarded: wait for app-server, wait for a NON-EMPTY thread id, wait for

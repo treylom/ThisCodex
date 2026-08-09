@@ -104,7 +104,7 @@ Claude Code 봇도 모양이 같습니다. 다만 들어오는 이벤트 주입�
 ## 3. 세팅
 
 ### 3.1 사전 준비
-- `codex` CLI, `tmux`, 파이썬3 + 브리지 의존성 `discord.py`·`websockets`(`python3 -m pip install -r requirements.txt` — 우분투 24.04+/PEP 668 환경은 `--break-system-packages` 추가 또는 `uv venv`·pipx 사용), Claude Code 디스코드 플러그인(codex MCP 서버로 재사용).
+- `codex` CLI, `tmux`, 파이썬3 + 브리지 의존성 `discord.py`·`websockets`(`python3 -m pip install -r requirements.txt` — 우분투 24.04+/PEP 668 환경은 `--break-system-packages` 추가, 또는 `uv venv` 에 설치 후 `run.sh` 전에 `THISCODEX_PYTHON=.venv/bin/python` 지정. 런처는 그 인터프리터만 실행하며, 셸에서 venv 를 활성화해도 tmux 창에는 전달되지 않음), Claude Code 디스코드 플러그인(codex MCP 서버로 재사용).
 - 플랫폼: macOS / Linux / **WSL2(Ubuntu 22.04+)**. 네이티브 윈도우 → WSL 사용. `computer_use`는 macOS Apple Events 의존이라 WSL/Linux에선 업스트림과 무관하게 불가.
 
 ### 3.1a Node installer
