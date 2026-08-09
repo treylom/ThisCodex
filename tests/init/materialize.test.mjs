@@ -3,7 +3,29 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { planBotFiles, materializeBotFiles, aliasBlock, runScript, infraScript } from '../../scripts/lib/materialize.mjs';
+
+// Runs the generated `export <varName>=...` line from a materialize.mjs output
+// through REAL bash and reports what actually landed. Bracketed by MARKER
+// lines that must both survive — evidence the block genuinely executed
+// (2026-08-10 review lesson: an assertion on unchanged bytes/strings can stay
+// green even when the probed block never ran at all).
+function runGeneratedExportLine(scriptText, varName) {
+  const line = scriptText.split('\n').find(l => l.includes(`export ${varName}=`));
+  assert.ok(line, `export ${varName} line not found in generated script`);
+  const probe = [
+    '#!/usr/bin/env bash',
+    'set -euo pipefail',
+    line,
+    'echo "MARKER-RAN-START"',
+    `printf '%s' "\$${varName}"`,
+    'echo',
+    'echo "MARKER-RAN-END"',
+  ].join('\n');
+  const result = spawnSync('bash', ['-c', probe], { encoding: 'utf8' });
+  return { ...result, line };
+}
 
 test('planBotFiles rejects provisional BOT_WD', () => {
   assert.throws(() => planBotFiles({
@@ -199,7 +221,10 @@ test('materializeBotFiles skips rules-seed.md seeding when no source exists (no 
 test('infra-launch.sh carries a boot-time rules-seed staleness WARN that never auto-merges', () => {
   const infra = infraScript({ confirmed_repo_root: '/repo', confirmed_bot_wd: '/bot', confirmed_state_dir: '/state' });
   assert.match(infra, /rules-seed v\[0-9\.\]\+/);
-  assert.match(infra, /rules-seed \$BOT_RULES_VER -> \$PRODUCT_RULES_VER available — update by explicit command only/);
+  // Direction-neutral wording (2026-08-10 review fix): a plain string !=
+  // compare cannot tell "older" from "newer" — the message must not claim one.
+  assert.match(infra, /rules-seed \$BOT_RULES_VER differs from product \$PRODUCT_RULES_VER — update by explicit command only/);
+  assert.doesNotMatch(infra, /available/);
   assert.match(infra, /never auto-merges or auto-updates/);
 });
 
@@ -216,8 +241,10 @@ test('materializeBotFiles lands THISCODEX_WIKI_PATH in run.sh and infra-launch.s
   });
   const runText = readFileSync(files.run, 'utf8');
   const infraText = readFileSync(files.infra, 'utf8');
-  assert.match(runText, new RegExp(`THISCODEX_WIKI_PATH="${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
-  assert.match(infraText, new RegExp(`THISCODEX_WIKI_PATH="${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  // single-quoted (shQuote), not a double-quoted "${...}" interpolation — see
+  // the 2026-08-10 review shell-re-interpretation fix below.
+  assert.match(runText, new RegExp(`THISCODEX_WIKI_PATH='${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`));
+  assert.match(infraText, new RegExp(`THISCODEX_WIKI_PATH='${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`));
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });
@@ -243,4 +270,40 @@ test('runScript/infraScript also omit THISCODEX_WIKI_PATH for an explicit empty-
   const state = { confirmed_repo_root: '/repo', confirmed_bot_wd: '/bot', confirmed_state_dir: '/state', answers: { wiki_path: '' } };
   assert.doesNotMatch(runScript(state), /THISCODEX_WIKI_PATH/);
   assert.doesNotMatch(infraScript(state), /THISCODEX_WIKI_PATH/);
+});
+
+// 2026-08-10 review 🔴: a bare `export THISCODEX_WIKI_PATH="${wikiPath}"` lets
+// bash RE-INTERPRET the answer at boot time ($HOME expands, an embedded "
+// breaks the quoting, a trailing `"; cmd; :"` runs as a real command) — and
+// wiki_path is the one guided-init answer with no path-exists/enum gate
+// upstream (wiki-path-optional never fails verify). Fixed with shQuote
+// (single-quoted, bash never expands/executes inside '...'). Each case below
+// actually runs the generated line through bash (see runGeneratedExportLine)
+// and requires BOTH markers in stdout as positive proof the block executed —
+// not just a string/byte comparison that would stay green on a no-op.
+test('THISCODEX_WIKI_PATH lands as a literal value in run.sh and infra-launch.sh — the shell never re-interprets it', () => {
+  const cases = [
+    ['dollar-sign / $HOME-shaped', '/Users/t/$HOME-vault'],
+    ['embedded space', '/Users/t/My Vault'],
+    ['embedded double quote', '/Users/t/My "Vault"'],
+    ['embedded single quote (exercises shQuote escaping itself)', "/Users/t/O'Brien's Vault"],
+    ['command-injection attempt', '/tmp/v"; echo INJECTED-BY-WIKI-PATH; :"'],
+  ];
+  for (const scriptFn of [runScript, infraScript]) {
+    for (const [label, wikiPath] of cases) {
+      const script = scriptFn({ confirmed_repo_root: '/repo', confirmed_bot_wd: '/bot', confirmed_state_dir: '/state', answers: { wiki_path: wikiPath } });
+      const { status, stdout, stderr, line } = runGeneratedExportLine(script, 'THISCODEX_WIKI_PATH');
+      const ctx = `[${scriptFn.name} / ${label}] line=${line}`;
+      assert.equal(status, 0, `${ctx} bash exited nonzero: ${stderr}`);
+      // positive proof the probe genuinely ran, not a vacuously-passing no-op
+      assert.match(stdout, /MARKER-RAN-START/, ctx);
+      assert.match(stdout, /MARKER-RAN-END/, ctx);
+      const body = stdout.split('MARKER-RAN-START\n')[1]?.split('MARKER-RAN-END')[0]?.replace(/\n$/, '');
+      assert.equal(body, wikiPath, `${ctx} value was re-interpreted by the shell (expected literal [${wikiPath}], got [${body}])`);
+      // the injection payload must never surface as a STANDALONE output line —
+      // that would mean it ran as its own command rather than landing as text
+      // inside the printed value.
+      assert.doesNotMatch(stdout, /^INJECTED-BY-WIKI-PATH$/m, `${ctx} injection payload executed as a separate command`);
+    }
+  }
 });

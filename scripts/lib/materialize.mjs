@@ -34,7 +34,14 @@ export function runScript(state) {
   const env = progressEnvForState(state);
   // Only present when a wiki (vault) path was actually connected — an unset
   // var (not an empty string) is what "wiki not provided" looks like downstream.
-  const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH="${plan.wikiPath}"\n` : '';
+  // shQuote (not a bare double-quoted interpolation): wiki_path is FREE TEXT
+  // that never fails verify (wiki-path-optional design), so it is the one
+  // guided-init answer with no path-exists/enum gate upstream. A double-quoted
+  // "${value}" lets the shell re-interpret it at boot ($HOME expansion, a
+  // stray " breaking the quoting, or a trailing "; ...; " running as a
+  // command). Single-quoted shQuote lands the answer as a value, never code
+  // (2026-08-10 review finding — confirmed by scratchpad/invariant_wiki_seed.mjs).
+  const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH=${shQuote(plan.wikiPath)}\n` : '';
   return `#!/usr/bin/env bash
 set -euo pipefail
 export BOT_WD="${plan.bot}"
@@ -51,7 +58,9 @@ exec "${plan.repo}/scripts/launch.sh"
 export function infraScript(state) {
   const plan = planBotFiles(state);
   const session = state.session || 'thiscodex';
-  const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH="${plan.wikiPath}"\n` : '';
+  // Same shQuote requirement as runScript above — wiki_path is ungated free
+  // text and must land as a value, never be re-interpreted by the shell.
+  const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH=${shQuote(plan.wikiPath)}\n` : '';
   return `#!/usr/bin/env bash
 set -euo pipefail
 export BOT_WD="${plan.bot}"
@@ -90,15 +99,17 @@ cd "${plan.bot}"
   echo "[thiscodex][WARN] \$BOT_WD/AGENTS.md missing — the model never learns the Discord Reply Rule. See README §3.3."
 # rules-seed.md is copied into BOT_WD once, at guided init, and never
 # overwritten by a later run (same never-overwrite contract as AGENTS.md
-# above). This boot-time check only WARNS when the bot's copy-once stamp is
-# older than the product-bundled examples/rules-seed.md — it
+# above). This boot-time check only WARNS when the bot's copy-once stamp
+# differs from the product-bundled examples/rules-seed.md — it
 # never auto-merges or auto-updates the bot's file; that stays an explicit
-# operator/bot command (B3).
+# operator/bot command (B3). Wording is direction-neutral on purpose: a plain
+# string != comparison cannot tell "older" from "newer" (semver order is not
+# checked), so it must not claim one (2026-08-10 review finding).
 if [ -f "\$BOT_WD/rules-seed.md" ] && [ -f "${plan.repo}/examples/rules-seed.md" ]; then
   BOT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "\$BOT_WD/rules-seed.md" | head -1 | awk '{print \$2}')
   PRODUCT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "${plan.repo}/examples/rules-seed.md" | head -1 | awk '{print \$2}')
   if [ -n "\$BOT_RULES_VER" ] && [ -n "\$PRODUCT_RULES_VER" ] && [ "\$BOT_RULES_VER" != "\$PRODUCT_RULES_VER" ]; then
-    echo "[thiscodex][WARN] rules-seed \$BOT_RULES_VER -> \$PRODUCT_RULES_VER available — update by explicit command only"
+    echo "[thiscodex][WARN] rules-seed \$BOT_RULES_VER differs from product \$PRODUCT_RULES_VER — update by explicit command only"
   fi
 fi
 # The reply path needs the discord MCP server registered in ~/.codex/config.toml

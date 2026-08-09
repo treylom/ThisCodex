@@ -234,7 +234,9 @@ test('answers file with a wiki path lands THISCODEX_WIKI_PATH in the generated r
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
   assert.equal(state.answers.wiki_path, wiki);
-  assert.match(readFileSync(join(bot, 'run.sh'), 'utf8'), new RegExp(`THISCODEX_WIKI_PATH="${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  // single-quoted (shQuote) — a double-quoted "${...}" would let the shell
+  // re-interpret the answer at boot (2026-08-10 review fix).
+  assert.match(readFileSync(join(bot, 'run.sh'), 'utf8'), new RegExp(`THISCODEX_WIKI_PATH='${wiki.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`));
   assert.doesNotMatch(result.stdout, /No Obsidian wiki \(vault\) connected/);
   rmSync(repo, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
