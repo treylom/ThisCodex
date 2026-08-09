@@ -29,6 +29,11 @@ test('materializeBotFiles writes run and infra launch files with parameterized p
   assert.match(infra, new RegExp(`${root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/examples/bot\\.py`));
   assert.match(infra, /requirements\.txt/);
   assert.doesNotMatch(infra, /replace this guide command/);
+  // Y2/Y4 (2026-08-09 review): crash-loop evidence survives one boot, and the
+  // supervisor restarts the PAIR when either side dies.
+  assert.match(infra, /READY_LOG\.prev/);
+  assert.match(infra, /BOT_PID/);
+  assert.match(infra, />= \(2, 3\)/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });

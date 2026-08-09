@@ -71,8 +71,12 @@ rm -f "$STOP_FILE" 2>/dev/null || true
 
 # window 0 'infra' — app-server + bot.py bridge. Command IS the window process,
 # wrapped in a supervised restart loop. (invariant 1, 3)
+# SESSION/READY_LOG are baked into the command string: a pre-existing tmux
+# server keeps its own environment, so a plain `export` here never reaches the
+# window and the infra's READY_LOG default would silently diverge from the one
+# this script greps for readiness.
 tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
-  "while true; do $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec \"$THISCODEX_SHELL\""
+  "while true; do SESSION='$SESSION' READY_LOG='$READY_LOG' $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec \"$THISCODEX_SHELL\""
 
 # window 1 'codex' — operator TUI joined to the SAME thread as the bridge.
 # Hard guarded: wait for app-server, wait for a NON-EMPTY thread id, wait for

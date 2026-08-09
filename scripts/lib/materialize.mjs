@@ -54,14 +54,27 @@ cd "${plan.bot}"
 #      launch.sh greps ("app-server ready|Listening") before attaching the TUI.
 #   2) examples/bot.py — reference bridge; the process that actually talks to
 #      Discord and owns the sandbox per docs/yolo-bridge-contract.md.
-python3 -c 'import discord, websockets' 2>/dev/null || {
-  echo "[thiscodex] missing bridge deps — run: python3 -m pip install -r ${plan.repo}/requirements.txt"
+python3 -c 'import sys, discord, websockets; sys.exit(0 if tuple(map(int, discord.__version__.split(".")[:2])) >= (2, 3) else 1)' 2>/dev/null || {
+  echo "[thiscodex] bridge deps missing or too old (need discord.py>=2.3 + websockets) — run: python3 -m pip install -r ${plan.repo}/requirements.txt"
   exit 1
 }
+# READY_LOG is truncated (>) BY DESIGN: launch.sh's readiness gate greps it, and
+# appending (>>) would let a PREVIOUS boot's "ready" line pass the gate before
+# this app-server is actually up. One prior boot is kept in READY_LOG.prev so a
+# crash loop (5s supervisor restarts) cannot erase its own evidence.
+[ -f "\$READY_LOG" ] && mv -f "\$READY_LOG" "\$READY_LOG.prev"
 codex app-server --listen "\$CODEX_WS" >"\$READY_LOG" 2>&1 &
 APP_PID=\$!
-trap 'kill "\$APP_PID" 2>/dev/null || true' EXIT
-python3 "${plan.repo}/examples/bot.py"
+trap 'kill \${APP_PID:-} \${BOT_PID:-} 2>/dev/null || true' EXIT
+python3 "${plan.repo}/examples/bot.py" &
+BOT_PID=\$!
+# Exit when EITHER side dies so launch.sh's supervisor restarts the PAIR —
+# a foreground-only bot.py left a half-dead infra when app-server died first.
+# Portable poll: macOS ships bash 3.2 (no \`wait -n\`).
+while kill -0 "\$APP_PID" 2>/dev/null && kill -0 "\$BOT_PID" 2>/dev/null; do
+  sleep 5
+done
+exit 1
 `;
 }
 
