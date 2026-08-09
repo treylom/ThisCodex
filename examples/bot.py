@@ -480,9 +480,15 @@ class CodexRPC:
             if status and status not in ("inProgress", "running"):
                 self.turn_done.pop(turn_id, None)
                 if not fut.done():
-                    fut.set_result(
-                        _attach_reply_ack(turn, self.reply_ack.pop(turn_id, None))
-                    )
+                    # Reconciled turns bypass the item/completed notifications, so
+                    # the ack state never saw this turn's reply calls — replay the
+                    # fetched items into it, or downstream consumers read the same
+                    # items for text but not for acks and double-send.
+                    state = self.reply_ack.pop(turn_id, None) or ReplyAckState()
+                    for item in (turn.get("items") or []):
+                        if isinstance(item, dict):
+                            observe_discord_reply_item(item, state)
+                    fut.set_result(_attach_reply_ack(turn, state))
                 print(f"[CODEX-RPC] reconciled late turn via thread/read: {turn_id} status={status}")
             return
 
@@ -762,6 +768,7 @@ async def _recover_inflight() -> None:
             except Exception as e:
                 print(f"[INFLIGHT] origin channel fetch failed: {type(e).__name__}: {e}")
     status, text = "unknown", None
+    already_replied = False
     if t_id and turn_id:
         try:
             res = await codex.call("thread/read", {"threadId": t_id})
@@ -780,6 +787,14 @@ async def _recover_inflight() -> None:
                                 "agentMessage", "agent_message", "assistantMessage"):
                             text = item.get("text") or item.get("content")
                             break
+                    # Same items, both questions: "what did the model say" AND
+                    # "did it already send" — reading only the first is how
+                    # recovered turns double-send.
+                    _ack = ReplyAckState()
+                    for item in (turn.get("items") or []):
+                        if isinstance(item, dict):
+                            observe_discord_reply_item(item, _ack)
+                    already_replied = bool(_ack.message_ids and not _ack.failures)
                     break
         except Exception as e:
             print(f"[INFLIGHT] thread/read reconcile failed: {type(e).__name__}: {e}")
@@ -788,7 +803,10 @@ async def _recover_inflight() -> None:
     if channel is None:
         return
     try:
-        if text and status not in ("inProgress", "running"):
+        if already_replied:
+            print("[INFLIGHT] turn already replied via the discord tool — "
+                  "skipping recovered-reply relay (would duplicate)")
+        elif text and status not in ("inProgress", "running"):
             await channel.send("🔁 bridge restarted mid-turn; the codex turn had already "
                                f"finished — recovered reply:\n{str(text)[:1800]}",
                                allowed_mentions=_NO_MENTIONS)
@@ -1231,6 +1249,32 @@ async def worker():
                               "(no reply tool call this turn)")
                     except Exception as e:
                         print(f"[FALLBACK-RELAY] send failed: {type(e).__name__}: {e}")
+            # O-3 (2026-08-09 field, condition table): the model DID call the
+            # reply tool and the tool REFUSED (e.g. channel not allowlisted).
+            # Not relaying the full text is right — the model already tried,
+            # resending risks duplicates — but saying nothing is not: the
+            # bridge knows the reason while the user sees dead silence.
+            # Surface the tool's own error string; never invent one. The
+            # bridge's direct send is discord.py, not the MCP tool, so the
+            # allowlist that refused the reply does not gate this notice.
+            elif (isinstance(result, dict)
+                    and result.get("_discord_reply_failed")
+                    and channel is not None):
+                _fails = result.get("_discord_reply_failed")
+                _reason = str(_fails[-1] if isinstance(_fails, list) and _fails
+                              else _fails)[:400]
+                _partial = (" (some replies were delivered before this)"
+                            if result.get("_discord_reply_message_ids") else "")
+                print(f"[REPLY-REJECTED] discord reply tool refused: {_reason}")
+                try:
+                    await channel.send(
+                        "⚠️ (bridge notice — the model tried to reply but the "
+                        f"discord tool refused: {_reason}{_partial} — check "
+                        "access.json / allowlist; see README \"bot logs in but "
+                        "never replies\")",
+                        allowed_mentions=_NO_MENTIONS)
+                except Exception as e:
+                    print(f"[REPLY-REJECTED] notice send failed: {type(e).__name__}: {e}")
         except Exception as e:
             blocked_reason = f"turn dispatch error: {type(e).__name__}"
             print(f"[ERROR] turn dispatch: {type(e).__name__}: {e}")
@@ -1276,8 +1320,11 @@ def main():
         pass
     _access = ENV_PATH.parent / "access.json"
     if not _access.exists():
-        print(f"[WARN] {_access} missing — the discord MCP tool fails its handshake "
-              f"without it, so codex cannot send replies (bot.py itself still runs).")
+        print(f"[WARN] {_access} missing — the discord MCP still starts (static "
+              f"allowlist mode) and the bot HEARS you, but every reply is refused "
+              f"('reply failed: … not allowlisted'). Copy access.json.example from "
+              f"the same directory to access.json, fill in your channel/user ids, "
+              f"then restart.")
     client.run(TOKEN, log_handler=None)
 
 

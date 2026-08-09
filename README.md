@@ -307,9 +307,12 @@ bash hooks/tests/run-hook-tests.sh
 
 ### 3.7 Troubleshooting — bot logs in but never replies
 
-Four distinct causes share this one symptom (all field-measured 2026-08-09,
-WSL). Check in order — the bridge log (`run.sh` window `infra`) now warns on
-each:
+Five distinct causes share this one symptom (all field-measured 2026-08-09,
+WSL). First split the symptom in half with the ack reaction: **no 🔍 on your
+message = the bot never heard you** (most often you mentioned the *role*
+`<@&…>` instead of the *user* — Discord autocreates a same-named role on
+invite); **🔍 but no answer = the outbound side below.** Check in order — the
+bridge log (`run.sh` window `infra`) now warns on each:
 
 | Check | What broke | Fix |
 |---|---|---|
@@ -317,6 +320,7 @@ each:
 | That entry's `DISCORD_STATE_DIR` = **this** bot? | replies go out as another bot, or die on its token | generated `infra-launch.sh` now pins it via `-c`; align config.toml for manual runs |
 | `.env` line endings LF? (Windows paste = CRLF) | bot.py logs in fine, the discord MCP dies with "DISCORD_BOT_TOKEN required" | `sed -i 's/\r$//' <state dir>/.env` |
 | `BOT_WD/AGENTS.md` exists (§3.3)? | model writes answers but **calls no tool** — mute bot, zero errors | `init --apply` now materializes it; keep the Discord Reply Rule section |
+| `<state dir>/access.json` exists with your channel? | the MCP starts but **refuses every send** (`reply failed: … not allowlisted`) — the bot hears, never answers; the bridge now surfaces the refusal in-channel | copy the seeded `access.json.example`, fill in your channel/user ids, restart |
 
 Existence is not behavior: after fixing, prove it with **one actual round trip
 sent after the fix** (a reply that predates the fix proves nothing).

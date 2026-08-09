@@ -8,6 +8,12 @@ function shQuote(value) {
 }
 
 export function planBotFiles(state) {
+  // A missing field otherwise surfaces later as mkdirSync(undefined)
+  // TypeError / a literal "undefined" in generated shell — name the actual
+  // problem at the door instead.
+  for (const key of ['confirmed_repo_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
+    if (!state[key]) throw new Error(`${key} missing — guided init incomplete`);
+  }
   const repo = rejectProvisionalPath(state.confirmed_repo_root);
   const bot = rejectProvisionalPath(state.confirmed_bot_wd);
   const stateDir = rejectProvisionalPath(state.confirmed_state_dir);
@@ -137,6 +143,17 @@ export function materializeBotFiles(state) {
   const agentsSrc = join(plan.repo, 'examples', 'AGENTS.md');
   if (!existsSync(agentsDoc) && existsSync(agentsSrc)) {
     copyFileSync(agentsSrc, agentsDoc);
+  }
+  // 막힘 21 (2026-08-09 WSL, controlled pair 19:53/20:01): without access.json
+  // the discord MCP starts in static allowlist mode and REFUSES every send —
+  // the bot hears but never answers. The allowlist is a consent surface, so we
+  // seed an EXAMPLE next to where the real file must live (real ids stay a
+  // human decision — never a live file), and never overwrite. bot.py points at
+  // it on boot while access.json is absent.
+  const accessExample = join(plan.stateDir, 'access.json.example');
+  const accessSrc = join(plan.repo, 'examples', 'access.json.example');
+  if (!existsSync(accessExample) && existsSync(accessSrc)) {
+    copyFileSync(accessSrc, accessExample);
   }
   return plan;
 }

@@ -89,6 +89,30 @@ test('per_task cadence does not create a heartbeat timer', () => {
   rmSync(state, { recursive: true, force: true });
 });
 
+test('planBotFiles names the missing field instead of TypeErroring later', () => {
+  assert.throws(() => planBotFiles({
+    confirmed_repo_root: '/repo',
+    confirmed_bot_wd: '/bot',
+  }), /confirmed_state_dir missing/);
+});
+
+test('materializeBotFiles seeds access.json.example into the state dir and never overwrites', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  mkdirSync(join(root, 'examples'), { recursive: true });
+  writeFileSync(join(root, 'examples', 'access.json.example'), '{"dmPolicy":"allowlist"}\n');
+  const s = { confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state };
+  materializeBotFiles(s);
+  assert.match(readFileSync(join(state, 'access.json.example'), 'utf8'), /allowlist/);
+  writeFileSync(join(state, 'access.json.example'), '{"custom":true}\n');
+  materializeBotFiles(s);
+  assert.match(readFileSync(join(state, 'access.json.example'), 'utf8'), /custom/);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(state, { recursive: true, force: true });
+});
+
 test('materializeBotFiles seeds BOT_WD/AGENTS.md from examples and never overwrites', () => {
   const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
   const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));

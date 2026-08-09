@@ -1,0 +1,12 @@
+{
+  "dmPolicy": "allowlist",
+  "allowFrom": ["YOUR_DISCORD_USER_ID"],
+  "groups": {
+    "YOUR_CHANNEL_ID": {
+      "requireMention": true,
+      "allowFrom": ["YOUR_DISCORD_USER_ID"]
+    }
+  },
+  "mentionPatterns": ["\\byourbotname\\b"],
+  "ackReaction": "🔍"
+}
