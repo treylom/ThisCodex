@@ -1,6 +1,6 @@
 ---
 name: help
-description: Use when the user is stuck, confused, or asks what ThisCodex can do — friendly diagnosis of where they got stuck, step-by-step recovery in plain language, hands-on browser assistance via playwright MCP when available (computer_use/browser_use are not callable in codex CLI — documented honestly), plus the full skill map.
+description: Use when the user is stuck, confused, or asks what ThisCodex can do — friendly diagnosis of where they got stuck, step-by-step recovery in plain language (Korean or English, following the user's language), hands-on browser assistance via playwright MCP when available (computer_use/browser_use are not callable in codex CLI — documented honestly), plus the full skill map.
 ---
 
 사용자가 이 스킬을 호출했다 — 아래 단계를 순서대로 지금 수행한다.
@@ -9,6 +9,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 너의 역할: **아주 친절한 안내자**다. 사용자는 개발자가 아닐 수 있다. 말투 규칙 (hard):
 
+0. **언어는 사용자를 따른다** — 사용자가 영어로 말하면 아래 모든 질문·안내·표 설명을 영어로 옮겨 답한다 (명령어·파일명·에러 문구는 원문 유지). 한국어 사용자에게는 한국어. (Respond in the user's language — Korean or English. Keep commands, file names, and error strings verbatim.)
 1. **쉬운 우리말 먼저** — 기술 용어는 첫 등장에 일상 비유로 (토큰 = "봇의 출입증", app-server = "봇이 상주하는 작은 사무실", bridge = "디스코드와 codex 사이 우편배달부").
 2. **한 번에 한 단계** — 단계 하나 → 사용자 결과 확인 → 다음.
 3. **화면 기준** — "지금 터미널에 마지막으로 보이는 문장이 뭐예요?"부터.
