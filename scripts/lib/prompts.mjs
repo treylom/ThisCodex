@@ -1,4 +1,16 @@
 const PROMPTS = {
+  choose_install_surface: {
+    question: 'Choose the install surface — placement copies only the skill file; guided sets up a working bot',
+    defaultKey: 'install_surface',
+  },
+  ask_daemon_guide: {
+    question: 'Generate runner files (run.sh, infra-launch.sh, progress config) in the bot working directory',
+    defaultKey: 'daemon_guide',
+  },
+  ask_alias_consent: {
+    question: 'Print a shell alias block for one-word bot launch commands',
+    defaultKey: 'alias_consent',
+  },
   confirm_repo_root: {
     question: 'Confirm the ThisCodex repository root',
     defaultKey: 'repo_root',
@@ -32,5 +44,9 @@ const PROMPTS = {
 export function promptForStep(step, state = {}) {
   const spec = PROMPTS[step.id] || { question: step.reason || step.id, defaultKey: null };
   const defaultValue = spec.defaultKey ? state.detected?.[spec.defaultKey] || state.answers?.[spec.defaultKey] || '' : '';
-  return { question: spec.question, defaultValue };
+  let question = spec.question;
+  if (step.verify?.type === 'answer-one-of' && step.verify.choices) {
+    question += ` (${String(step.verify.choices).split(',').map(s => s.trim()).join(' / ')})`;
+  }
+  return { question, defaultValue };
 }

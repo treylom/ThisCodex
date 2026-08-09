@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function backupFile(path) {
@@ -7,19 +7,36 @@ export function backupFile(path) {
   return bak;
 }
 
-export function planSkillInstall(repoRoot, home, layer = 'user') {
-  const source = join(repoRoot, 'skills', 'thiscodex');
+export function listSkillNames(repoRoot) {
+  const root = join(repoRoot, 'skills');
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true })
+    .filter(e => e.isDirectory() && existsSync(join(root, e.name, 'SKILL.md')))
+    .map(e => e.name)
+    .sort();
+}
+
+export function planSkillInstall(repoRoot, home, layer = 'user', name = 'thiscodex') {
+  const source = join(repoRoot, 'skills', name);
   const dest = layer === 'repo'
-    ? join(repoRoot, '.agents', 'skills', 'thiscodex')
-    : join(home, '.agents', 'skills', 'thiscodex');
-  return { source, dest, layer };
+    ? join(repoRoot, '.agents', 'skills', name)
+    : join(home, '.agents', 'skills', name);
+  return { source, dest, layer, name };
 }
 
 export function applySkillInstall(repoRoot, home, layer = 'user') {
-  const plan = planSkillInstall(repoRoot, home, layer);
-  mkdirSync(plan.dest, { recursive: true });
-  cpSync(plan.source, plan.dest, { recursive: true });
-  return plan;
+  const names = listSkillNames(repoRoot);
+  const installed = [];
+  let primary = null;
+  for (const name of names.length ? names : ['thiscodex']) {
+    const plan = planSkillInstall(repoRoot, home, layer, name);
+    mkdirSync(plan.dest, { recursive: true });
+    cpSync(plan.source, plan.dest, { recursive: true });
+    installed.push(name);
+    if (name === 'thiscodex') primary = plan;
+  }
+  primary ||= planSkillInstall(repoRoot, home, layer, installed[0] || 'thiscodex');
+  return { ...primary, installed };
 }
 
 export function patchCodexConfig(home, dryRun = true, opts = {}) {

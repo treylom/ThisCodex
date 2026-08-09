@@ -10,7 +10,7 @@
       "reason": "First we check the operating system and installed tools so the installer can explain only the steps that apply to this machine.",
       "safety": "none",
       "verify": { "type": "environment-detected" },
-      "on_fail": { "next_command": "node bin/thiscodex.mjs --check --tone=plain" }
+      "on_fail": { "next_command": "node bin/thiscodex.mjs init --tone=plain" }
     },
     {
       "id": "choose_install_surface",
@@ -36,11 +36,11 @@
       "id": "confirm_repo_root",
       "order": 30,
       "when": "always",
-      "action": "check",
+      "action": "prompt",
       "reason": "ThisCodex must know the repository root so generated aliases can return to the repo you chose, not a fixed developer path.",
       "safety": "none",
       "verify": { "type": "path-exists", "state_key": "confirmed_repo_root" },
-      "on_fail": { "next_command": "thiscodex init --check --repo-root <path-to-ThisCodex>" }
+      "on_fail": { "next_command": "thiscodex init --apply --repo-root <path-to-ThisCodex>" }
     },
     {
       "id": "confirm_workspace_root",
@@ -60,7 +60,7 @@
       "reason": "ThisCodex needs one stable bot working directory for AGENTS.md, SOUL.md, thread id, and runner files.",
       "safety": "user-confirmed-path",
       "verify": { "type": "path-writable", "state_key": "confirmed_bot_wd" },
-      "on_fail": { "next_command": "thiscodex init --check --bot-wd <path>" }
+      "on_fail": { "next_command": "thiscodex init --apply --bot-wd <path>" }
     },
     {
       "id": "confirm_state_dir",
@@ -70,7 +70,7 @@
       "reason": "Discord token and bridge state live outside the repo and outside BOT_WD, so safe-mode Codex cannot silently self-upgrade privileges.",
       "safety": "user-confirmed-path",
       "verify": { "type": "path-writable", "state_key": "confirmed_state_dir" },
-      "on_fail": { "next_command": "thiscodex init --check --state-dir ~/.claude/channels/discord-<botname>" }
+      "on_fail": { "next_command": "thiscodex init --apply --state-dir <path-outside-bot-wd>" }
     },
     {
       "id": "codex_skill_layer",
@@ -80,7 +80,7 @@
       "reason": "Codex loads skills from ordered scan layers. User layer is shared across repos; repo layer is isolated to this checkout.",
       "safety": "none",
       "verify": { "type": "answer-one-of", "state_key": "codex_skill_layer", "choices": "user,repo" },
-      "on_fail": { "next_command": "thiscodex init --check --codex-skill-layer user" }
+      "on_fail": { "next_command": "thiscodex init --apply --codex-skill-layer user" }
     },
     {
       "id": "codex_marketplace",
@@ -90,7 +90,7 @@
       "reason": ".codex-plugin marketplace metadata is a secondary discovery path. The primary install still uses Codex skill scan directories.",
       "safety": "none",
       "verify": { "type": "answer-one-of", "state_key": "codex_marketplace", "choices": "yes,no" },
-      "on_fail": { "next_command": "thiscodex init --check --codex-marketplace no" }
+      "on_fail": { "next_command": "thiscodex init --apply --codex-marketplace no" }
     },
     {
       "id": "codex_config_check",
@@ -123,6 +123,26 @@
       "on_fail": { "next_command": "sudo apt-get update && sudo apt-get install -y tmux" }
     },
     {
+      "id": "ask_daemon_guide",
+      "order": 104,
+      "when": "answers.install_surface == 'guided'",
+      "action": "prompt",
+      "reason": "Guided onboarding materializes runner files (run.sh, infra-launch.sh, progress config) in the bot working directory so the bot can be launched without memorizing commands.",
+      "safety": "none",
+      "verify": { "type": "answer-one-of", "state_key": "daemon_guide", "choices": "yes,no" },
+      "on_fail": { "next_command": "thiscodex init --apply --daemon-guide yes" }
+    },
+    {
+      "id": "ask_alias_consent",
+      "order": 106,
+      "when": "answers.install_surface == 'guided'",
+      "action": "prompt",
+      "reason": "Shell aliases give one-word launch commands for this bot. The alias block is printed for you to paste; nothing edits your rc file automatically.",
+      "safety": "none",
+      "verify": { "type": "answer-one-of", "state_key": "alias_consent", "choices": "yes,no" },
+      "on_fail": { "next_command": "thiscodex init --apply --alias-consent yes" }
+    },
+    {
       "id": "alias_consent",
       "order": 110,
       "when": "answers.alias_consent == 'yes'",
@@ -140,7 +160,7 @@
       "reason": "Choose how often this bot should proactively report progress: per_task means meaningful subtask or milestone completion, 1/3/5 minutes configures bridge heartbeat, off disables bridge heartbeat, custom requires operator follow-up.",
       "safety": "none",
       "verify": { "type": "answer-one-of", "state_key": "progress_report_cadence", "choices": "per_task,1m,3m,5m,off,custom" },
-      "on_fail": { "next_command": "thiscodex init --check --progress-report-cadence per_task" }
+      "on_fail": { "next_command": "thiscodex init --apply --progress-report-cadence per_task" }
     },
     {
       "id": "materialize_runner",

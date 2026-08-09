@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { homedir } from 'node:os';
-import { resolve } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { detectEnv } from '../scripts/lib/detect.mjs';
 import { loadManifest } from '../scripts/lib/manifest.mjs';
@@ -50,7 +50,13 @@ const CONFIRMED_PATH_KEYS = [
 
 function applyConfirmedPath(state, key, value) {
   if (!value) return state;
-  return confirmPath(state, key, resolve(value));
+  const abs = resolve(value);
+  // repo_root must already exist (a real checkout); the other confirmed dirs may be
+  // freshly chosen by the user, so apply mode creates them before path verification.
+  if (mode === 'apply' && key !== 'confirmed_repo_root' && !existsSync(abs)) {
+    mkdirSync(abs, { recursive: true });
+  }
+  return confirmPath(state, key, abs);
 }
 
 function applyAnswers(state, answers) {
@@ -96,13 +102,16 @@ let state = withDetectedDefaults(loadInstallState(), {
   repo_root: repoRoot,
   workspace_root: cwd,
   cwd,
-  state_dir: cwd,
+  // Token and bridge state must default OUTSIDE the bot working directory —
+  // the confirm_state_dir step promises exactly that, so Enter must not break it.
+  state_dir: join(homedir(), '.thiscodex', 'state'),
+  install_surface: 'guided',
   codex_skill_layer: 'user',
   codex_marketplace: 'no',
   codex_yolo: 'safe',
   progress_report_cadence: 'per_task',
-  alias_consent: 'no',
-  daemon_guide: 'no',
+  alias_consent: 'yes',
+  daemon_guide: 'yes',
 });
 state.answers ||= {};
 state.completed_steps ||= [];
@@ -188,6 +197,7 @@ const handlers = {
       return;
     }
     if (step.action === 'generate') {
+      if (ctx.mode !== 'apply') return;
       if (step.id === 'alias_consent') console.log(aliasBlock(state));
       if (step.id === 'materialize_runner') materializeBotFiles(state);
     }
@@ -206,7 +216,7 @@ const result = await runFlow({
 if (mode === 'apply' && result.ok) {
   const home = process.env.HOME || homedir();
   const install = applySkillInstall(repoRoot, home, state.answers.codex_skill_layer || 'user');
-  console.log(`Installed skill: ${install.source} -> ${install.dest}`);
+  console.log(`Installed skills (${install.installed.join(', ')}): ${join(repoRoot, 'skills')} -> ${dirname(install.dest)}`);
   const hint = marketplaceHint(repoRoot, state.answers.codex_marketplace === 'yes');
   if (hint) console.log(`Marketplace hint: ${hint}`);
   saveInstallState(state);
