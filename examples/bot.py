@@ -1227,6 +1227,17 @@ async def worker():
                     )
                 else:
                     blocked_reason = f"turn hard-timed out after {TURN_HARD_TIMEOUT_SEC}s with no result"
+                    # 2026-08-09 review (글재경): a hard-timeout can coincide
+                    # with a discord reply tool refusal in the SAME turn — the
+                    # reply was produced but rejected (e.g. allowlist), not
+                    # simply "no result". Without this, the generic timeout
+                    # text below discards the actionable refusal reason that
+                    # the O-3 branch (below) would otherwise have surfaced.
+                    _fails = result.get("_discord_reply_failed")
+                    if _fails:
+                        _reason = str(_fails[-1] if isinstance(_fails, list) and _fails
+                                      else _fails)[:400]
+                        blocked_reason += f"; discord reply tool refused: {_reason}"
             # 막힘 17 fail-safe (2026-08-09 WSL field): a turn can complete
             # "normally" with agent text but ZERO discord reply calls — e.g.
             # the bot-WD instruction file is missing, so the model never
