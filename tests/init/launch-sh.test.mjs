@@ -19,6 +19,14 @@ test('launch.sh has rollout timeout recovery text', () => {
   assert.match(text, /rollout timeout|timeout.*rollout|recovery command/i);
 });
 
+test('launch.sh addresses sessions and windows with exact tmux targets', () => {
+  assert.match(text, /has-session -t "=\$SESSION"/);
+  assert.match(text, /kill-session -t "=\$SESSION"/);
+  assert.match(text, /new-window -t "=\$SESSION:"/);
+  assert.match(text, /select-window -t "=\$SESSION:codex"/);
+  assert.doesNotMatch(text, /has-session -t "\$SESSION"|kill-session -t "\$SESSION"/);
+});
+
 test('launch.sh syntax is valid bash', () => {
   execFileSync('bash', ['-n', 'scripts/launch.sh']);
 });

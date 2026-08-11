@@ -29,3 +29,16 @@ test('confirm_wiki_path prompt resumes a previously answered wiki path as its de
   const prompt = promptForStep({ id: 'confirm_wiki_path', reason: 'fallback' }, { answers: { wiki_path: '/Users/x/vault' } });
   assert.equal(prompt.defaultValue, '/Users/x/vault');
 });
+
+test('bot launch aliases are a default-yes recommendation skipped only by explicit no', () => {
+  const step = {
+    id: 'ask_alias_consent',
+    reason: 'fallback',
+    verify: { type: 'answer-one-of', choices: 'yes,no' },
+  };
+  const prompt = promptForStep(step, { detected: { alias_consent: 'yes' } });
+  assert.equal(prompt.defaultValue, 'yes');
+  assert.match(prompt.question, /recommend|recommended/i);
+  assert.match(prompt.question, /explicit.*no|no.*skip/i);
+  assert.match(prompt.question, /restart|previous.*session/i);
+});

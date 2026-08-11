@@ -50,6 +50,35 @@ export SESSION="${state.session || 'thiscodex'}"
 export THISCODEX_PROGRESS_CADENCE="${env.THISCODEX_PROGRESS_CADENCE}"
 export THISCODEX_HEARTBEAT_SEC="${env.THISCODEX_HEARTBEAT_SEC}"
 ${wikiExport}export LAUNCH_CMD="${plan.infra}"
+ACTION="\${1:-start}"
+STOP_FILE="\${STOP_FILE:-$BOT_WD/.thiscodex-stop}"
+
+case "$ACTION" in
+  start) ;;
+  stop)
+    touch "$STOP_FILE"
+    if command -v tmux >/dev/null 2>&1 && tmux has-session -t "=$SESSION" 2>/dev/null; then
+      tmux kill-session -t "=$SESSION"
+      echo "[thiscodex] stopped exact session '$SESSION'"
+    else
+      echo "[thiscodex] exact session '$SESSION' is not running"
+    fi
+    exit 0
+    ;;
+  attach)
+    exec tmux attach-session -t "=$SESSION"
+    ;;
+  tui)
+    tmux select-window -t "=$SESSION:codex"
+    if [ -n "\${TMUX:-}" ]; then exec tmux switch-client -t "=$SESSION"; fi
+    exec tmux attach-session -t "=$SESSION"
+    ;;
+  *)
+    echo "usage: $0 <start|stop|attach|tui>" >&2
+    exit 2
+    ;;
+esac
+
 cd "${plan.repo}"
 exec "${plan.repo}/scripts/launch.sh"
 `;
@@ -141,18 +170,20 @@ export function aliasBlock(state) {
   const bot = rejectProvisionalPath(state.confirmed_bot_wd);
   const stateDir = state.confirmed_state_dir ? rejectProvisionalPath(state.confirmed_state_dir) : '';
   const session = state.session || 'thiscodex';
+  const runner = join(bot, 'run.sh');
   const yoloFile = stateDir ? `${stateDir}/.thiscodex-yolo` : `${bot}/.thiscodex-yolo`;
   const env = progressEnvForState(state);
   const progressEnv = `THISCODEX_PROGRESS_CADENCE=${shQuote(env.THISCODEX_PROGRESS_CADENCE)} THISCODEX_HEARTBEAT_SEC=${shQuote(env.THISCODEX_HEARTBEAT_SEC)}`;
   return [
     '# Source this block from your shell, or paste it into your own rc file if you want it permanent.',
-    `alias thiscodex-start="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} SESSION=${shQuote(session)} ${progressEnv} ./scripts/launch.sh"`,
-    `alias thiscodex-attach="tmux attach -t ${session}"`,
-    `alias thiscodex-tui="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} tmux select-window -t ${session}:codex"`,
-    `alias thiscodex-doctor="cd ${shQuote(repo)} && node bin/thiscodex.mjs doctor"`,
-    `alias thiscodex-discord="cd ${shQuote(repo)} && BOT_WD=${shQuote(bot)} DISCORD_STATE_DIR=${shQuote(stateDir || bot)} SESSION=${shQuote(session)} ${progressEnv} ./scripts/launch.sh"`,
-    `alias thiscodex-yolo-on="mkdir -p ${shQuote(stateDir || bot)} && touch ${shQuote(yoloFile)}"`,
-    `alias thiscodex-yolo-off="rm -f ${shQuote(yoloFile)}"`,
+    `alias thiscodex-start=${shQuote(`${progressEnv} ${shQuote(runner)} start`)}`,
+    `alias thiscodex-stop=${shQuote(`${shQuote(runner)} stop`)}`,
+    `alias thiscodex-attach=${shQuote(`${shQuote(runner)} attach`)}`,
+    `alias thiscodex-tui=${shQuote(`${shQuote(runner)} tui`)}`,
+    `alias thiscodex-doctor=${shQuote(`cd ${shQuote(repo)} && node bin/thiscodex.mjs doctor`)}`,
+    `alias thiscodex-discord=${shQuote(`${progressEnv} ${shQuote(runner)} start`)}`,
+    `alias thiscodex-yolo-on=${shQuote(`mkdir -p ${shQuote(stateDir || bot)} && touch ${shQuote(yoloFile)}`)}`,
+    `alias thiscodex-yolo-off=${shQuote(`rm -f ${shQuote(yoloFile)}`)}`,
   ].join('\n') + '\n';
 }
 

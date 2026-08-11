@@ -158,6 +158,46 @@ test('answers file confirms guided paths and persists them explicitly', () => {
   rmSync(stateDir, { recursive: true, force: true });
 });
 
+test('guided apply defaults launch helpers to yes and emits them after run.sh exists', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const workspace = mkdtempSync(join(tmpdir(), 'tcx-workspace-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const answers = join(home, 'answers.json');
+  writeFileSync(answers, JSON.stringify({
+    install_surface: 'guided',
+    confirmed_repo_root: process.cwd(),
+    confirmed_workspace_root: workspace,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    codex_skill_layer: 'user',
+    codex_marketplace: 'no',
+    codex_yolo: 'safe',
+    progress_report_cadence: 'per_task',
+    daemon_guide: 'yes',
+    // alias_consent deliberately omitted: detected default must remain yes.
+  }));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
+  assert.equal(state.answers.alias_consent, 'yes');
+  assert.ok(existsSync(join(bot, 'run.sh')));
+  assert.match(result.stdout, /alias thiscodex-start=.*run\.sh/);
+  assert.match(result.stdout, /alias thiscodex-stop=.*run\.sh/);
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+  rmSync(workspace, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+  rmSync(stateDir, { recursive: true, force: true });
+});
+
 // B4 (PRD 59-pm-prd-night-batch): the wiki path prompt is free text, not an
 // enum — the generic non-interactive fallback ('check_only') must never land
 // as a literal wiki_path value, and its absence must never block --apply.

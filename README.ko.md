@@ -202,6 +202,15 @@ DISCORD_STATE_DIR = "~/.claude/channels/discord-<봇이름>"
 ### 3.4 실행 (접근 권한을 주는 건 bridge)
 2-윈도우 tmux 런처(`scripts/launch.sh`): `infra` 윈도우는 `LAUNCH_CMD`(codex app-server + bridge 데몬), `codex` 윈도우는 같은 app-server에 터미널 화면(TUI)을 붙여 실시간 관전·개입.
 
+가이드 init은 한 단어 런처 블록을 **기본 추천(기본값 yes)**으로 제시하며,
+사용자가 `no`라고 명시적으로 거부할 때만 건너뜁니다. 저장소와 봇 작업 폴더를
+확인한 뒤 출력되는 alias는 생성된 `<BOT_WD>/run.sh`를 호출합니다.
+`thiscodex-start`(하위 호환 이름 `thiscodex-discord` 포함)는 같은 이름의 tmux
+세션만 정확히 정리한 뒤 다시 띄우고, `thiscodex-stop`은 그 세션만 끄며,
+`thiscodex-attach`·`thiscodex-tui`는 그 세션에 다시 연결합니다. 영구 사용을
+원할 때만 검토한 블록을 shell rc에 붙여 넣습니다. 설치기는 rc를 자동 수정하지
+않고 개발자 컴퓨터의 고정 경로도 넣지 않습니다.
+
 `launch.sh` 는 감독만 하고, **실제 sandbox 를 보내는 건 bridge 데몬**입니다. 참조 bridge 는 본 레포에 동봉: [`examples/bot.py`](examples/bot.py), 지켜야 할 규칙은 **[YOLO bridge 계약](docs/yolo-bridge-contract.md)**. 핵심:
 
 - **기본 안전, YOLO opt-in, 봇별 선택**: 봇이 env `THISCODEX_YOLO=1` **또는** operator 통제 sentinel(`THISCODEX_YOLO_FILE`, 기본 `~/.claude/channels/discord-<BOT_NAME>/.thiscodex-yolo` — 봇별, **모델 writable dir 밖**이라 모델이 safe→YOLO self-upgrade 불가)로 opt-in 안 하면 `sandbox:"workspace-write"`+`approvalPolicy:"on-request"`. opt-in 한 봇만 `danger-full-access`+`never`. 호스트 무제한 접근은 봇별 의식적 선택이지 무설정 동작 ❌ — 계약의 보안 절 먼저 읽기.

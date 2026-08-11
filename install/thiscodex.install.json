@@ -145,26 +145,26 @@
     {
       "id": "ask_alias_consent",
       "order": 106,
-      "when": "answers.install_surface == 'guided'",
+      "when": "answers.install_surface == 'guided' and answers.daemon_guide == 'yes'",
       "action": "prompt",
-      "reason": "Shell aliases give one-word launch commands for this bot. The alias block is printed for you to paste; nothing edits your rc file automatically.",
+      "reason": "Recommended by default: one-word start/restart and stop helpers call the runner generated from confirmed paths; only an explicit no skips them. The alias block is printed for you to paste, so nothing edits your rc file automatically.",
       "safety": "none",
       "verify": { "type": "answer-one-of", "state_key": "alias_consent", "choices": "yes,no" },
       "on_fail": { "next_command": "thiscodex init --apply --alias-consent yes" }
     },
     {
       "id": "alias_consent",
-      "order": 110,
-      "when": "answers.alias_consent == 'yes'",
+      "order": 125,
+      "when": "answers.alias_consent == 'yes' and answers.daemon_guide == 'yes'",
       "action": "generate",
-      "reason": "Aliases are useful only after the repo and BOT_WD are confirmed; otherwise they bake a temporary path into your shell.",
+      "reason": "Aliases are generated only after repo and BOT_WD are confirmed. Start cleans up only the exact same-named tmux session before relaunch, stop targets that exact session, and no developer-machine path is baked in.",
       "safety": "consent-gated",
       "verify": { "type": "aliases-parameterized" },
       "on_fail": { "next_command": "thiscodex init --apply --yes --alias-consent yes" }
     },
     {
       "id": "progress_report_cadence",
-      "order": 115,
+      "order": 105,
       "when": "always",
       "action": "prompt",
       "reason": "Choose how often this bot should proactively report progress: per_task means meaningful subtask or milestone completion, 1/3/5 minutes configures bridge heartbeat, off disables bridge heartbeat, custom requires operator follow-up.",

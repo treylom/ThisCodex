@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -152,14 +152,14 @@ test('materializeBotFiles seeds BOT_WD/AGENTS.md from examples and never overwri
   rmSync(state, { recursive: true, force: true });
 });
 
-test('aliasBlock enters confirmed repo root and confirmed BOT_WD', () => {
+test('aliasBlock launches the materialized runner from confirmed BOT_WD', () => {
   const text = aliasBlock({ confirmed_repo_root: '/repo/ThisCodex', confirmed_bot_wd: '/bots/sonseokhee', session: 'thiscodex' });
-  assert.ok(text.includes("cd '/repo/ThisCodex'"));
-  assert.ok(text.includes("BOT_WD='/bots/sonseokhee'"));
+  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*start/);
+  assert.doesNotMatch(text, /\.\/scripts\/launch\.sh/);
   assert.doesNotMatch(text, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });
 
-test('aliasBlock gives a tmux-only Discord flow and YOLO helpers without cmux', () => {
+test('aliasBlock gives exact-session start, stop, attach, TUI and YOLO helpers without cmux', () => {
   const text = aliasBlock({
     confirmed_repo_root: '/repo/ThisCodex',
     confirmed_bot_wd: '/bots/sonseokhee',
@@ -169,8 +169,74 @@ test('aliasBlock gives a tmux-only Discord flow and YOLO helpers without cmux', 
   assert.match(text, /thiscodex-discord/);
   assert.match(text, /thiscodex-yolo-on/);
   assert.match(text, /thiscodex-yolo-off/);
-  assert.match(text, /tmux attach/);
+  assert.match(text, /thiscodex-stop/);
+  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*stop/);
+  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*attach/);
+  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*tui/);
+  assert.doesNotMatch(text, /tmux attach -t thiscodex|tmux select-window -t thiscodex:/);
   assert.doesNotMatch(text, /cmux/i);
+});
+
+test('aliasBlock is valid shell and preserves the parameterized runner command when sourced', () => {
+  const text = aliasBlock({
+    confirmed_repo_root: "/repo/ThisCodex's checkout",
+    confirmed_bot_wd: "/bots/reviewer's bot",
+    confirmed_state_dir: "/state/reviewer's state",
+    session: 'reviewer',
+  });
+  const result = spawnSync('bash', ['-c', 'source /dev/stdin; alias thiscodex-start; alias thiscodex-stop'], {
+    input: text,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /reviewer.*bot\/run\.sh.*start/);
+  assert.match(result.stdout, /reviewer.*bot\/run\.sh.*stop/);
+});
+
+test('materialized run.sh supports exact-session stop, attach and TUI actions', () => {
+  const text = runScript({
+    confirmed_repo_root: '/repo/ThisCodex',
+    confirmed_bot_wd: '/bots/sonseokhee',
+    confirmed_state_dir: '/state/discord-sonseokhee',
+    session: 'sonseokhee',
+  });
+  assert.match(text, /ACTION="\$\{1:-start\}"/);
+  assert.match(text, /has-session -t "=\$SESSION"/);
+  assert.match(text, /kill-session -t "=\$SESSION"/);
+  assert.match(text, /attach-session -t "=\$SESSION"/);
+  assert.match(text, /select-window -t "=\$SESSION:codex"/);
+  assert.match(text, /exec "\/repo\/ThisCodex\/scripts\/launch\.sh"/);
+});
+
+test('materialized run.sh stop kills only the exact configured tmux session', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-run-action-'));
+  const repo = join(root, 'repo');
+  const bot = join(root, 'bot');
+  const stateDir = join(root, 'state');
+  const bin = join(root, 'bin');
+  const log = join(root, 'tmux.log');
+  for (const dir of [repo, bot, stateDir, bin]) mkdirSync(dir, { recursive: true });
+  const script = join(bot, 'run.sh');
+  writeFileSync(script, runScript({
+    confirmed_repo_root: repo,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    session: 'reviewer',
+  }));
+  chmodSync(script, 0o755);
+  const tmux = join(bin, 'tmux');
+  writeFileSync(tmux, '#!/bin/bash\nprintf "%s\\n" "$*" >> "$TMUX_LOG"\nexit 0\n');
+  chmodSync(tmux, 0o755);
+  const result = spawnSync('bash', [script, 'stop'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: `${bin}:/usr/bin:/bin`, TMUX_LOG: log },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const calls = readFileSync(log, 'utf8');
+  assert.match(calls, /has-session -t =reviewer/);
+  assert.match(calls, /kill-session -t =reviewer/);
+  assert.doesNotMatch(calls, /reviewer2|kill-server/);
+  rmSync(root, { recursive: true, force: true });
 });
 
 test('aliasBlock exports heartbeat env from selected progress cadence', () => {
@@ -181,8 +247,8 @@ test('aliasBlock exports heartbeat env from selected progress cadence', () => {
     session: 'thiscodex',
     answers: { progress_report_cadence: '1m' },
   });
-  assert.match(text, /THISCODEX_PROGRESS_CADENCE='1m'/);
-  assert.match(text, /THISCODEX_HEARTBEAT_SEC='60'/);
+  assert.match(text, /THISCODEX_PROGRESS_CADENCE=.*1m/);
+  assert.match(text, /THISCODEX_HEARTBEAT_SEC=.*60/);
 });
 
 // B3/B4 (2026-08-10 night batch, PRD 59-pm-prd-night-batch success criteria 3-8):

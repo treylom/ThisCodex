@@ -78,6 +78,16 @@ test('manifest interviews for progress reporting cadence', () => {
   assert.match(step.reason, /progress|report/i);
 });
 
+test('default-recommended aliases are emitted only after cadence and runner materialization', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const byId = Object.fromEntries(manifest.steps.map(step => [step.id, step]));
+  assert.ok(byId.progress_report_cadence.order < byId.materialize_runner.order);
+  assert.ok(byId.materialize_runner.order < byId.alias_consent.order);
+  assert.match(byId.ask_alias_consent.when, /daemon_guide.*yes/);
+  assert.match(byId.alias_consent.when, /daemon_guide.*yes/);
+  assert.match(byId.ask_alias_consent.reason, /explicit no|explicit.*no/i);
+});
+
 // B4 (PRD 59-pm-prd-night-batch success criteria 6-8): the wiki (Obsidian vault)
 // path is a first-class guided-init question, but its verify must never be
 // consent-gated or otherwise able to block bot creation when left blank.

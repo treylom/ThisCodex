@@ -8,7 +8,7 @@ const PROMPTS = {
     defaultKey: 'daemon_guide',
   },
   ask_alias_consent: {
-    question: 'Print a shell alias block for one-word bot launch commands',
+    question: 'Recommended: print one-word start/restart and stop helpers that clean up only the exact previous tmux session; default yes, only explicit no skips',
     defaultKey: 'alias_consent',
   },
   confirm_repo_root: {

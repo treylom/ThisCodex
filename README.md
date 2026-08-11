@@ -224,6 +224,16 @@ A 2-window tmux launcher (`scripts/launch.sh`): window `infra` runs your
 `LAUNCH_CMD` (codex app-server + the bridge daemon); window `codex` attaches an
 interactive TUI to the same app-server for live observation/steering.
 
+Guided init treats the one-word launcher block as a **default-yes
+recommendation**; only an explicit `no` skips it. After the repository and bot
+working directory are confirmed, the printed aliases call the materialized
+`<BOT_WD>/run.sh`: `thiscodex-start` (and the compatibility name
+`thiscodex-discord`) removes only the exact same-named tmux session before
+restarting it, `thiscodex-stop` stops that exact session, and
+`thiscodex-attach` / `thiscodex-tui` reconnect to it. Paste the reviewed block
+into your shell rc if you want it permanent; the installer never edits the rc
+file automatically and never substitutes a developer-machine path.
+
 `launch.sh` only supervises — **the bridge daemon is what actually sends the
 sandbox**. The reference bridge ships in this repo:
 [`examples/bot.py`](examples/bot.py), and the rules it must obey are the

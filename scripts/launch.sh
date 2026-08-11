@@ -65,10 +65,10 @@ command -v tmux  >/dev/null || { echo "[FATAL] tmux not found"; exit 1; }
 command -v codex >/dev/null || { echo "[FATAL] codex CLI not found"; exit 1; }
 [ -d "$BOT_WD" ] || { echo "[FATAL] BOT_WD not a dir: $BOT_WD"; exit 1; }
 
-if tmux has-session -t "$SESSION" 2>/dev/null; then
+if tmux has-session -t "=$SESSION" 2>/dev/null; then
   echo "[thiscodex] tearing down existing '$SESSION' ..."
   touch "$STOP_FILE" 2>/dev/null || true   # break old supervised loops cleanly
-  tmux kill-session -t "$SESSION" 2>/dev/null || true
+  tmux kill-session -t "=$SESSION" 2>/dev/null || true
   sleep 0.5
 fi
 rm -f "$STOP_FILE" 2>/dev/null || true
@@ -87,7 +87,7 @@ tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
 # the rollout file, THEN `codex resume "$TID" --remote`. Never fresh remote-only
 # attach. If TID never appears, it loops waiting (loud) rather than
 # silently starting a fresh divergent session. (invariant 2)
-tmux new-window -t "$SESSION" -n codex -c "$BOT_WD" \
+tmux new-window -t "=$SESSION:" -n codex -c "$BOT_WD" \
   "until grep -q 'app-server ready\\|Listening' '$READY_LOG' 2>/dev/null || curl -s ${WS/ws:\/\//http:\/\/}/readyz >/dev/null 2>&1; do sleep 1; done; \
    until [ -s '$TID_FILE' ]; do echo '[thiscodex] waiting for bridge to write $TID_FILE (NOT starting a fresh codex session)'; sleep 2; done; \
    TID=\$(cat '$TID_FILE'); \
@@ -108,5 +108,5 @@ tmux new-window -t "$SESSION" -n codex -c "$BOT_WD" \
    done; \
    fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote $WS $CODEX_RESUME_FLAGS; _e=\$(date +%s); if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)\"; sleep 3; done; exec \"$THISCODEX_SHELL\""
 
-tmux select-window -t "$SESSION:codex"
-echo "[thiscodex] launched session '$SESSION' (infra + codex). Attach: tmux attach -t $SESSION"
+tmux select-window -t "=$SESSION:codex"
+echo "[thiscodex] launched session '$SESSION' (infra + codex). Attach: tmux attach -t '=$SESSION'"
