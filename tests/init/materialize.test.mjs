@@ -184,13 +184,21 @@ test('aliasBlock is valid shell and preserves the parameterized runner command w
     confirmed_state_dir: "/state/reviewer's state",
     session: 'reviewer',
   });
-  const result = spawnSync('bash', ['-c', 'source /dev/stdin; alias thiscodex-start; alias thiscodex-stop'], {
-    input: text,
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /reviewer.*bot\/run\.sh.*start/);
-  assert.match(result.stdout, /reviewer.*bot\/run\.sh.*stop/);
+  const dir = mkdtempSync(join(tmpdir(), 'tcx-alias-source-'));
+  const source = join(dir, 'aliases.sh');
+  try {
+    writeFileSync(source, text);
+    const result = spawnSync(
+      'bash',
+      ['-c', 'source "$1"; alias thiscodex-start; alias thiscodex-stop', 'alias-probe', source],
+      { encoding: 'utf8' },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /reviewer.*bot\/run\.sh.*start/);
+    assert.match(result.stdout, /reviewer.*bot\/run\.sh.*stop/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('materialized run.sh supports exact-session stop, attach and TUI actions', () => {
