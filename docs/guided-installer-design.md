@@ -7,6 +7,9 @@ regressions already merged to `master`.
 ## Goals
 
 - Make `thiscodex init --apply` a real guided onboarding path.
+- Make Automatic versus Manual the first interaction, independently from
+  placement versus guided onboarding.
+- Require one recorded automatic attempt before a manual failure handoff.
 - Keep `--non-interactive` as CI and diagnostic mode only.
 - Treat WSL-to-Windows skill sync as a first-class setup step.
 - Persist only user-confirmed paths and choices.
@@ -23,14 +26,17 @@ regressions already merged to `master`.
 
 ## Architecture
 
-The installer has five layers:
+The installer has six layers:
 
-1. **Manifest**: declarative ordered steps.
-2. **Runner**: evaluates `when`, prints the reason, runs action, runs verify,
+1. **Automation policy**: strict YAML subset with default mode, browser-tool
+   requirement, and exact named human-only boundaries.
+2. **Manifest**: declarative ordered steps.
+3. **Runner**: evaluates `when`, prints the reason, runs action, runs verify,
    stops with `on_fail.next_command` when required.
-3. **Prompt adapter**: turns manifest steps into concrete user-facing questions.
-4. **State store**: persists only confirmed values and install logs.
-5. **Doctor**: replays verify steps and reports status without inventing state.
+4. **Prompt adapter**: turns manifest steps into concrete user-facing questions.
+5. **State and audit stores**: persist confirmed values separately from
+   secret-redacted automatic-attempt results.
+6. **Doctor**: replays verify steps and reports status without inventing state.
 
 The manifest remains data. The runner owns ordering and failure behavior. The
 prompt adapter owns the user experience.
@@ -58,11 +64,30 @@ Confirmed values are persisted:
 - `confirmed_skill_layer`
 - `confirmed_windows_skill_dir`
 
+The chosen strategy is persisted separately as
+`answers.automation_mode = auto|manual`. It never replaces
+`answers.install_surface = placement|guided`. Attempt audits are append-only
+JSONL under `~/.config/thiscodex/automation-attempts.jsonl`, not mixed into the
+answers object.
+
 Detected values can be shown as defaults. They cannot be written as confirmed
 values until the user chooses them, a CLI flag supplies them, or an answers file
 supplies them.
 
 ## Guided Flow
+
+### Phase 0: Automation Strategy
+
+The first interaction is Automatic versus Manual. No environment check or
+placement question is asked first. Automatic mode means: try a recoverable
+operation, record status/operation/reason, and show a manual fallback only after
+the code gate allows it. Manual mode keeps step-by-step guidance but still
+records the selected mode.
+
+`install/automation-policy.yaml` is read by a deliberately narrow parser. It is
+not a general YAML implementation: unknown fields, duplicate keys, unsupported
+syntax, and incomplete named-gate entries fail closed. A gate not named in the
+policy is attempt-required by default.
 
 ### Phase 1: Placement Boundary
 
@@ -191,6 +216,12 @@ Every required failure prints:
 - whether the failure blocks guided onboarding or only a selected optional
   step.
 
+In Automatic mode those lines are not a substitute for an attempt. Before a
+manual action is shown, `automation-gate` requires an operation and structured
+result. Browser surfaces additionally require a callable provider and terminal
+reason; the same provider remains in use until completion, a named human
+security gate, or a recorded tool/provider failure.
+
 The installer must never hang waiting for stdin in non-interactive mode.
 
 ## Test Strategy
@@ -213,6 +244,13 @@ The implementation plan should include tests for:
 - doctor replay uses the same verify functions as install;
 - rollout proof skip/pass/fail triad from Track A remains intact;
 - 3-OS CI remains green.
+- automatic/manual is the first prompt and uses a state key distinct from
+  install surface;
+- malformed/unknown/duplicate automation YAML fails closed;
+- an unlisted handoff without an attempt is blocked;
+- a successful automatic attempt continues without handoff;
+- browser handoff requires provider and terminal reason;
+- every installer-facing skill calls the code gate before manual fallback.
 
 ## Review Gates
 

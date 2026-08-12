@@ -13,7 +13,7 @@
 Copy this into Claude Code or Codex:
 
 ```text
-Follow the install files in https://github.com/treylom/ThisCodex step by step. Start from README.md, run the guided `npx github:treylom/ThisCodex init` setup (interactive, no flags), ask me before touching credentials or system packages, and finish by running `npx github:treylom/ThisCodex doctor` or the documented verification commands.
+Follow the install files in https://github.com/treylom/ThisCodex step by step. Start from README.md and run the guided `npx github:treylom/ThisCodex init` setup (interactive, no flags). Ask Automatic or Manual as the first choice. In Automatic mode, actually try each recoverable step and record its result before asking me to do it; keep the same browser provider until completion, a named security gate, or a logged tool failure. Ask me before credentials, security approvals, or system changes. Finish with `npx github:treylom/ThisCodex doctor` or the documented verification commands.
 ```
 
 ![ThisCodex core idea — a structured Obsidian vault, the right bot per working directory, driven from Discord, bots collaborating](assets/core-mental-model.png)
@@ -42,7 +42,8 @@ Plugin packaging makes ThisCodex discoverable as a Codex plugin. **Guided
 onboarding is still separate.** After the plugin or skill is visible, run
 `thiscodex init` to confirm the repo, workspace, BOT_WD, state directory, Codex
 config, runner guidance, and final doctor checks before claiming the bot is
-ready.
+ready. The first onboarding choice is Automatic versus Manual; it is separate
+from placement versus guided setup.
 
 ---
 
@@ -137,12 +138,24 @@ guided onboarding** — run it with no flags:
 npx github:treylom/ThisCodex init
 ```
 
-Guided `init` walks you through repo root, workspace, BOT_WD, state dir, Codex
+Guided `init` first asks **Automatic (`auto`) or Manual (`manual`)**, then walks
+you through repo root, workspace, BOT_WD, state dir, Codex
 config, superpowers availability, runner guidance, and the final doctor checks,
 asking one question at a time with safe defaults, then performs the writes only
 after you confirm. This is the path for both humans and AI agents handed the
 repo: an agent must run guided `init` and relay each question to the user — it
 must not auto-run a non-interactive install or report "copied = installed".
+
+Automatic mode is enforced by `install/automation-policy.yaml`, consumed by the
+installer's strict YAML subset reader. Before an AI agent displays a manual
+fallback, it must call `thiscodex automation-gate`: an unlisted gate requires a
+real attempted operation and result, while named credential, CAPTCHA, consent,
+and ownership boundaries require explicit `human_required` evidence. Results are
+secret-redacted in `~/.config/thiscodex/automation-attempts.jsonl` (mode `0600`).
+For browser work, Playwright, claude-in-chrome, or the discovered equivalent
+provider stays attached until completion, a policy-declared human security gate,
+or a logged provider/tool failure. Starting a tool and switching to instructions
+is not completion.
 
 `--apply` copies the `thiscodex` skill into a Codex-visible layer
 (`~/.agents/skills/thiscodex` by default), optionally backs up and patches

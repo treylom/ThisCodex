@@ -13,7 +13,7 @@
 Claude Code 또는 Codex에 그대로 붙여 넣으세요:
 
 ```text
-https://github.com/treylom/ThisCodex 에 있는 설치 파일을 따라 단계별로 설치해줘. README.ko.md부터 읽고, 안내형 `thiscodex init` 설정을 진행하고, 토큰/자격증명이나 시스템 패키지를 건드리기 전에는 나에게 확인하고, 마지막에 `thiscodex doctor` 또는 문서의 검증 명령까지 실행해줘.
+https://github.com/treylom/ThisCodex 에 있는 설치 파일을 따라 단계별로 설치해줘. README.ko.md부터 읽고 안내형 `thiscodex init`을 실행한 뒤, 첫 질문으로 자동/수동을 물어봐. 자동 모드에서는 복구 가능한 단계를 실제로 한 번 시도하고 결과를 기록한 뒤에만 나에게 넘겨. 브라우저는 완료·이름 있는 보안 관문·기록된 도구 실패 중 하나까지 같은 provider를 사용해. 자격증명·보안 승인·시스템 변경은 내게 확인하고, 마지막에는 `thiscodex doctor` 또는 문서의 검증 명령까지 실행해줘.
 ```
 
 ![ThisCodex 핵심 그림 — 구조화된 옵시디언 볼트, 작업 디렉토리별 적합한 봇, 디스코드로 운영, 봇끼리 협업](assets/core-mental-model.png)
@@ -121,12 +121,23 @@ guided onboarding** 입니다 — 플래그 없이 실행하세요:
 npx github:treylom/ThisCodex init
 ```
 
-guided `init`은 repo root, workspace, BOT_WD, state dir, Codex config,
+guided `init`은 첫 질문으로 **자동(`auto`) / 수동(`manual`)**을 고른 뒤,
+repo root, workspace, BOT_WD, state dir, Codex config,
 superpowers 가용성, runner 안내, 최종 doctor 검증을 한 번에 한 질문씩 안전한
 기본값과 함께 물으며 진행하고, 확인 후에만 파일을 씁니다. 사람뿐 아니라
 **레포를 건네받은 AI 에이전트의 경로이기도 합니다 — 에이전트는 guided
 `init`을 실행하고 각 질문을 사용자에게 중계해야 하며, 비대화형 설치를
 스스로 실행하거나 "복사 = 설치 완료"라고 보고해선 안 됩니다.**
+
+자동 모드는 `install/automation-policy.yaml`을 설치기의 strict YAML subset
+reader가 읽어 코드에서 강제합니다. AI 에이전트가 수동 안내를 띄우기 전에는
+`thiscodex automation-gate`를 호출해야 합니다. 이름 없는 관문은 실제 시도와
+결과가 필요하고, 자격증명·CAPTCHA·동의·소유권처럼 이름 있는 사람 관문도
+`human_required` 근거를 남겨야 합니다. 결과는 비밀값을 지운 뒤
+`~/.config/thiscodex/automation-attempts.jsonl`(mode `0600`)에 기록합니다.
+브라우저 작업은 Playwright·claude-in-chrome 또는 발견된 동등 provider를
+완료·정책상 사람 보안 관문·기록된 provider/tool 실패 중 하나까지 유지합니다.
+도구를 시작만 하고 설명으로 바꾸는 것은 완료가 아닙니다.
 
 `--apply`는 `thiscodex` 스킬을 Codex가 스캔하는 계층(기본
 `~/.agents/skills/thiscodex`)으로 복사하고, 선택 시 `~/.codex/config.toml`을

@@ -6,7 +6,7 @@ rules as your Claude Code bots.
 ## First: Copy This To Your AI Assistant
 
 ```text
-https://github.com/treylom/ThisCodex 에 있는 README.ko.md와 docs/SETUP-BEGINNER.md를 읽고 설치를 도와줘. 내가 복사해야 할 명령은 한 번에 하나씩 보여주고, 토큰/자격증명이나 시스템 패키지 설치 전에는 꼭 확인 질문을 해줘. 마지막에는 `thiscodex doctor` 또는 문서의 검증 명령까지 실행해줘.
+https://github.com/treylom/ThisCodex 에 있는 README.ko.md와 docs/SETUP-BEGINNER.md를 읽고 설치를 도와줘. 첫 질문으로 자동/수동을 물어봐. 자동을 고르면 할 수 있는 단계는 실제로 시도하고 결과를 기록한 뒤에만 나에게 넘겨. 토큰/자격증명·보안 승인·시스템 패키지 설치 전에는 꼭 확인하고, 마지막에는 `thiscodex doctor` 또는 문서의 검증 명령까지 실행해줘.
 ```
 
 ## 1. Check The Tools
@@ -36,21 +36,22 @@ cd ~/.agents/thiscodex
 git pull
 ```
 
-## 3. Create A Discord Bot (one-time, in your browser)
+## 3. Create A Discord Bot (one-time, with the browser skill)
 
-The bridge (`examples/bot.py`) logs into Discord with a bot token. Create one:
+Ask Codex to **run the `create-bot` skill**. In Automatic mode it keeps one
+connected Playwright/claude-in-chrome-equivalent provider active, creates the
+application, turns on the required intents, prepares the invite, and records a
+failure before it shows any manual fallback.
 
-1. Open https://discord.com/developers/applications → "New Application" → pick a name.
-2. Left "Bot" tab → "Reset Token" → copy the token (you will paste it during setup).
-3. **Same "Bot" tab, scroll to "Privileged Gateway Intents" → turn ON both "Message
-   Content Intent" and "Server Members Intent" → Save.** Without either one the
-   bridge **crashes at startup** (`PrivilegedIntentsRequired`) — the token being
-   valid is not enough.
-4. OAuth2 → URL Generator → Scopes: `bot` → Permissions: Send Messages, Read
-   Message History, Add Reactions, Attach Files → open the generated URL and
-   invite the bot to your server.
+Only the account owner performs login/MFA, hCaptcha, and Reset Token
+password/MFA confirmation. Resume the same browser provider immediately after
+each security step. If browser automation is unavailable, the skill first tries
+registration and re-detection; it does not jump straight to click-by-click
+instructions.
 
-Keep the token secret: never paste it into Discord messages, git, or screenshots.
+Keep the token secret: never paste it into Discord messages, git, screenshots,
+or an AI-visible browser snapshot. The skill prefers a model-blind clipboard
+handoff and writes only the local `.env` result.
 
 ## 4. Run The Guided Setup
 
@@ -58,7 +59,8 @@ Keep the token secret: never paste it into Discord messages, git, or screenshots
 npx github:treylom/ThisCodex init
 ```
 
-The setup asks questions one by one. If you do not know an answer, ask the AI
+The first setup question is Automatic or Manual. The remaining setup asks
+questions one by one. If you do not know an answer, ask the AI
 assistant to explain the default in plain words before continuing.
 
 ## 5. Verify
