@@ -19,6 +19,11 @@ test('Slack bridge guide ports the live allowlist plus explicit-mention gate', (
   assert.match(skill, /작성자 `user`가 없는 봇 이벤트도 빈 문자열이라 허용목록을 통과하지 못한다/u);
   assert.match(skill, /사람 발화의 기존 라우팅은 그대로/u);
   assert.match(skill, /왕복 횟수 상한은 두지 않는다/u);
+  assert.match(
+    skill,
+    /각 봇이 자기 `AGENT_BRIDGE_ENGINE`으로 1회씩 응답해 서로의 발화를 참고하는지 확인/u,
+  );
+  assert.match(skill, /`\[claude\]`·`\[codex\]` 접두사로 각자 지정 엔진을 탔는지도 판독/u);
 });
 
 test('Slack bridge guide rejects the stale blanket bot-message drop', () => {
