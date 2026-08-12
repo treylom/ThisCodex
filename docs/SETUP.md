@@ -39,7 +39,41 @@ state directory, Codex config, runner guidance, and final doctor checks. Answer
 one question at a time. Do not report "copied = installed"; skill placement and
 guided onboarding are different steps.
 
-## 3. Verification
+## 3. Discord Bot Creation With Browser Automation
+
+After guided setup has confirmed the bot state directory, ask Codex to **run
+the `create-bot` skill**. It ports the companion ThisCode portal flow: Codex
+opens the Discord Developer Portal, creates the application, enables Message
+Content Intent and Server Members Intent, receives the token through a
+secret-safe handoff, and creates the server invitation.
+
+The skill discovers interactive browser tools by their capabilities, not by a
+fixed MCP or tool name. If no callable provider can navigate, inspect a page,
+click, type, and wait, it asks before registering Playwright MCP:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest
+```
+
+The equivalent `~/.codex/config.toml` block is:
+
+```toml
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+```
+
+Restart Codex after registration, then run the `create-bot` skill again so it
+can re-detect the callable tools. The label `playwright` is only an example;
+the skill does not depend on that name. `web.run` can fetch pages but cannot
+replace interactive portal control.
+
+Only three security steps remain human-owned: Discord login credentials/MFA,
+the New Application hCaptcha, and the Reset Token password/MFA confirmation.
+Never paste a bot token into chat, screenshots, logs, or git. Package tests use
+the skill's dry-run contract and do not touch a real Discord account.
+
+## 4. Verification
 
 ```bash
 node bin/thiscodex.mjs
@@ -52,7 +86,7 @@ If installed globally or through `npx`, also run:
 thiscodex doctor
 ```
 
-## 4. Next Docs
+## 5. Next Docs
 
 - [SETUP-BEGINNER.md](SETUP-BEGINNER.md) — same flow in simpler words.
 - [SETUP-CONFIG-GUIDE.md](SETUP-CONFIG-GUIDE.md) — author `AGENTS.md`,

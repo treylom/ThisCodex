@@ -1,0 +1,58 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+const read = path => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+
+test('create-bot skill ports the Discord portal browser contract to Codex', () => {
+  const skill = read('skills/create-bot/SKILL.md');
+
+  assert.match(skill, /^---\nname: create-bot\n/m);
+  assert.match(skill, /capabilit(?:y|ies).*not.*(?:tool )?name/is);
+  assert.match(skill, /navigate.*snapshot.*click.*(?:type|fill).*wait/is);
+  assert.match(skill, /codex mcp add playwright -- npx -y @playwright\/mcp@latest/);
+  assert.match(skill, /restart Codex/i);
+
+  for (const gate of ['login', 'MFA', 'hCaptcha', 'Reset Token']) {
+    assert.match(skill, new RegExp(gate, 'i'), `${gate} gate missing`);
+  }
+  for (const intent of ['Message Content Intent', 'Server Members Intent']) {
+    assert.match(skill, new RegExp(intent), `${intent} missing`);
+  }
+
+  assert.match(skill, /permissions=395137117248/);
+  assert.match(skill, /do not.*(?:screenshot|snapshot).*token/is);
+  assert.match(skill, /dry-run.*must not navigate/is);
+});
+
+test('create-bot install and tool-equivalence docs expose the MCP path', () => {
+  const setup = read('docs/SETUP.md');
+  const contract = read('docs/tool-equivalence-contract.md');
+  const readme = read('README.md');
+  const readmeKo = read('README.ko.md');
+  const help = read('skills/help/SKILL.md');
+
+  assert.match(setup, /## 3\. Discord Bot Creation With Browser Automation/);
+  assert.match(setup, /\[mcp_servers\.playwright\]/);
+  assert.match(setup, /@playwright\/mcp@latest/);
+  assert.match(contract, /interactive browser control.*Playwright MCP/is);
+  assert.match(contract, /tool name.*hard-cod/is);
+  assert.match(readme, /`\/create-bot`/);
+  assert.match(readmeKo, /`\/create-bot`/);
+  assert.match(help, /`\/create-bot`/);
+  assert.doesNotMatch(help, /앱 생성·토큰 발급은 원리상 사람 몫/);
+});
+
+test('plugin lock pins the shipped create-bot skill bytes', () => {
+  const bytes = readFileSync('skills/create-bot/SKILL.md');
+  const lock = JSON.parse(read('plugin.lock.json'));
+  const entry = lock.skills.find(skill => skill.id === 'create-bot');
+
+  assert.ok(entry, 'create-bot lock entry missing');
+  assert.equal(entry.vendoredPath, 'skills/create-bot');
+  assert.equal(
+    entry.integrity,
+    `sha256-${createHash('sha256').update(bytes).digest('hex')}`,
+  );
+});

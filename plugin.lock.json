@@ -21,6 +21,15 @@
   ],
   "skills": [
     {
+      "id": "create-bot",
+      "vendoredPath": "skills/create-bot",
+      "source": {
+        "type": "repo",
+        "path": "skills/create-bot/SKILL.md"
+      },
+      "integrity": "sha256-9f98068647711dbe71db56b2e07443fc5bb43ad515a325d72225614ce7b3beb7"
+    },
+    {
       "id": "prompt",
       "vendoredPath": "skills/prompt",
       "source": {

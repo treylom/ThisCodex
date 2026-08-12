@@ -48,7 +48,7 @@ test('plugin lock records shipped skills and upstream packaging basis', () => {
   assert.equal(lock.plugin.version, plugin.version);
   assert.ok(lock.sources.some(s => s.repo === 'openai/plugins' && s.path === 'plugins/figma'));
   assert.ok(lock.sources.some(s => s.repo === 'obra/superpowers'));
-  assert.deepEqual(lock.skills.map(s => s.id).sort(), ['prompt', 'thiscodex']);
+  assert.deepEqual(lock.skills.map(s => s.id).sort(), ['create-bot', 'prompt', 'thiscodex']);
 });
 
 test('README documents plugin packaging as canonical but keeps guided onboarding distinct', () => {

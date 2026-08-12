@@ -47,6 +47,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 | 스킬 | 용도 | 주요 서브커맨드 |
 |---|---|---|
 | `/thiscodex` | Codex를 Claude Code 페르소나·규칙과 동일한 디스코드 봇으로 설정 | `init`, `doctor`, `run`, `logs`, `features`, `troubleshoot` |
+| `/create-bot` | 연결된 브라우저 자동화 MCP로 디스코드 앱 생성 | 개발자 포털·인텐트·시크릿 비노출 토큰 수령·초대 |
 | `/prompt` | LLM·GPT·Gem·이미지 생성용 구조화된 프롬프트 작성 | `<작업설명>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
 | `/setup` | 단계별 안내 및 검증 | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
 | `/test` | ThisCodex 스모크 테스트 실행 (메모리, tmux, 회의, 규칙, 훅) | `<기능이름>`, `graphrag-bench`, `--verbose` |
@@ -66,6 +67,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 | 안전 기본 / YOLO(전체 권한) opt-in | ✅ 작동 | 기본 `workspace-write`, `THISCODEX_YOLO=1` 시에만 `thread/start`·`thread/resume` 둘 다 `danger-full-access`·`never` 전송 ([계약](docs/yolo-bridge-contract.md)) |
 | 이미지 생성 | ✅ 작동 | codex 내장 `image_gen.imagegen` 도구 |
 | 웹 조회·검색 | ✅ 작동 | codex 내장 `web.run` 도구 |
+| 디스코드 포털 인터랙티브 조작 | 🧭 **MCP 설정 경로** | 연결된 브라우저 자동화 MCP(통상 Playwright MCP). `/create-bot`이 도구 이름 하드코딩 없이 능력으로 탐지하며, 실계정 E2E는 계정 소유자 입회 게이트로 유지 |
 | `computer_use`/`browser_use`(데스크톱·브라우저 제어) | ⏸️ **보류** | `codex features list`엔 `stable,true`로 뜨지만 **이를 노출하는 공식 `codex` 명령/서브커맨드가 없어서** CLI/app-server 경로에서 **호출 가능한 도구가 아님** (데스크톱 앱 번들 MCP 전용). 업스트림 추적: [openai/codex#20851](https://github.com/openai/codex/issues/20851). 우회 없이 정직하게 문서화 |
 
 ✅ 항목은 전부 실측 검증(§6 참고). ⏸️ 항목은 우회 안 하고 업스트림 이슈와 함께 정직 명시.

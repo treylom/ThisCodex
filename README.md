@@ -63,6 +63,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 | Skill | Purpose | Key subcommands |
 |---|---|---|
 | `/thiscodex` | Set up Codex as a Discord bot with Claude Code persona/rules | `init`, `doctor`, `run`, `logs`, `features`, `troubleshoot` |
+| `/create-bot` | Create the Discord application through a connected browser-automation MCP | Developer Portal, intents, secret-safe token receipt, invite |
 | `/prompt` | Generate structured prompts for LLMs, GPTs, Gems, or image generation | `<task description>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
 | `/setup` | Step-by-step onboarding and verification | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
 | `/test` | Run ThisCodex smoke tests (memory, tmux, meetings, rules, hooks) | `<feature name>`, `graphrag-bench`, `--verbose` |
@@ -82,6 +83,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 | YOLO (full-access) execution | ✅ working | `thread/start` **and** `thread/resume` both send `sandbox:"danger-full-access"`, `approvalPolicy:"never"` |
 | Image generation | ✅ working | codex built-in `image_gen.imagegen` tool |
 | Web fetch/search | ✅ working | codex built-in `web.run` tool |
+| Interactive Discord-portal control | 🧭 **MCP-configured path** | A connected browser-automation MCP, normally Playwright MCP; `/create-bot` discovers capabilities without hard-coded tool names. Real-account E2E remains an owner-present gate. |
 | `computer_use` / `browser_use` (desktop/browser control) | ⏸️ **parked** | `codex features list` shows `stable,true`, **but no official `codex` command/subcommand exposes it**, so it is **not a callable tool** on the CLI/app-server surface (ships only as a Desktop-app-bundled MCP). Tracked upstream: [openai/codex#20851](https://github.com/openai/codex/issues/20851). Documented, not hacked. |
 
 Everything marked ✅ is empirically verified (see §6 Evidence). Everything ⏸️ is documented honestly with the upstream issue, not worked around.
