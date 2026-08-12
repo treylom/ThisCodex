@@ -170,7 +170,10 @@ export function aliasBlock(state) {
   const bot = rejectProvisionalPath(state.confirmed_bot_wd);
   const stateDir = state.confirmed_state_dir ? rejectProvisionalPath(state.confirmed_state_dir) : '';
   const session = state.session || 'thiscodex';
-  const runner = join(bot, 'run.sh');
+  // Shell artifact: alias block is sourced by bash/zsh, so the path must keep
+  // POSIX separators even when materialized on a win32 host (platform join would
+  // inject backslashes into the rc block). Filesystem writes keep platform join.
+  const runner = `${bot}/run.sh`;
   const yoloFile = stateDir ? `${stateDir}/.thiscodex-yolo` : `${bot}/.thiscodex-yolo`;
   const env = progressEnvForState(state);
   const progressEnv = `THISCODEX_PROGRESS_CADENCE=${shQuote(env.THISCODEX_PROGRESS_CADENCE)} THISCODEX_HEARTBEAT_SEC=${shQuote(env.THISCODEX_HEARTBEAT_SEC)}`;

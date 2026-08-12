@@ -216,7 +216,10 @@ test('materialized run.sh supports exact-session stop, attach and TUI actions', 
   assert.match(text, /exec "\/repo\/ThisCodex\/scripts\/launch\.sh"/);
 });
 
-test('materialized run.sh stop kills only the exact configured tmux session', () => {
+// POSIX-only surface: executes the materialized run.sh under bash with a shebang
+// tmux stub and colon-joined PATH — none of which exist natively on win32. The
+// product contract runs this artifact inside WSL/tmux; the ubuntu job covers it.
+test('materialized run.sh stop kills only the exact configured tmux session', { skip: process.platform === 'win32' ? 'POSIX-only runtime surface (WSL-first contract)' : false }, () => {
   const root = mkdtempSync(join(tmpdir(), 'tcx-run-action-'));
   const repo = join(root, 'repo');
   const bot = join(root, 'bot');
