@@ -33,6 +33,19 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-08-13 — Slack bot-to-bot meeting gate restored
+
+- The Slack bridge guide no longer tells every new bot to discard every
+  bot-authored message. Optional bot interop now matches the verified live
+  bridge: configure other bots by Slack user ID (`U…`) in
+  `ALLOWED_SLACK_BOT_USER_IDS`; an allowed bot still passes only in a channel
+  and only when it explicitly mentions this bot. DMs remain human-only.
+- Unset or empty allowlists preserve the old fail-closed behavior. There is no
+  message-count cap: both directions must be allowlisted, and each bot turn
+  must explicitly address its recipient.
+
+---
+
 ## 2026-08-12 — Discord thread creation adapter
 
 - **rules-seed v1.1.2 — public/private thread creation without a fictitious MCP tool**:

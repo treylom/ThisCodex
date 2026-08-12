@@ -381,10 +381,36 @@ echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":
 3. 환경변수 `AGENT_BRIDGE_ENGINE=claude|codex` 로 앱마다 엔진을 고정한다 — 미설정 시 3단계/6단계의 `codex:` 접두사 라우팅이 그대로 살아 있어 **하위호환**이다.
 4. `bot-home` 은 앱마다 별도로 둔다 — CLAUDE.md/AGENTS.md 의 페르소나·서명이 봇마다 갈린다.
 5. 앱마다 `AGENT_BRIDGE_EMOJI`를 명시적으로 다르게 둔다(예: claude=`eyes`, codex=`robot_face`). 미설정 기본값은 `eyes`지만, B-split에서는 기본값 공유로 두 봇이 같은 지문을 쓰지 않게 한다.
-6. 봇간 무한루프 가드: 수신 메시지에 `bot_id` 가 실려 있으면(다른 봇의 발화) 응답하지 않는다.
+6. 봇간 통신은 **허용목록 + 명시 멘션** 두 겹으로 연다. `ALLOWED_SLACK_BOT_USER_IDS`에는 다른 Slack 봇의 **사용자 ID(`U…`, `B…` bot ID 아님)**를 쉼표로 적는다. 목록이 없거나 비어 있으면 모든 봇 발화를 버려 이식 전 동작을 그대로 유지한다. 목록에 든 봇도 DM에서는 통과하지 않고, 채널에서 이 봇을 `<@U…>`로 명시 멘션한 글만 통과한다. 왕복 횟수 상한은 두지 않는다 — 정상 회의를 자르는 코드 cap 대신 허용목록과 매 발화 멘션이 루프 압력을 제한한다.
 7. 실행: 터미널 2개를 열어 각 앱 폴더에서 각각 전경으로 `slack run`.
 
-**검증**: ① 정체성 왕복 — 각 봇에게 "너는 누구야?" → 각자 텍스트 서명 확인. ② 입력 메시지에 각자의 `AGENT_BRIDGE_EMOJI`가 붙는지 확인 — 이모지는 텍스트 서명과 같은 페르소나 지문이다. ③ 회의 모드에서 봇 대 봇 상호 논평 — 한 스레드에서 각 봇이 자기 엔진으로 1회씩 응답해 서로의 발화를 참고하는지 확인.
+`agent_bridge.py`의 환경변수 상수와 콜백 첫머리에 라이브 정본과 같은 분기를 넣는다. 사람 발화의 기존 라우팅은 그대로 두고, `bot_id`가 있는 저자만 아래 좁은 경로로 판정한다. Slack Bolt의 `IgnoringSelfEvents` 미들웨어가 자기 앱의 에코는 먼저 버리며, 작성자 `user`가 없는 봇 이벤트도 빈 문자열이라 허용목록을 통과하지 못한다.
+
+```python
+# Slack bot user IDs (U…), never bot IDs (B…). Empty = all bot posts blocked.
+ALLOWED_BOT_USER_IDS = frozenset(
+    value.strip()
+    for value in os.environ.get("ALLOWED_SLACK_BOT_USER_IDS", "").split(",")
+    if value.strip()
+)
+
+def agent_bridge_callback(client: WebClient, context: BoltContext, say: Say, logger, message: dict):
+    if message.get("bot_id"):
+        sender = message.get("user") or ""
+        mention_me = f"<@{context.bot_user_id}>" in (message.get("text") or "")
+        if (
+            sender not in ALLOWED_BOT_USER_IDS
+            or message.get("channel_type") == "im"
+            or not mention_me
+        ):
+            return
+
+    # 기존 사람 발화·엔진 라우팅은 이 아래에서 계속한다.
+    text = (message.get("text") or "").strip()
+    # ... existing callback body ...
+```
+
+**검증**: ① 정체성 왕복 — 각 봇에게 "너는 누구야?" → 각자 텍스트 서명 확인. ② 입력 메시지에 각자의 `AGENT_BRIDGE_EMOJI`가 붙는지 확인 — 이모지는 텍스트 서명과 같은 페르소나 지문이다. ③ 봇 A의 `U…` ID만 봇 B 허용목록에 넣고, 채널에서 `<@봇B>`를 포함한 발화는 B가 응답하며 멘션 없는 발화·DM·목록 밖 봇 발화는 응답하지 않는지 확인. ④ 같은 방식으로 반대 방향도 배선한 뒤 한 스레드에서 두 봇이 서로를 명시 멘션하며 상호 논평하는지 확인. 허용목록은 **수신 방향** 설정이므로 양방향 회의에는 양쪽 설정이 모두 필요하다.
 
 ## Discord 쪽 (반자동 — API 로 앱 생성 불가)
 
