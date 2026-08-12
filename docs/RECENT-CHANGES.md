@@ -33,6 +33,33 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-08-12 — Meeting-room dispatch gate + solo-work ledger (P2 port)
+
+- **rules-seed v1.1.0 — new Rule 3 (no bot dispatch in top-level channels)**:
+  bot-to-bot work orders go to a dedicated thread with the 4-file meeting
+  folder; one-shot notices need an explicit `[공지]`/`[단발]`/`[핑]` tag.
+  Existing bots keep their v1.0.0 copy (copy-once) — the boot-time staleness
+  WARN in `infra-launch.sh` will announce v1.1.0; apply by explicit command
+  only, as before.
+- **New PreToolUse hook `hooks/dispatch-room-gate.py`** enforces Rule 3
+  mechanically in multi-bot workspaces (matcher
+  `mcp__discord__reply|mcp__discord__edit_message`, config
+  `<state>/dispatch-gate.json`, state dir = `$MEETING_WATCHDOG_STATE_DIR` or
+  `~/.claude-state` — the same directory the meeting watchdog reads).
+  Install check = `--probe` must print `PROBE PASS 6/6`; the trust slot
+  fails on a wired-but-untrusted hook (the Codex silent-inactive case).
+  Same-event notation caveat: `PreToolUse` (hooks.json, CamelCase) vs
+  `pre_tool_use:…` (config.toml trust keys, snake_case) — never unify when
+  transcribing; hook-array reorders shift the index-based trust keys, so
+  re-check `/hooks` approval after any change.
+- **New `scripts/solo_ledger.py` (S2 solo-work ledger core)**: crash-safe
+  per-task ledger (fence + flock + fail-closed blank-input gates) with
+  SessionStart recovery primitives. Consumers (SessionStart/PreCompact/Stop
+  wiring) land in a later phase; the core + fixture suites
+  (`tests/solo-ledger/`, `tests/dispatch-gate/`) ship now.
+
+---
+
 ## 2026-06-10 — Bridge fail-fast on app-server loss + portability fixes
 
 - **bot.py now exits (code 17) the moment the codex app-server websocket

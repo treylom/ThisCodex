@@ -41,6 +41,23 @@ skipping decisions.
    `trusted_hash` is present in `~/.codex/config.toml` — if absent, the meeting
    reread is silently inactive. (See README §3.6.) This trust step is
    Codex-specific; do not skip it or report the bot ready without it.
+   Notation caveat: `hooks.json` uses CamelCase event keys (`PreToolUse`,
+   `SessionStart`, `Stop`) while the `config.toml` trust state keys use
+   snake_case (`pre_tool_use:…`) — same event, two notations; never "unify"
+   them when transcribing. If you add / remove / reorder hook array entries,
+   re-check `/hooks` approval: the trust keys are index-based.
+   For multi-bot workspaces, additionally wire the dispatch-room gate
+   (`hooks/dispatch-room-gate.py`, PreToolUse, matcher
+   `mcp__discord__reply|mcp__discord__edit_message`), write
+   `<state>/dispatch-gate.json` (`top_channels` + `roster_path` +
+   `workspace_roots`; state = `$MEETING_WATCHDOG_STATE_DIR` or
+   `~/.claude-state`), then run
+   `python3 REPO_DIR/hooks/dispatch-room-gate.py --probe` (REPO_DIR = this
+   ThisCodex checkout) — installation is complete only on `PROBE PASS 6/6`
+   (wiring · trust · config · deny · non-top pass · out-cwd pass). A wired
+   but untrusted gate probes FAIL — that is the silent-inactive case the
+   probe exists to catch. Single-bot installs may skip with
+   `dispatch_gate: skipped(single-bot)`.
 7. Read `docs/RECENT-CHANGES.md` and apply anything not yet reflected — it is
    the newest-first digest of contract/behavior changes a fresh install must
    adopt (e.g. the Stop-hook output contract + the trust requirement above).
@@ -64,6 +81,7 @@ setup_completion:
   aliases: generated | declined(<reason>)   # step 8 — REQUIRED
   wd_docs: created | declined(<reason>)     # step 2 — SOUL.md + AGENTS.md in BOT_WD (REQUIRED)
   hooks_trusted: true                       # step 6 — trusted_hash present
+  dispatch_gate: probe 6/6 | skipped(<reason>)  # step 6 — multi-bot gate probe
   doctor: pass                              # step 9
 ```
 

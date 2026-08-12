@@ -1,4 +1,4 @@
-<!-- rules-seed v1.0.0 -->
+<!-- rules-seed v1.1.0 -->
 # Rules Seed — copy-once bot defaults
 
 > This file is copied into the bot working directory **once**, on first guided
@@ -26,3 +26,21 @@ When a wiki (Obsidian vault) path is connected for this bot (see
 produced from a chat instruction is saved into that wiki path. State the
 saved path in the reply back to the user, alongside the normal answer — do
 not save silently without naming where the file landed.
+
+## Rule 3 — No bot dispatch in top-level channels (meeting-room gate)
+
+When one bot delegates work to another bot (task orders, review requests,
+implementation / test instructions), do **not** do it in the body of a
+top-level shared channel. Create a dedicated thread, create the meeting
+record folder first (4 files: 00-context / 01-spec / 02-progress /
+03-outcome), and keep the whole exchange inside that thread. One-shot
+notices and liveness pings may go to the channel body, but must carry an
+explicit `[공지]` / `[단발]` / `[핑]` tag. Messages addressed to humans must
+not mention bots.
+
+Once installed and configured, this rule is also enforced mechanically by
+`hooks/dispatch-room-gate.py` (a PreToolUse deny hook plus a
+`<state>/dispatch-gate.json` config; on Codex the hook must additionally be
+**trusted** via `/hooks` — see README §3.6). The rule text and the hook
+share the same verdict criteria; in environments where the hook is not
+configured, the rule itself still applies.

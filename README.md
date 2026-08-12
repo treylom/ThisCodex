@@ -288,6 +288,19 @@ The shipped hook helpers only take effect once they are both **wired** into
   replies, completion reports, dispatch execution checks, and KST timestamp
   drift. They use the same Stop primitive as above:
   `{"decision":"block","reason":"..."}`.
+- **PreToolUse dispatch-room gate (multi-bot)** → `hooks/dispatch-room-gate.py`
+  (matcher `mcp__discord__reply|mcp__discord__edit_message`): denies bot-to-bot
+  work dispatch in configured top-level channels (rules-seed Rule 3 — same
+  verdict criteria), with a cwd guard bound to `workspace_roots` so unrelated
+  projects pass. Config = `<state>/dispatch-gate.json`; state =
+  `$MEETING_WATCHDOG_STATE_DIR` or `~/.claude-state`. Install is complete only
+  on `python3 hooks/dispatch-room-gate.py --probe` → `PROBE PASS 6/6` — the
+  probe's trust slot catches the wired-but-untrusted silent-inactive case.
+  Notation caveat: `hooks.json` event keys are CamelCase (`PreToolUse`) while
+  `config.toml` trust state keys are snake_case (`pre_tool_use:…`) — same
+  event, two notations; do not unify them when transcribing, and re-check
+  `/hooks` approval after adding/removing/reordering hook entries (trust keys
+  are index-based).
 - **PreToolUse soft→hard gates** → `hooks/automation-no-interactive.sh` and
   `hooks/verify-before-push.sh`: these deny risky tool calls with
   `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",...}}`
