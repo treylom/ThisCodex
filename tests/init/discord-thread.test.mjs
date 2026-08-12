@@ -15,7 +15,8 @@ import {
 
 const BIN = fileURLToPath(new URL('../../bin/thiscodex.mjs', import.meta.url));
 const SENTINEL = 'fixture.token.value';
-const CONFIRMED_STATE_DIR = resolve('/confirmed/discord-state');
+const RAW_STATE_DIR = '/confirmed/discord-state';
+const CONFIRMED_STATE_DIR = resolve(RAW_STATE_DIR);
 
 const response = (status, payload) => ({
   status,
@@ -68,12 +69,15 @@ test('public announcement mode expects ANNOUNCEMENT_THREAD type 10', () => {
   assert.equal(buildDiscordThreadPlan(options, '1.0.0').expectedType, DISCORD_CHANNEL_TYPES.ANNOUNCEMENT_THREAD);
 });
 
-test('private dry-run sends explicit type 12 without relying on the API default', async () => {
-  const result = await executeDiscordThread(privateOptions(['--invitable', 'false']), { packageVersion: '1.0.0' });
+test('private dry-run sends explicit type 12 and defaults invitable closed', async () => {
+  const result = await executeDiscordThread(privateOptions(), { packageVersion: '1.0.0' });
   assert.match(result.request.url, /\/channels\/123456789012345678\/threads$/);
   assert.equal(result.request.body.type, DISCORD_CHANNEL_TYPES.PRIVATE_THREAD);
   assert.equal(result.request.body.type, 12);
   assert.equal(result.request.body.invitable, false);
+
+  const openResult = await executeDiscordThread(privateOptions(['--invitable', 'true']), { packageVersion: '1.0.0' });
+  assert.equal(openResult.request.body.invitable, true);
 });
 
 test('forum and media channel types stop before token or network access', async () => {
@@ -92,7 +96,7 @@ test('apply sends the sentinel token only in the Authorization header and redact
   let captured;
   const result = await executeDiscordThread(publicOptions(['--apply']), {
     packageVersion: '1.0.0',
-    env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
+    env: { DISCORD_STATE_DIR: RAW_STATE_DIR },
     tokenLoader: stateDir => {
       assert.equal(stateDir, CONFIRMED_STATE_DIR);
       return SENTINEL;
@@ -116,39 +120,54 @@ test('apply sends the sentinel token only in the Authorization header and redact
 
 test('Discord JSON codes keep access, permission, duplicate, capacity, and support failures distinct', async () => {
   const cases = [
-    [403, { code: 50001, message: 'Missing access' }, 'channel_not_accessible'],
-    [403, { code: 50013, message: 'You lack permissions' }, 'permission_denied'],
-    [400, { code: 160004, message: 'A thread has already been created' }, 'already_exists'],
-    [400, { code: 160006, message: 'Maximum number of active threads reached' }, 'capacity_exhausted'],
-    [400, { code: 160007, message: 'Maximum number of active announcement threads reached' }, 'capacity_exhausted'],
-    [400, { code: 50024, message: 'Cannot execute action on this channel type' }, 'unsupported_surface'],
+    [403, { code: 50001, message: 'Missing access' }, 'channel_not_accessible', /membership.*VIEW_CHANNEL/i],
+    [403, { code: 50013, message: 'You lack permissions' }, 'permission_denied', /CREATE_PUBLIC_THREADS/],
+    [400, { code: 160004, message: 'A thread has already been created' }, 'already_exists', /existing thread/i],
+    [400, { code: 160006, message: 'Maximum number of active threads reached' }, 'capacity_exhausted', /Archive an inactive thread/i],
+    [400, { code: 160007, message: 'Maximum number of active announcement threads reached' }, 'capacity_exhausted', /Archive an inactive thread/i],
+    [400, { code: 50024, message: 'Cannot execute action on this channel type' }, 'unsupported_surface', /Correct the channel type/i],
   ];
 
-  for (const [status, payload, expected] of cases) {
+  for (const [status, payload, expected, nextPattern] of cases) {
     const result = await executeDiscordThread(publicOptions(['--apply']), {
-      env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
+      env: { DISCORD_STATE_DIR: RAW_STATE_DIR },
       tokenLoader: () => SENTINEL,
       fetchImpl: async () => response(status, payload),
     });
     assert.equal(result.code, expected, `${payload.code} must map to ${expected}`);
+    assert.match(result.next, nextPattern, `${payload.code} must preserve its operator action`);
     assert.equal(JSON.stringify(result).includes(SENTINEL), false);
   }
+
+  const privatePermission = await executeDiscordThread(privateOptions(['--apply']), {
+    env: { DISCORD_STATE_DIR: RAW_STATE_DIR },
+    tokenLoader: () => SENTINEL,
+    fetchImpl: async () => response(403, { code: 50013, message: 'You lack permissions' }),
+  });
+  assert.match(privatePermission.next, /CREATE_PRIVATE_THREADS/);
 });
 
 test('Cloudflare 1010 HTML remains distinct from Discord permission JSON', async () => {
   const result = await executeDiscordThread(publicOptions(['--apply']), {
-    env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
+    env: { DISCORD_STATE_DIR: RAW_STATE_DIR },
     tokenLoader: () => SENTINEL,
     fetchImpl: async () => response(403, '<html>Cloudflare error 1010</html>'),
   });
   assert.equal(result.code, 'user_agent_rejected');
   assert.doesNotMatch(result.message, new RegExp(SENTINEL.replaceAll('.', '\\.')));
+
+  const discordJson = await executeDiscordThread(publicOptions(['--apply']), {
+    env: { DISCORD_STATE_DIR: RAW_STATE_DIR },
+    tokenLoader: () => SENTINEL,
+    fetchImpl: async () => response(403, { code: 99999, message: 'Discord incident 1010' }),
+  });
+  assert.equal(discordJson.code, 'api_error');
 });
 
 test('transport ambiguity never retries automatically', async () => {
   let calls = 0;
   const result = await executeDiscordThread(privateOptions(['--apply']), {
-    env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
+    env: { DISCORD_STATE_DIR: RAW_STATE_DIR },
     tokenLoader: () => SENTINEL,
     fetchImpl: async () => {
       calls += 1;

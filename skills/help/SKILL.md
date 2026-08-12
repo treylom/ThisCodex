@@ -59,7 +59,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 |---|---|---|
 | 메시지에 이모지 반응 추가 | `mcp__discord__react(chat_id, message_id, emoji)` | 유니코드 이모지는 그대로, 커스텀 이모지는 `<:name:id>` 형식. 대상 채널·메시지 ID가 필요하다. |
 | 기존 Discord 스레드 읽기 | `mcp__discord__fetch_messages(channel=<thread_id>)` | 최근 기록을 오래된 순서로 최대 100건 읽는다. 스레드 부모 채널 allowlist와 봇의 보기·기록 권한이 필요하다. |
-| 새 Discord 스레드 만들기 | **ThisCodex CLI**(공식 Discord MCP에는 미노출) | 공개 스레드: `thiscodex discord-thread public --channel-id <id> --channel-type <0\|5> --message-id <id> --name "공개 스레드"`; 비공개 스레드: `thiscodex discord-thread private --channel-id <id> --channel-type 0 --name "비공개 스레드"`. 기본은 네트워크를 쓰지 않는 계획 출력이며, 검토 뒤 `--apply`를 붙인다. `reply_to`는 생성이 아니다. 명령이 없는 구버전이면 운영자에게 생성과 ID 전달을 요청한다. |
+| 새 Discord 스레드 만들기 | **ThisCodex CLI**(공식 Discord MCP에는 미노출) | 공개 스레드: `thiscodex discord-thread public --channel-id <id> --channel-type <0\|5> --message-id <id> --name "공개 스레드"`; 비공개 스레드: `thiscodex discord-thread private --channel-id <id> --channel-type 0 --name "비공개 스레드"`. 기본은 네트워크를 쓰지 않는 계획 출력이며, 검토 뒤 `--apply`를 붙인다. `--channel-type`은 조회값이 아니라 운영자 선언값이다. 실행 전 Discord 채널 객체의 `type`(0=일반 텍스트, 5=공지)을 확인하며, 불일치는 Discord가 판정한다. 비공개 모드는 `invitable=false`가 기본이고, 참여자의 추가 초대를 허용할 때만 `--invitable true`를 명시한다. `reply_to`는 생성이 아니다. 명령이 없는 구버전이면 운영자에게 생성과 ID 전달을 요청한다. |
 
 여기서 말하는 Discord 스레드 ID는 `codex app-server`의 `thread/start` 세션 ID와 다른 값이다. 둘을 서로 대신 쓰지 않는다.
 

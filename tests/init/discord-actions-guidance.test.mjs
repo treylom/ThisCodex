@@ -33,6 +33,11 @@ test('six guidance consumers distinguish the ThisCodex thread CLI from the offic
     assert.match(body, /공개 스레드/u, `${name}: official Korean public-thread term missing`);
     assert.match(body, /비공개 스레드/u, `${name}: official Korean private-thread term missing`);
     assert.match(body, /official Discord MCP|공식 Discord MCP/iu, `${name}: MCP boundary missing`);
+    assert.match(body, /operator-declared|운영자 선언/iu, `${name}: channel-type declaration boundary missing`);
+    assert.match(body, /channel\s+object(?:'s)?.*type|채널\s+객체.*type/isu, `${name}: channel-type verification missing`);
+    assert.match(body, /Discord(?: decides|가 판정)/iu, `${name}: mismatch authority missing`);
+    assert.match(body, /invitable.*false/iu, `${name}: closed private-thread default missing`);
+    assert.match(body, /--invitable true/iu, `${name}: explicit member-invite opt-in missing`);
   }
 
   const rulesSeed = read('examples/rules-seed.md');

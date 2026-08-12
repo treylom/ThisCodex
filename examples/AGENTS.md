@@ -36,7 +36,11 @@ action is available.
   creation. ThisCodex provides a separate dry-run-first adapter: use
   `thiscodex discord-thread public ... --name "공개 스레드"` for a public thread
   or `thiscodex discord-thread private ... --name "비공개 스레드"` for a private
-  thread, review the request plan, then repeat with `--apply`. `reply_to` only
+  thread, review the request plan, then repeat with `--apply`. `--channel-type`
+  is an operator-declared value, not a lookup: verify the Discord channel
+  object's `type` (0=text, 5=announcement) before applying; Discord decides any
+  mismatch. Private mode defaults `invitable` to `false`; add `--invitable true`
+  only when members may add others. `reply_to` only
   references an existing message and never creates a thread. If the CLI is not
   installed, ask an operator to create the thread and return its ID.
 

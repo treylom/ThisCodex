@@ -152,7 +152,7 @@ export function parseDiscordThreadArgs(args) {
   }
 
   const invitable = mode === 'private'
-    ? boolean(flags['--invitable'] ?? 'true', 'invitable')
+    ? boolean(flags['--invitable'] ?? 'false', 'invitable')
     : undefined;
   if (mode === 'public' && flags['--invitable'] !== undefined) {
     throw new DiscordThreadError('invalid_request', 'public mode does not accept --invitable');
@@ -276,7 +276,7 @@ function failureResult(response, payload, token, options) {
   if (code === 50024 || status === 405) {
     return { ...base, code: 'unsupported_surface', next: 'Correct the channel type or choose the forum/media thread path.' };
   }
-  if (status === 403 && (!payload.json || /cloudflare|1010/i.test(payload.text))) {
+  if (status === 403 && !payload.json) {
     return { ...base, code: 'user_agent_rejected', next: 'Restore the fixed DiscordBot ($url, $version) User-Agent header.' };
   }
   if (status === 401 || code === 50014) {
