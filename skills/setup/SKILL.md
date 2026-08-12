@@ -20,7 +20,11 @@ skipping decisions.
 
 1. Run `thiscodex init` for guided onboarding.
 2. Confirm repo root, workspace, BOT_WD, and Discord state dir before generating
-   aliases.
+   aliases. Then create `SOUL.md` (persona) + `AGENTS.md` (rules pointer) in
+   BOT_WD — **REQUIRED, never skip silently** (2026-08-12 regression fix: real
+   setups were observed ending without them). `AGENTS.md` carries the static
+   reply rule and points only at `rules/INDEX.md` (see `/thiscodex` §3).
+   Explicit user decline only, recorded in the completion contract below.
 3. Use tmux for the daemon/TUI split. Do not use cmux for this flow.
 4. Present safe mode first. Offer YOLO only as an explicit opt-in using the
    bridge contract and operator-controlled sentinel.
@@ -58,6 +62,7 @@ never be empty or omitted — a silent skip reads as an incomplete setup:
 ```yaml
 setup_completion:
   aliases: generated | declined(<reason>)   # step 8 — REQUIRED
+  wd_docs: created | declined(<reason>)     # step 2 — SOUL.md + AGENTS.md in BOT_WD (REQUIRED)
   hooks_trusted: true                       # step 6 — trusted_hash present
   doctor: pass                              # step 9
 ```
