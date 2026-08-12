@@ -45,7 +45,7 @@ test('create-bot install and tool-equivalence docs expose the MCP path', () => {
 });
 
 test('plugin lock pins the shipped create-bot skill bytes', () => {
-  const bytes = readFileSync('skills/create-bot/SKILL.md');
+  const bytes = Buffer.from(read('skills/create-bot/SKILL.md'), 'utf8');
   const lock = JSON.parse(read('plugin.lock.json'));
   const entry = lock.skills.find(skill => skill.id === 'create-bot');
 
