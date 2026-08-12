@@ -212,6 +212,35 @@ def main():
     check("14b 배선 GREEN + trusted_hash 부재 → probe FAIL(trust 칸 음성)",
           out.returncode == 1 and "[FAIL] trust" in out.stdout, out.stdout)
 
+    # 14c — 비-0 인덱스 감별(코난 M9-c 권고 2026-08-12): gate 를 [1][1] 에
+    # 배선하고 toml 엔 다른 훅([0][0])의 승인만 둔다. trust 키가 wired_idx
+    # 좌표로 계산되면 FAIL(정답), "pre_tool_use:0:0" 고정이면 남의 승인을
+    # 집어 PASS(변이) — 실 config.toml 은 이벤트당 다훅이라 사정거리 실재.
+    wired2 = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+    json.dump({"hooks": {"PreToolUse": [
+        {"matcher": "mcp__other",
+         "hooks": [{"type": "command", "command": "echo other-hook"}]},
+        {"matcher": "mcp__discord",
+         "hooks": [{"type": "command", "command": "echo not-the-gate"},
+                   {"type": "command",
+                    "command": "python3 %s" % GATE}]}]}}, wired2)
+    wired2.close()
+    other_toml = tempfile.NamedTemporaryFile("w", suffix=".toml", delete=False)
+    other_toml.write(
+        '[hooks.state."%s:pre_tool_use:0:0"]\nenabled = true\n'
+        'trusted_hash = "sha256:%s"\n' % (wired2.name, "cd" * 32))
+    other_toml.close()
+    out = subprocess.run([sys.executable, GATE, "--probe"],
+                        capture_output=True, text=True,
+                        env={**os.environ, "MEETING_WATCHDOG_STATE_DIR": sdir,
+                             "DISPATCH_GATE_SETTINGS": wired2.name,
+                             "DISPATCH_GATE_CONFIG_TOML": other_toml.name})
+    NEG_CTRL[0] += 1
+    check("14c 배선 [1][1] + toml 승인은 0:0 만 → probe FAIL(남의 승인 차용 차단)",
+          out.returncode == 1 and "[FAIL] trust" in out.stdout, out.stdout)
+    os.unlink(wired2.name)
+    os.unlink(other_toml.name)
+
     unwired = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
     json.dump({"hooks": {}}, unwired)
     unwired.close()
@@ -237,8 +266,8 @@ def main():
     os.unlink(trusted_toml.name)
 
     total = len(PASS) + len(FAIL)
-    POS_CTRL[1], NEG_CTRL[1] = 6, 12  # 음성: 2·3·4·5·7·8·10·12·13·14b·15·16
-    expected_min = 22
+    POS_CTRL[1], NEG_CTRL[1] = 6, 13  # 음성: 2·3·4·5·7·8·10·12·13·14b·14c·15·16
+    expected_min = 23
     print("—" * 60)
     print("검사 %d건 실행(기대 ≥%d) · PASS %d · FAIL %d" %
           (total, expected_min, len(PASS), len(FAIL)))
