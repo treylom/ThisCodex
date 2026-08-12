@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   DISCORD_API_BASE,
@@ -14,6 +15,7 @@ import {
 
 const BIN = fileURLToPath(new URL('../../bin/thiscodex.mjs', import.meta.url));
 const SENTINEL = 'fixture.token.value';
+const CONFIRMED_STATE_DIR = resolve('/confirmed/discord-state');
 
 const response = (status, payload) => ({
   status,
@@ -90,9 +92,9 @@ test('apply sends the sentinel token only in the Authorization header and redact
   let captured;
   const result = await executeDiscordThread(publicOptions(['--apply']), {
     packageVersion: '1.0.0',
-    env: { DISCORD_STATE_DIR: '/confirmed/discord-state' },
+    env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
     tokenLoader: stateDir => {
-      assert.equal(stateDir, '/confirmed/discord-state');
+      assert.equal(stateDir, CONFIRMED_STATE_DIR);
       return SENTINEL;
     },
     fetchImpl: async (url, init) => {
@@ -124,7 +126,7 @@ test('Discord JSON codes keep access, permission, duplicate, capacity, and suppo
 
   for (const [status, payload, expected] of cases) {
     const result = await executeDiscordThread(publicOptions(['--apply']), {
-      env: { DISCORD_STATE_DIR: '/confirmed/discord-state' },
+      env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
       tokenLoader: () => SENTINEL,
       fetchImpl: async () => response(status, payload),
     });
@@ -135,7 +137,7 @@ test('Discord JSON codes keep access, permission, duplicate, capacity, and suppo
 
 test('Cloudflare 1010 HTML remains distinct from Discord permission JSON', async () => {
   const result = await executeDiscordThread(publicOptions(['--apply']), {
-    env: { DISCORD_STATE_DIR: '/confirmed/discord-state' },
+    env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
     tokenLoader: () => SENTINEL,
     fetchImpl: async () => response(403, '<html>Cloudflare error 1010</html>'),
   });
@@ -146,7 +148,7 @@ test('Cloudflare 1010 HTML remains distinct from Discord permission JSON', async
 test('transport ambiguity never retries automatically', async () => {
   let calls = 0;
   const result = await executeDiscordThread(privateOptions(['--apply']), {
-    env: { DISCORD_STATE_DIR: '/confirmed/discord-state' },
+    env: { DISCORD_STATE_DIR: CONFIRMED_STATE_DIR },
     tokenLoader: () => SENTINEL,
     fetchImpl: async () => {
       calls += 1;
