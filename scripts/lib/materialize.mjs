@@ -56,7 +56,7 @@ export DISCORD_STATE_DIR=${shQuote(plan.stateDir)}
 export SESSION=${shQuote(session)}
 export THISCODEX_PROGRESS_CADENCE=${shQuote(env.THISCODEX_PROGRESS_CADENCE)}
 export THISCODEX_HEARTBEAT_SEC=${shQuote(env.THISCODEX_HEARTBEAT_SEC)}
-${wikiExport}export LAUNCH_CMD=${shQuote(plan.infra)}
+${wikiExport}export LAUNCH_CMD=${shQuote(`${plan.bot}/infra-launch.sh`)}
 ACTION="\${1:-start}"
 STOP_FILE="\${STOP_FILE:-$BOT_WD/.thiscodex-stop}"
 
