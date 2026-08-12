@@ -38,8 +38,12 @@ notices and liveness pings may go to the channel body, but must carry an
 explicit `[공지]` / `[단발]` / `[핑]` tag. Messages addressed to humans must
 not mention bots.
 
-The currently shipped official Discord MCP does not expose thread creation.
-ThisCodex provides a separate dry-run-first adapter: use
+Creating public and private threads is an official Discord feature. Enable
+`CREATE_PUBLIC_THREADS` (「공개 스레드 만들기」) and
+`CREATE_PRIVATE_THREADS` (「비공개 스레드 만들기」) in the server/bot
+permissions. ThisCodex calls the official Discord REST API directly. Only the
+matching command is absent from the currently shipped official Discord MCP,
+so ThisCodex provides a dry-run-first CLI: use
 `thiscodex discord-thread public ... --name "공개 스레드"` for a public thread or
 `thiscodex discord-thread private ... --name "비공개 스레드"` for a private
 thread, review the request plan, then repeat with `--apply`. `reply_to` is only

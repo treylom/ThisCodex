@@ -264,8 +264,10 @@ function failureResult(response, payload, token, options) {
     return { ...base, code: 'channel_not_accessible', next: 'Check bot membership, VIEW_CHANNEL, and channel permission overwrites.' };
   }
   if (code === 50013) {
-    const permission = options.mode === 'private' ? 'CREATE_PRIVATE_THREADS' : 'CREATE_PUBLIC_THREADS';
-    return { ...base, code: 'permission_denied', next: `Grant ${permission}; grant SEND_MESSAGES_IN_THREADS before posting in the new thread.` };
+    const permission = options.mode === 'private'
+      ? 'CREATE_PRIVATE_THREADS (「비공개 스레드 만들기」)'
+      : 'CREATE_PUBLIC_THREADS (「공개 스레드 만들기」)';
+    return { ...base, code: 'permission_denied', next: `Grant ${permission}; grant SEND_MESSAGES_IN_THREADS (「스레드에서 메시지 보내기」) before posting in the new thread.` };
   }
   if (code === 160004) {
     return { ...base, code: 'already_exists', next: 'Use the existing thread attached to this message; do not retry creation.' };

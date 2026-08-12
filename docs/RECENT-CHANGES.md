@@ -36,10 +36,12 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 ## 2026-08-12 — Discord thread creation adapter
 
 - **rules-seed v1.1.2 — public/private thread creation without a fictitious MCP tool**:
-  `thiscodex discord-thread` now emits a non-network request plan by default
-  and creates 공개 스레드 (public threads) or 비공개 스레드 (private threads)
-  only with explicit `--apply`. The official Discord MCP boundary and the
-  `reply_to` non-creation rule remain explicit.
+  public/private thread creation is an official Discord feature, and
+  `thiscodex discord-thread` calls the official Discord REST API directly. The
+  currently shipped official Discord MCP lacks only the matching creation
+  command, so the CLI emits a non-network request plan by default and creates
+  공개 스레드 (public threads) or 비공개 스레드 (private threads) only with
+  explicit `--apply`. The `reply_to` non-creation rule remains explicit.
 - The adapter pins Discord REST API v10, sends private thread type `12`
   explicitly, requires the DiscordBot User-Agent, keeps the bot token out of
   dry-run/model-visible output, and reports access, permission, duplicate,
@@ -50,10 +52,11 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 ## 2026-08-12 — Meeting-room dispatch gate + solo-work ledger (P2 port)
 
 - **rules-seed v1.1.1 — honest Discord thread-creation fallback**:
-  the official Discord MCP currently exposes reaction and existing-thread
-  history tools, but no create-thread tool. Rule 3 still requires a dedicated
-  thread; when creation is unavailable, the bot asks an operator to create it
-  and return the ID. `reply_to` must never be labeled as thread creation.
+  Discord already provided public/private thread creation, while the official
+  Discord MCP exposed reaction and existing-thread history but no matching
+  creation command. Rule 3 still requires a dedicated thread; in that older
+  ThisCodex version the bot asked an operator to create it and return the ID.
+  `reply_to` must never be labeled as thread creation.
 - **rules-seed v1.1.0 — new Rule 3 (no bot dispatch in top-level channels)**:
   bot-to-bot work orders go to a dedicated thread with the 4-file meeting
   folder; one-shot notices need an explicit `[공지]`/`[단발]`/`[핑]` tag.
