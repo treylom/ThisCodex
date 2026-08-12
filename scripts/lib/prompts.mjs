@@ -23,6 +23,10 @@ const PROMPTS = {
     question: 'Confirm the bot working directory for AGENTS.md, SOUL.md, thread id, and runner files',
     defaultKey: 'cwd',
   },
+  confirm_runtime_name: {
+    question: 'Choose the short bot runtime name used by tmux, BOT_NAME, and one-word aliases',
+    defaultKey: 'session',
+  },
   confirm_state_dir: {
     question: 'Confirm the Discord state directory (kept outside the bot working folder)',
     defaultKey: 'state_dir',

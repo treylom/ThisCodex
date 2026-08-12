@@ -198,6 +198,114 @@ test('guided apply defaults launch helpers to yes and emits them after run.sh ex
   rmSync(stateDir, { recursive: true, force: true });
 });
 
+test('guided apply carries the chosen runtime name into session, BOT_NAME, and aliases', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const workspace = mkdtempSync(join(tmpdir(), 'tcx-workspace-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const answers = join(home, 'answers.json');
+  writeFileSync(answers, JSON.stringify({
+    install_surface: 'guided',
+    confirmed_repo_root: process.cwd(),
+    confirmed_workspace_root: workspace,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    session: 'pt',
+    codex_skill_layer: 'user',
+    codex_marketplace: 'no',
+    codex_yolo: 'safe',
+    progress_report_cadence: 'per_task',
+    alias_consent: 'yes',
+    daemon_guide: 'yes',
+  }));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
+  assert.equal(state.answers.session, 'pt');
+  assert.match(readFileSync(join(bot, 'run.sh'), 'utf8'), /export SESSION='pt'/);
+  assert.match(readFileSync(join(bot, 'infra-launch.sh'), 'utf8'), /BOT_NAME='pt'/);
+  assert.match(result.stdout, /^alias pt=/m);
+  for (const dir of [repo, home, workspace, bot, stateDir]) rmSync(dir, { recursive: true, force: true });
+});
+
+test('doctor on a materialized install points to the exact runner instead of restarting onboarding', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const workspace = mkdtempSync(join(tmpdir(), 'tcx-workspace-'));
+  const bot = mkdtempSync(join(tmpdir(), "tcx-bot user's-"));
+  const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const answers = join(home, 'answers.json');
+  writeFileSync(answers, JSON.stringify({
+    install_surface: 'guided',
+    confirmed_repo_root: process.cwd(),
+    confirmed_workspace_root: workspace,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    session: 'pt',
+    codex_skill_layer: 'user',
+    codex_marketplace: 'no',
+    codex_yolo: 'safe',
+    progress_report_cadence: 'per_task',
+    alias_consent: 'yes',
+    daemon_guide: 'yes',
+  }));
+  const env = { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home };
+  const apply = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
+    cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
+  });
+  assert.equal(apply.status, 0, apply.stdout + apply.stderr);
+  const doctor = spawnSync(process.execPath, [BIN, 'doctor', '--non-interactive'], {
+    cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
+  });
+  assert.equal(doctor.status, 0, doctor.stdout + doctor.stderr);
+  assert.doesNotMatch(doctor.stdout, /Next command: thiscodex init --apply/);
+  assert.match(doctor.stdout, /Next command: .*tcx-bot user'\\''s-.*run\.sh' start/);
+  assert.doesNotMatch(doctor.stdout, /doctor doctor completed/);
+  assert.match(doctor.stdout, /doctor completed/);
+  for (const dir of [repo, home, workspace, bot, stateDir]) rmSync(dir, { recursive: true, force: true });
+});
+
+test('guided apply rejects an unsafe runtime name before materializing runner files', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const workspace = mkdtempSync(join(tmpdir(), 'tcx-workspace-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const answers = join(home, 'answers.json');
+  writeFileSync(answers, JSON.stringify({
+    install_surface: 'guided',
+    confirmed_repo_root: process.cwd(),
+    confirmed_workspace_root: workspace,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+    session: 'pt; touch unsafe',
+    codex_skill_layer: 'user',
+    codex_marketplace: 'no',
+    codex_yolo: 'safe',
+    progress_report_cadence: 'per_task',
+    alias_consent: 'yes',
+    daemon_guide: 'yes',
+  }));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout + result.stderr, /session.*letters|runtime|dash|underscore/i);
+  assert.equal(existsSync(join(bot, 'run.sh')), false);
+  for (const dir of [repo, home, workspace, bot, stateDir]) rmSync(dir, { recursive: true, force: true });
+});
+
 // B4 (PRD 59-pm-prd-night-batch): the wiki path prompt is free text, not an
 // enum — the generic non-interactive fallback ('check_only') must never land
 // as a literal wiki_path value, and its absence must never block --apply.

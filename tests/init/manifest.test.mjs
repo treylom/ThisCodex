@@ -13,6 +13,7 @@ test('manifest loads ordered ThisCodex steps', () => {
     'confirm_repo_root',
     'confirm_workspace_root',
     'confirm_bot_wd',
+    'confirm_runtime_name',
     'codex_skill_layer',
     'config_ceiling_patch',
     'tmux_install_consent',
@@ -21,6 +22,16 @@ test('manifest loads ordered ThisCodex steps', () => {
   ]) {
     assert.ok(ids.includes(id), `${id} missing`);
   }
+});
+
+test('guided onboarding asks for the bot runtime name before generating aliases', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const byId = Object.fromEntries(manifest.steps.map(step => [step.id, step]));
+  assert.equal(byId.confirm_runtime_name.action, 'prompt');
+  assert.equal(byId.confirm_runtime_name.verify.type, 'runtime-name');
+  assert.equal(byId.confirm_runtime_name.verify.state_key, 'session');
+  assert.ok(byId.confirm_runtime_name.order < byId.materialize_runner.order);
+  assert.ok(byId.confirm_runtime_name.order < byId.alias_consent.order);
 });
 
 test('manifest separates placement-only from guided onboarding', () => {

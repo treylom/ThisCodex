@@ -48,6 +48,25 @@ test('docs warn that aliases are generated only after confirmed paths', () => {
   assert.doesNotMatch(docs, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });
 
+test('getting-started books say aliases are printed, not silently persisted', () => {
+  const books = [
+    readFileSync('docs/getting-started/book.typ', 'utf8'),
+    readFileSync('docs/getting-started/book.en.typ', 'utf8'),
+  ].join('\n');
+  assert.match(books, /prints? an alias|alias.*출력/i);
+  assert.match(books, /source|붙여 넣/i);
+  assert.doesNotMatch(books, /writes? (it|the alias).*persist|자동.*(저장|기록)/i);
+});
+
+test('README onboarding names the runtime identity that drives tmux, BOT_NAME, and aliases', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /runtime name[\s\S]{0,200}tmux[\s\S]{0,120}BOT_NAME[\s\S]{0,120}alias|런타임 이름[\s\S]{0,200}tmux[\s\S]{0,120}BOT_NAME[\s\S]{0,120}alias/i);
+  assert.match(docs, /one-word launcher|한 단어 런처/i);
+});
+
 test('docs separate placement-only from full guided onboarding', () => {
   const docs = [
     readFileSync('README.md', 'utf8'),

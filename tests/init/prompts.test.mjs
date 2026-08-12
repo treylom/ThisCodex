@@ -42,3 +42,12 @@ test('bot launch aliases are a default-yes recommendation skipped only by explic
   assert.match(prompt.question, /explicit.*no|no.*skip/i);
   assert.match(prompt.question, /restart|previous.*session/i);
 });
+
+test('runtime-name prompt exposes a resumable default', () => {
+  const prompt = promptForStep({ id: 'confirm_runtime_name', reason: 'fallback' }, {
+    detected: { session: 'thiscodex' },
+    answers: {},
+  });
+  assert.match(prompt.question, /runtime|tmux|name/i);
+  assert.equal(prompt.defaultValue, 'thiscodex');
+});

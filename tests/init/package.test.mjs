@@ -16,6 +16,11 @@ test('package ships installer, hooks, skills, rules, docs, plugin, scripts', () 
   }
 });
 
+test('package excludes generated Python bytecode', () => {
+  assert.ok(pkg.files.includes('!**/__pycache__/**'), 'package files[] must exclude __pycache__ directories');
+  assert.ok(pkg.files.includes('!**/*.py[co]'), 'package files[] must exclude Python bytecode');
+});
+
 test('contributors include Codex', () => {
   assert.match(JSON.stringify(pkg.contributors), /Codex/i);
 });

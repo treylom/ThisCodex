@@ -216,8 +216,9 @@ mean is enough.
 
 An *alias* (nickname) lets you give a *short label* to a long, complex
 command. For example, the long command that wakes up a bot can be
-shortened to a single word like `mybot`. The setup helper creates the
-alias for you and writes it down so it persists.
+shortened to a single word like `mybot`. The setup helper prints an alias
+block using the runtime name you chose. Source it for the current shell, or
+paste it into your rc file only when you want it to persist.
 
 #codeblock("mybot   # nickname for 'wake up my bot' (long command)", lang: "bash")
 

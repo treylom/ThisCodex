@@ -29,6 +29,7 @@ const arg = name => {
   if (index !== -1 && args[index + 1] && !args[index + 1].startsWith('--')) return args[index + 1];
   return '';
 };
+const shellArg = value => `'${String(value).replaceAll("'", "'\\''")}'`;
 
 const mode = command === 'doctor' ? 'doctor' : command === 'smoke' ? 'smoke' : has('--apply') ? 'apply' : 'check';
 const tty = process.stdin.isTTY === true;
@@ -113,6 +114,7 @@ let state = withDetectedDefaults(loadInstallState(), {
   progress_report_cadence: 'per_task',
   alias_consent: 'yes',
   daemon_guide: 'yes',
+  session: 'thiscodex',
 });
 state.answers ||= {};
 state.completed_steps ||= [];
@@ -127,6 +129,7 @@ if (arg('--progress-report-cadence')) state.answers.progress_report_cadence = ar
 if (arg('--alias-consent')) state.answers.alias_consent = arg('--alias-consent');
 if (arg('--daemon-guide')) state.answers.daemon_guide = arg('--daemon-guide');
 if (arg('--install-surface')) state.answers.install_surface = arg('--install-surface');
+if (arg('--session')) state.answers.session = arg('--session');
 
 if (answersFile) {
   state = applyAnswers(state, JSON.parse(readFileSync(answersFile, 'utf8')));
@@ -251,5 +254,10 @@ if (!result.ok) {
   process.exit(2);
 }
 
-console.log(`Next command: thiscodex ${command === 'init' ? 'doctor --non-interactive' : 'init --apply --yes'}`);
-console.log(`${command} ${mode} completed.`);
+const nextCommand = command === 'init'
+  ? 'thiscodex doctor --non-interactive'
+  : state.confirmed_bot_wd && existsSync(join(state.confirmed_bot_wd, 'run.sh'))
+    ? `${shellArg(join(state.confirmed_bot_wd, 'run.sh'))} start`
+    : 'thiscodex init --apply --yes';
+console.log(`Next command: ${nextCommand}`);
+console.log(`${command}${mode === command ? '' : ` ${mode}`} completed.`);

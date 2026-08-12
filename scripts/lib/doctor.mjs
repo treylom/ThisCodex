@@ -71,6 +71,12 @@ export async function verifyStep(step, state, env = process.env) {
       ? { ok: true }
       : { ok: false, message: `${step.verify.state_key} must be one of ${choices.join(', ')}` };
   }
+  if (type === 'runtime-name') {
+    const value = state.answers?.[step.verify.state_key];
+    return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)
+      ? { ok: true }
+      : { ok: false, message: `${step.verify.state_key} must use 1-64 ASCII letters, numbers, dash, or underscore` };
+  }
   if (type === 'codex-config-readable') return { ok: true, detail: detectCodexConfig(env) };
   if (type === 'codex-config-ceiling') return { ok: true };
   if (type === 'superpowers-available') {

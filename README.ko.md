@@ -216,6 +216,8 @@ DISCORD_STATE_DIR = "~/.claude/channels/discord-<봇이름>"
 `thiscodex-attach`·`thiscodex-tui`는 그 세션에 다시 연결합니다. 영구 사용을
 원할 때만 검토한 블록을 shell rc에 붙여 넣습니다. 설치기는 rc를 자동 수정하지
 않고 개발자 컴퓨터의 고정 경로도 넣지 않습니다.
+guided init은 짧은 런타임 이름도 묻고, 그 한 값을 정확한 tmux 세션·`BOT_NAME`·
+한 단어 런처 alias(예: `pt`)에 함께 사용합니다.
 붙여 넣은 rc 블록과 alias 호출을 같은 줄에서 이어 실행하면 셸이 alias 정의 전에
 그 줄 전체를 먼저 파싱해 실패할 수 있으므로, 새 터미널을 열거나 블록을 별도
 줄에서 먼저 source한 뒤 호출합니다.

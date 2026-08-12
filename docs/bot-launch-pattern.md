@@ -106,6 +106,16 @@ sound alike"). Instead:
 4. Feed the corpus into the prompt-engineering pass above so the generated
    persona lands as a trigger table, not a vague style note.
 
+### Fixed operator address — make it executable, not descriptive
+
+If the operator chooses an exact form of address, put it in `SOUL.md` as an
+unconditional contract: “Always address the operator as `<address>`; do not
+reconfirm or offer alternatives unless the operator explicitly changes it.”
+A biographical sentence such as “the bot calls the operator `<address>`” is
+too weak: the model can repeat the candidate and still ask the operator to
+confirm it. Before launch, probe with “너는 나를 뭐라고 불러야 해?” and require
+the exact address with no follow-up question.
+
 ### Reanchor capsule — keep the persona alive on long sessions
 
 Long sessions dilute the persona: the SOUL.md loaded at session start

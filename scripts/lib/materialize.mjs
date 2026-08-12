@@ -7,6 +7,14 @@ function shQuote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
 }
 
+function runtimeName(state) {
+  const value = state.session || state.answers?.session || 'thiscodex';
+  if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value)) {
+    throw new Error('session must use 1-64 ASCII letters, numbers, dash, or underscore');
+  }
+  return value;
+}
+
 export function planBotFiles(state) {
   // A missing field otherwise surfaces later as mkdirSync(undefined)
   // TypeError / a literal "undefined" in generated shell — name the actual
@@ -32,24 +40,23 @@ export function planBotFiles(state) {
 export function runScript(state) {
   const plan = planBotFiles(state);
   const env = progressEnvForState(state);
+  const session = runtimeName(state);
   // Only present when a wiki (vault) path was actually connected — an unset
   // var (not an empty string) is what "wiki not provided" looks like downstream.
-  // shQuote (not a bare double-quoted interpolation): wiki_path is FREE TEXT
-  // that never fails verify (wiki-path-optional design), so it is the one
-  // guided-init answer with no path-exists/enum gate upstream. A double-quoted
-  // "${value}" lets the shell re-interpret it at boot ($HOME expansion, a
-  // stray " breaking the quoting, or a trailing "; ...; " running as a
-  // command). Single-quoted shQuote lands the answer as a value, never code
-  // (2026-08-10 review finding — confirmed by scratchpad/invariant_wiki_seed.mjs).
+  // Every confirmed path crosses from JSON/Node into generated shell source,
+  // so shQuote (not bare double-quoted interpolation) is mandatory. wiki_path
+  // is the widest input because it is optional free text, but repo/BOT_WD/state
+  // paths have the same shell-code boundary: `$`, backticks, quotes, or spaces
+  // must land as data, never be re-interpreted at boot.
   const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH=${shQuote(plan.wikiPath)}\n` : '';
   return `#!/usr/bin/env bash
 set -euo pipefail
-export BOT_WD="${plan.bot}"
-export DISCORD_STATE_DIR="${plan.stateDir}"
-export SESSION="${state.session || 'thiscodex'}"
-export THISCODEX_PROGRESS_CADENCE="${env.THISCODEX_PROGRESS_CADENCE}"
-export THISCODEX_HEARTBEAT_SEC="${env.THISCODEX_HEARTBEAT_SEC}"
-${wikiExport}export LAUNCH_CMD="${plan.infra}"
+export BOT_WD=${shQuote(plan.bot)}
+export DISCORD_STATE_DIR=${shQuote(plan.stateDir)}
+export SESSION=${shQuote(session)}
+export THISCODEX_PROGRESS_CADENCE=${shQuote(env.THISCODEX_PROGRESS_CADENCE)}
+export THISCODEX_HEARTBEAT_SEC=${shQuote(env.THISCODEX_HEARTBEAT_SEC)}
+${wikiExport}export LAUNCH_CMD=${shQuote(plan.infra)}
 ACTION="\${1:-start}"
 STOP_FILE="\${STOP_FILE:-$BOT_WD/.thiscodex-stop}"
 
@@ -79,30 +86,37 @@ case "$ACTION" in
     ;;
 esac
 
-cd "${plan.repo}"
-exec "${plan.repo}/scripts/launch.sh"
+cd ${shQuote(plan.repo)}
+exec ${shQuote(`${plan.repo}/scripts/launch.sh`)}
 `;
 }
 
 export function infraScript(state) {
   const plan = planBotFiles(state);
-  const session = state.session || 'thiscodex';
+  const session = runtimeName(state);
   // Same shQuote requirement as runScript above — wiki_path is ungated free
   // text and must land as a value, never be re-interpreted by the shell.
   const wikiExport = plan.wikiPath ? `export THISCODEX_WIKI_PATH=${shQuote(plan.wikiPath)}\n` : '';
   return `#!/usr/bin/env bash
 set -euo pipefail
-export BOT_WD="${plan.bot}"
-export DISCORD_STATE_DIR="${plan.stateDir}"
-export BOT_NAME="\${BOT_NAME:-${session}}"
-export THISCODEX_ROOT="${plan.repo}"
+export BOT_WD=${shQuote(plan.bot)}
+export DISCORD_STATE_DIR=${shQuote(plan.stateDir)}
+BOT_NAME="\${BOT_NAME:-}"
+[ -n "$BOT_NAME" ] || BOT_NAME=${shQuote(session)}
+export BOT_NAME
+export THISCODEX_ROOT=${shQuote(plan.repo)}
+REQUIREMENTS_FILE=${shQuote(`${plan.repo}/requirements.txt`)}
+RULES_SEED_FILE=${shQuote(`${plan.repo}/examples/rules-seed.md`)}
+BOT_SCRIPT=${shQuote(`${plan.repo}/examples/bot.py`)}
 ${wikiExport}export CODEX_WS="\${CODEX_WS:-ws://127.0.0.1:4222}"
-READY_LOG="\${READY_LOG:-/tmp/\${SESSION:-${session}}-bridge.log}"
+SESSION_FOR_LOG="\${SESSION:-}"
+[ -n "$SESSION_FOR_LOG" ] || SESSION_FOR_LOG=${shQuote(session)}
+READY_LOG="\${READY_LOG:-/tmp/\${SESSION_FOR_LOG}-bridge.log}"
 # PY: the ONE python this script both probes and runs. A venv install only
 # counts if THISCODEX_PYTHON points at that venv's python — shell activation
 # does not cross into tmux windows (launch.sh bakes this var through).
 PY="\${THISCODEX_PYTHON:-python3}"
-cd "${plan.bot}"
+cd "$BOT_WD"
 
 # Reference wiring (supervised by launch.sh window 'infra' — restarts on exit):
 #   1) codex app-server — headless runtime. Its output feeds READY_LOG, which
@@ -111,7 +125,7 @@ cd "${plan.bot}"
 #      Discord and owns the sandbox per docs/yolo-bridge-contract.md.
 "\$PY" -c 'import sys, discord, websockets; sys.exit(0 if tuple(map(int, discord.__version__.split(".")[:2])) >= (2, 3) else 1)' 2>/dev/null || {
   echo "[thiscodex] bridge deps missing or too old for \$PY (need discord.py>=2.3 + websockets)"
-  echo "[thiscodex]   install: \$PY -m pip install -r ${plan.repo}/requirements.txt"
+  echo "[thiscodex]   install: \$PY -m pip install -r \$REQUIREMENTS_FILE"
   echo "[thiscodex]   Ubuntu 24.04+/Debian (PEP 668 'externally-managed-environment'), either:"
   echo "[thiscodex]   - add --break-system-packages (installs into system python), or"
   echo "[thiscodex]   - uv venv && install there, then set THISCODEX_PYTHON to that venv's python before run.sh"
@@ -134,9 +148,9 @@ cd "${plan.bot}"
 # operator/bot command (B3). Wording is direction-neutral on purpose: a plain
 # string != comparison cannot tell "older" from "newer" (semver order is not
 # checked), so it must not claim one (2026-08-10 review finding).
-if [ -f "\$BOT_WD/rules-seed.md" ] && [ -f "${plan.repo}/examples/rules-seed.md" ]; then
+if [ -f "\$BOT_WD/rules-seed.md" ] && [ -f "\$RULES_SEED_FILE" ]; then
   BOT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "\$BOT_WD/rules-seed.md" | head -1 | awk '{print \$2}')
-  PRODUCT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "${plan.repo}/examples/rules-seed.md" | head -1 | awk '{print \$2}')
+  PRODUCT_RULES_VER=\$(command grep -oE 'rules-seed v[0-9.]+' "\$RULES_SEED_FILE" | head -1 | awk '{print \$2}')
   if [ -n "\$BOT_RULES_VER" ] && [ -n "\$PRODUCT_RULES_VER" ] && [ "\$BOT_RULES_VER" != "\$PRODUCT_RULES_VER" ]; then
     echo "[thiscodex][WARN] rules-seed \$BOT_RULES_VER differs from product \$PRODUCT_RULES_VER — update by explicit command only"
   fi
@@ -153,7 +167,7 @@ command grep -q '^\\[mcp_servers.discord\\]' "\$HOME/.codex/config.toml" 2>/dev/
 codex app-server -c "mcp_servers.discord.env.DISCORD_STATE_DIR=\$DISCORD_STATE_DIR" --listen "\$CODEX_WS" >"\$READY_LOG" 2>&1 &
 APP_PID=\$!
 trap 'kill \${APP_PID:-} \${BOT_PID:-} 2>/dev/null || true' EXIT
-"\$PY" "${plan.repo}/examples/bot.py" &
+"\$PY" "\$BOT_SCRIPT" &
 BOT_PID=\$!
 # Exit when EITHER side dies so launch.sh's supervisor restarts the PAIR —
 # a foreground-only bot.py left a half-dead infra when app-server died first.
@@ -169,7 +183,7 @@ export function aliasBlock(state) {
   const repo = rejectProvisionalPath(state.confirmed_repo_root);
   const bot = rejectProvisionalPath(state.confirmed_bot_wd);
   const stateDir = state.confirmed_state_dir ? rejectProvisionalPath(state.confirmed_state_dir) : '';
-  const session = state.session || 'thiscodex';
+  const session = runtimeName(state);
   // Shell artifact: alias block is sourced by bash/zsh, so the path must keep
   // POSIX separators even when materialized on a win32 host (platform join would
   // inject backslashes into the rc block). Filesystem writes keep platform join.
@@ -179,6 +193,10 @@ export function aliasBlock(state) {
   const progressEnv = `THISCODEX_PROGRESS_CADENCE=${shQuote(env.THISCODEX_PROGRESS_CADENCE)} THISCODEX_HEARTBEAT_SEC=${shQuote(env.THISCODEX_HEARTBEAT_SEC)}`;
   return [
     '# Source this block from your shell, or paste it into your own rc file if you want it permanent.',
+    `alias ${session}=${shQuote(`${progressEnv} ${shQuote(runner)} start`)}`,
+    `alias ${session}-stop=${shQuote(`${shQuote(runner)} stop`)}`,
+    `alias ${session}-attach=${shQuote(`${shQuote(runner)} attach`)}`,
+    `alias ${session}-tui=${shQuote(`${shQuote(runner)} tui`)}`,
     `alias thiscodex-start=${shQuote(`${progressEnv} ${shQuote(runner)} start`)}`,
     `alias thiscodex-stop=${shQuote(`${shQuote(runner)} stop`)}`,
     `alias thiscodex-attach=${shQuote(`${shQuote(runner)} attach`)}`,

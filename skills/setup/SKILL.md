@@ -25,6 +25,13 @@ skipping decisions.
    setups were observed ending without them). `AGENTS.md` carries the static
    reply rule and points only at `rules/INDEX.md` (see `/thiscodex` §3).
    Explicit user decline only, recorded in the completion contract below.
+   During the persona interview, ask for the **exact operator address** (for
+   example, `고객님`) and write it as a hard rule in `SOUL.md`: **Always address
+   the operator as `<exact address>`; do not reconfirm it or offer alternatives
+   unless the operator explicitly changes it.** A descriptive sentence such as
+   “the bot calls the operator X” is not strong enough. Before declaring setup
+   complete, run the behavior probe `너는 나를 뭐라고 불러야 해?`; the bot must
+   answer with the exact address without a follow-up question.
 3. Use tmux for the daemon/TUI split. Do not use cmux for this flow.
 4. Present safe mode first. Offer YOLO only as an explicit opt-in using the
    bridge contract and operator-controlled sentinel.
@@ -70,6 +77,10 @@ skipping decisions.
    permanent.
 9. Finish with `thiscodex doctor`, and echo the completion contract below in
    the final report.
+10. Offer the **optional, non-blocking** Slack onboarding handoff. If the
+    operator wants Slack, invoke `/slack-bridge` and start at its Step 0; do not
+    send them to the Slack developer portal or invent a token-copy flow. If
+    they defer it, record the reason without failing the Discord setup.
 
 ## Completion Contract (yaml 규약 — 2026-08-12)
 
@@ -80,9 +91,11 @@ never be empty or omitted — a silent skip reads as an incomplete setup:
 setup_completion:
   aliases: generated | declined(<reason>)   # step 8 — REQUIRED
   wd_docs: created | declined(<reason>)     # step 2 — SOUL.md + AGENTS.md in BOT_WD (REQUIRED)
+  operator_address: <exact address>         # step 2 — exact SOUL rule + behavior probe
   hooks_trusted: true                       # step 6 — trusted_hash present
   dispatch_gate: probe 6/6 | skipped(<reason>)  # step 6 — multi-bot gate probe
   doctor: pass                              # step 9
+  slack_bridge: configured | deferred(<reason>) # step 10 — optional, never blocks Discord
 ```
 
 ## Subcommands

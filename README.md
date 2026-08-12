@@ -238,6 +238,8 @@ restarting it, `thiscodex-stop` stops that exact session, and
 `thiscodex-attach` / `thiscodex-tui` reconnect to it. Paste the reviewed block
 into your shell rc if you want it permanent; the installer never edits the rc
 file automatically and never substitutes a developer-machine path.
+Guided init also asks for a short runtime name; that one value becomes the exact
+tmux session, `BOT_NAME`, and one-word launcher alias (for example `pt`).
 Do not invoke an alias on the same parsed line that defines or sources the rc
 block: the shell may parse the invocation before the alias exists, so open a
 new terminal or source the block on a separate line first.

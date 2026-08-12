@@ -41,7 +41,7 @@ test('materializeBotFiles writes run and infra launch files with parameterized p
   const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
   const files = materializeBotFiles({ confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state });
   assert.ok(existsSync(files.run));
-  assert.match(readFileSync(files.run, 'utf8'), new RegExp(`BOT_WD="${bot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`));
+  assert.match(readFileSync(files.run, 'utf8'), new RegExp(`BOT_WD='${bot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`));
   const infra = readFileSync(files.infra, 'utf8');
   assert.match(infra, /DISCORD_STATE_DIR=/);
   // A guided install must end in a bootable bot: infra-launch.sh wires the
@@ -85,8 +85,8 @@ test('materializeBotFiles writes selected progress cadence for bridge consumptio
   assert.equal(cfg.progress_report_cadence, '3m');
   assert.equal(cfg.heartbeat_interval_sec, 180);
   assert.equal(cfg.mode, 'heartbeat');
-  assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_PROGRESS_CADENCE="3m"/);
-  assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_HEARTBEAT_SEC="180"/);
+  assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_PROGRESS_CADENCE='3m'/);
+  assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_HEARTBEAT_SEC='180'/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });
@@ -105,7 +105,7 @@ test('per_task cadence does not create a heartbeat timer', () => {
   const cfg = JSON.parse(readFileSync(join(state, 'progress-reporting.json'), 'utf8'));
   assert.equal(cfg.heartbeat_interval_sec, 0);
   assert.equal(cfg.mode, 'on_complete');
-  assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_HEARTBEAT_SEC="0"/);
+  assert.match(readFileSync(files.run, 'utf8'), /THISCODEX_HEARTBEAT_SEC='0'/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });
@@ -177,6 +177,19 @@ test('aliasBlock gives exact-session start, stop, attach, TUI and YOLO helpers w
   assert.doesNotMatch(text, /cmux/i);
 });
 
+test('aliasBlock emits the chosen bot runtime name as the one-word launcher', () => {
+  const text = aliasBlock({
+    confirmed_repo_root: '/repo/ThisCodex',
+    confirmed_bot_wd: '/bots/pt',
+    confirmed_state_dir: '/state/pt',
+    answers: { session: 'pt' },
+  });
+  assert.match(text, /^alias pt=/m);
+  assert.match(text, /^alias pt-stop=/m);
+  assert.match(text, /^alias pt-tui=/m);
+  assert.match(text, /^alias pt-attach=/m);
+});
+
 test('aliasBlock is valid shell and preserves the parameterized runner command when sourced', () => {
   const text = aliasBlock({
     confirmed_repo_root: "/repo/ThisCodex's checkout",
@@ -213,7 +226,7 @@ test('materialized run.sh supports exact-session stop, attach and TUI actions', 
   assert.match(text, /kill-session -t "=\$SESSION"/);
   assert.match(text, /attach-session -t "=\$SESSION"/);
   assert.match(text, /select-window -t "=\$SESSION:codex"/);
-  assert.match(text, /exec "\/repo\/ThisCodex\/scripts\/launch\.sh"/);
+  assert.match(text, /exec '\/repo\/ThisCodex\/scripts\/launch\.sh'/);
 });
 
 // POSIX-only surface: executes the materialized run.sh under bash with a shebang
@@ -382,5 +395,33 @@ test('THISCODEX_WIKI_PATH lands as a literal value in run.sh and infra-launch.sh
       // inside the printed value.
       assert.doesNotMatch(stdout, /^INJECTED-BY-WIKI-PATH$/m, `${ctx} injection payload executed as a separate command`);
     }
+  }
+});
+
+test('all confirmed paths land as literal values in generated launch scripts', () => {
+  const repo = "/tmp/repo $HOME `printf REINTERPRETED` \"quoted\" O'Brien";
+  const bot = "/tmp/bot $HOME `printf REINTERPRETED` \"quoted\" O'Brien";
+  const stateDir = "/tmp/state $HOME `printf REINTERPRETED` \"quoted\" O'Brien";
+  const installState = {
+    confirmed_repo_root: repo,
+    confirmed_bot_wd: bot,
+    confirmed_state_dir: stateDir,
+  };
+  const probes = [
+    [runScript(installState), 'BOT_WD', bot],
+    [runScript(installState), 'DISCORD_STATE_DIR', stateDir],
+    [runScript(installState), 'LAUNCH_CMD', `${bot}/infra-launch.sh`],
+    [infraScript(installState), 'BOT_WD', bot],
+    [infraScript(installState), 'DISCORD_STATE_DIR', stateDir],
+    [infraScript(installState), 'THISCODEX_ROOT', repo],
+  ];
+  for (const [script, varName, expected] of probes) {
+    const { status, stdout, stderr, line } = runGeneratedExportLine(script, varName);
+    const ctx = `[${varName}] line=${line}`;
+    assert.equal(status, 0, `${ctx} bash exited nonzero: ${stderr}`);
+    assert.match(stdout, /MARKER-RAN-START/, ctx);
+    assert.match(stdout, /MARKER-RAN-END/, ctx);
+    const body = stdout.split('MARKER-RAN-START\n')[1]?.split('MARKER-RAN-END')[0]?.replace(/\n$/, '');
+    assert.equal(body, expected, `${ctx} confirmed path was re-interpreted by the shell`);
   }
 });

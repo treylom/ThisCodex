@@ -63,6 +63,16 @@
       "on_fail": { "next_command": "thiscodex init --apply --bot-wd <path>" }
     },
     {
+      "id": "confirm_runtime_name",
+      "order": 42,
+      "when": "answers.install_surface == 'guided'",
+      "action": "prompt",
+      "reason": "Choose the short runtime name used for the tmux session, BOT_NAME, and one-word shell aliases. This prevents a custom bot from silently launching as the generic 'thiscodex' session.",
+      "safety": "none",
+      "verify": { "type": "runtime-name", "state_key": "session" },
+      "on_fail": { "next_command": "thiscodex init --apply --session <letters-numbers-dash-or-underscore>" }
+    },
+    {
       "id": "confirm_wiki_path",
       "order": 45,
       "when": "answers.install_surface == 'guided'",

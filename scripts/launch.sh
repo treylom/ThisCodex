@@ -61,6 +61,35 @@ CODEX_RESUME_FLAGS="${CODEX_RESUME_FLAGS:-}"
 # crosses into a tmux window.
 THISCODEX_PYTHON="${THISCODEX_PYTHON:-}"
 
+# tmux parses each window command in a second shell. Every outer-shell value
+# that crosses that boundary must therefore be serialized as data first — a
+# quoted variable at this level is not enough once it is interpolated into the
+# command string. POSIX single-quote form keeps spaces, quotes, dollars and
+# command-substitution characters literal in that second shell.
+shell_quote() {
+  local escaped
+  escaped=$(printf '%s' "$1" | sed "s/'/'\\\\''/g")
+  printf "'%s'" "$escaped"
+}
+
+SESSION_Q=$(shell_quote "$SESSION")
+READY_LOG_Q=$(shell_quote "$READY_LOG")
+THISCODEX_PYTHON_Q=$(shell_quote "$THISCODEX_PYTHON")
+LAUNCH_CMD_Q=$(shell_quote "$LAUNCH_CMD")
+STOP_FILE_Q=$(shell_quote "$STOP_FILE")
+THISCODEX_SHELL_Q=$(shell_quote "$THISCODEX_SHELL")
+TID_FILE_Q=$(shell_quote "$TID_FILE")
+WS_Q=$(shell_quote "$WS")
+WS_HTTP_READY="${WS/ws:\/\//http:\/\/}/readyz"
+WS_HTTP_READY_Q=$(shell_quote "$WS_HTTP_READY")
+CODEX_RESUME_FLAGS_Q=$(shell_quote "$CODEX_RESUME_FLAGS")
+ROLLOUT_WAIT_TIMEOUT_SEC="${ROLLOUT_WAIT_TIMEOUT_SEC:-120}"
+[[ "$ROLLOUT_WAIT_TIMEOUT_SEC" =~ ^[0-9]+$ ]] || {
+  echo "[FATAL] ROLLOUT_WAIT_TIMEOUT_SEC must be a non-negative integer" >&2
+  exit 1
+}
+ROLLOUT_WAIT_TIMEOUT_SEC_Q=$(shell_quote "$ROLLOUT_WAIT_TIMEOUT_SEC")
+
 command -v tmux  >/dev/null || { echo "[FATAL] tmux not found"; exit 1; }
 command -v codex >/dev/null || { echo "[FATAL] codex CLI not found"; exit 1; }
 [ -d "$BOT_WD" ] || { echo "[FATAL] BOT_WD not a dir: $BOT_WD"; exit 1; }
@@ -80,7 +109,7 @@ rm -f "$STOP_FILE" 2>/dev/null || true
 # window and the infra's READY_LOG default would silently diverge from the one
 # this script greps for readiness.
 tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
-  "while true; do SESSION='$SESSION' READY_LOG='$READY_LOG' THISCODEX_PYTHON='$THISCODEX_PYTHON' $LAUNCH_CMD; if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo '[thiscodex] infra exited — restart in 5s (stop: touch $STOP_FILE)'; sleep 5; done; exec \"$THISCODEX_SHELL\""
+  "while true; do SESSION=$SESSION_Q; READY_LOG=$READY_LOG_Q; THISCODEX_PYTHON=$THISCODEX_PYTHON_Q; LAUNCH_CMD=$LAUNCH_CMD_Q; STOP_FILE=$STOP_FILE_Q; THISCODEX_SHELL=$THISCODEX_SHELL_Q; export SESSION READY_LOG THISCODEX_PYTHON; if [ -x \"\$LAUNCH_CMD\" ]; then \"\$LAUNCH_CMD\"; else /bin/sh -c \"\$LAUNCH_CMD\"; fi; if [ -f \"\$STOP_FILE\" ]; then echo '[thiscodex] manual stop — no restart'; break; fi; echo \"[thiscodex] infra exited — restart in 5s (stop: touch \$STOP_FILE)\"; sleep 5; done; exec \"\$THISCODEX_SHELL\""
 
 # window 1 'codex' — operator TUI joined to the SAME thread as the bridge.
 # Hard guarded: wait for app-server, wait for a NON-EMPTY thread id, wait for
@@ -88,25 +117,26 @@ tmux new-session -d -s "$SESSION" -n infra -c "$BOT_WD" \
 # attach. If TID never appears, it loops waiting (loud) rather than
 # silently starting a fresh divergent session. (invariant 2)
 tmux new-window -t "=$SESSION:" -n codex -c "$BOT_WD" \
-  "until grep -q 'app-server ready\\|Listening' '$READY_LOG' 2>/dev/null || curl -s ${WS/ws:\/\//http:\/\/}/readyz >/dev/null 2>&1; do sleep 1; done; \
-   until [ -s '$TID_FILE' ]; do echo '[thiscodex] waiting for bridge to write $TID_FILE (NOT starting a fresh codex session)'; sleep 2; done; \
-   TID=\$(cat '$TID_FILE'); \
-   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach. A fresh remote-only attach here would fork a divergent thread. Fix the bridge, do not work around.\"; exec \"$THISCODEX_SHELL\"; fi; \
+  "READY_LOG=$READY_LOG_Q; WS_HTTP_READY=$WS_HTTP_READY_Q; TID_FILE=$TID_FILE_Q; THISCODEX_SHELL=$THISCODEX_SHELL_Q; STOP_FILE=$STOP_FILE_Q; WS=$WS_Q; CODEX_RESUME_FLAGS=$CODEX_RESUME_FLAGS_Q; ROLLOUT_WAIT_TIMEOUT_SEC=$ROLLOUT_WAIT_TIMEOUT_SEC_Q; \
+   until grep -q 'app-server ready\\|Listening' \"\$READY_LOG\" 2>/dev/null || curl -s \"\$WS_HTTP_READY\" >/dev/null 2>&1; do sleep 1; done; \
+   until [ -s \"\$TID_FILE\" ]; do echo \"[thiscodex] waiting for bridge to write \$TID_FILE (NOT starting a fresh codex session)\"; sleep 2; done; \
+   TID=\$(cat \"\$TID_FILE\"); \
+   if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like: '\$TID' — refusing to attach. A fresh remote-only attach here would fork a divergent thread. Fix the bridge, do not work around.\"; exec \"\$THISCODEX_SHELL\"; fi; \
    echo \"[thiscodex] bridge thread=\$TID — waiting rollout\"; \
    rollout_wait_start=\$(date +%s); \
    while true; do \
-     TID=\$(cat '$TID_FILE'); \
-     if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like during rollout wait: '\$TID'\"; exec \"$THISCODEX_SHELL\"; fi; \
+     TID=\$(cat \"\$TID_FILE\"); \
+     if ! printf '%s' \"\$TID\" | grep -qE '^[0-9a-fA-F]{8}-?[0-9a-fA-F-]{20,32}\$'; then echo \"[thiscodex][FATAL] .codex-thread-id not UUID-like during rollout wait: '\$TID'\"; exec \"\$THISCODEX_SHELL\"; fi; \
      if find \"\$HOME/.codex/sessions\" -name \"*\$TID*.jsonl\" 2>/dev/null | grep -q .; then break; fi; \
      now=\$(date +%s); \
-     if [ \$((now-rollout_wait_start)) -ge ${ROLLOUT_WAIT_TIMEOUT_SEC:-120} ]; then \
+     if [ \$((now-rollout_wait_start)) -ge \"\$ROLLOUT_WAIT_TIMEOUT_SEC\" ]; then \
        echo \"[thiscodex][FATAL] rollout timeout for thread \$TID. Recovery command: run 'thiscodex doctor --verbose' and verify app-server wrote ~/.codex/sessions rollout JSONL before opening TUI.\"; \
-       exec \"$THISCODEX_SHELL\"; \
+       exec \"\$THISCODEX_SHELL\"; \
      fi; \
-     echo \"[thiscodex] waiting rollout for \$TID (re-reading $TID_FILE; never starting a fresh remote-only attach)\"; \
+     echo \"[thiscodex] waiting rollout for \$TID (re-reading \$TID_FILE; never starting a fresh remote-only attach)\"; \
      sleep 1; \
    done; \
-   fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote $WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote $WS $CODEX_RESUME_FLAGS; _e=\$(date +%s); if [ -f '$STOP_FILE' ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch $STOP_FILE)\"; sleep 3; done; exec \"$THISCODEX_SHELL\""
+   fails=0; while true; do echo \"[thiscodex] same-thread attach: codex resume \$TID --remote \$WS\"; _s=\$(date +%s); codex resume \"\$TID\" --remote \"\$WS\" \$CODEX_RESUME_FLAGS; _e=\$(date +%s); if [ -f \"\$STOP_FILE\" ]; then echo '[thiscodex] manual stop — no re-attach'; break; fi; if [ \$((_e-_s)) -lt 8 ]; then fails=\$((fails+1)); else fails=0; fi; if [ \$fails -ge 3 ]; then echo \"[thiscodex][FATAL] codex resume exited <8s x3 — NOT silent-restarting (check app-server/thread). Never falls back to a fresh session.\"; break; fi; echo \"[thiscodex] codex TUI exited — re-attach in 3s (stop: touch \$STOP_FILE)\"; sleep 3; done; exec \"\$THISCODEX_SHELL\""
 
 tmux select-window -t "=$SESSION:codex"
 echo "[thiscodex] launched session '$SESSION' (infra + codex). Attach: tmux attach -t '=$SESSION'"
