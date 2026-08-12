@@ -40,10 +40,27 @@ skipping decisions.
 7. Read `docs/RECENT-CHANGES.md` and apply anything not yet reflected — it is
    the newest-first digest of contract/behavior changes a fresh install must
    adopt (e.g. the Stop-hook output contract + the trust requirement above).
-8. When aliases are generated, tell the user to `source` the generated alias
+8. Generate the shell aliases via `/setup aliases` — **REQUIRED, never skip
+   silently** (2026-08-12 regression fix: real setups were observed ending
+   without aliases; a setup with no alias is incomplete unless the user
+   explicitly declined, and the decline must be recorded in the completion
+   contract below). Then tell the user to `source` the generated alias
    script/block; only add it to a shell rc file if they explicitly want it
    permanent.
-9. Finish with `thiscodex doctor`.
+9. Finish with `thiscodex doctor`, and echo the completion contract below in
+   the final report.
+
+## Completion Contract (yaml 규약 — 2026-08-12)
+
+The final setup report MUST echo this block with real values. `aliases` may
+never be empty or omitted — a silent skip reads as an incomplete setup:
+
+```yaml
+setup_completion:
+  aliases: generated | declined(<reason>)   # step 8 — REQUIRED
+  hooks_trusted: true                       # step 6 — trusted_hash present
+  doctor: pass                              # step 9
+```
 
 ## Subcommands
 
