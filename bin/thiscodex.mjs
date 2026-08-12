@@ -19,13 +19,20 @@ import { applySkillInstall, marketplaceHint, patchCodexConfig } from '../scripts
 import { aliasBlock, materializeBotFiles } from '../scripts/lib/materialize.mjs';
 import { promptForStep } from '../scripts/lib/prompts.mjs';
 import {
+  appendAutomationAudit,
+  automationAuditPath,
+  decideManualHandoff,
+  loadAutomationPolicy,
+  resolveAutomationMode,
+} from '../scripts/lib/automation-policy.mjs';
+import {
   cliErrorResult,
   executeDiscordThread,
   parseDiscordThreadArgs,
 } from '../scripts/lib/discord-thread.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke', 'discord-thread'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'discord-thread', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -42,6 +49,8 @@ const nonInteractive = has('--non-interactive') || !tty;
 const yes = has('--yes');
 const answersFile = arg('--answers');
 const repoRoot = resolve(process.env.THISCODEX_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url)));
+const automationPolicyPath = resolve(arg('--automation-policy') || process.env.THISCODEX_AUTOMATION_POLICY || join(repoRoot, 'install', 'automation-policy.yaml'));
+const automationPolicy = loadAutomationPolicy(automationPolicyPath);
 const cwd = process.cwd();
 const env = detectEnv();
 const tone = arg('--tone') || 'plain';
@@ -53,6 +62,49 @@ const CONFIRMED_PATH_KEYS = [
   'confirmed_windows_profile',
   'confirmed_windows_skill_dir',
 ];
+
+if (command === 'automation-gate') {
+  let output;
+  let exitCode = 0;
+  try {
+    const installState = loadInstallState();
+    const automationMode = resolveAutomationMode({
+      explicit: arg('--automation-mode'),
+      state: installState,
+      policy: automationPolicy,
+    });
+    const decision = decideManualHandoff({
+      gate: arg('--gate'),
+      mode: automationMode,
+      policy: automationPolicy,
+      attempt: {
+        attempted: has('--attempted'),
+        status: arg('--status'),
+        provider: arg('--provider'),
+        operation: arg('--operation'),
+        reason: arg('--reason'),
+        surface: arg('--surface'),
+        browserTerminalReason: arg('--browser-terminal-reason'),
+      },
+    });
+    const auditFile = resolve(arg('--audit-file') || automationAuditPath());
+    const audit = appendAutomationAudit(auditFile, decision.audit);
+    output = {
+      ok: decision.ok,
+      code: decision.code,
+      automation_mode: automationMode,
+      handoff_allowed: decision.handoffAllowed,
+      audit_file: auditFile,
+      audit,
+    };
+    if (!decision.ok) exitCode = 2;
+  } catch (error) {
+    output = { ok: false, code: 'automation_gate_error', message: error.message };
+    exitCode = 2;
+  }
+  console.log(JSON.stringify(output, null, 2));
+  process.exit(exitCode);
+}
 
 if (command === 'discord-thread') {
   let output;
@@ -96,6 +148,7 @@ function applyAnswers(state, answers) {
 
 function missingGuidedDecision(state) {
   if (mode !== 'apply' || !nonInteractive || !yes) return '';
+  if (!answersFile && !state.answers?.automation_mode) return 'automation_mode';
   if (answersFile) return '';
   if (state.answers?.install_surface !== 'guided') return '';
   for (const key of ['confirmed_repo_root', 'confirmed_workspace_root', 'confirmed_bot_wd', 'confirmed_state_dir']) {
@@ -130,6 +183,7 @@ let state = withDetectedDefaults(loadInstallState(), {
   // the confirm_state_dir step promises exactly that, so Enter must not break it.
   state_dir: join(homedir(), '.thiscodex', 'state'),
   install_surface: 'guided',
+  automation_mode: automationPolicy.defaultMode,
   codex_skill_layer: 'user',
   codex_marketplace: 'no',
   codex_yolo: 'safe',
@@ -151,10 +205,12 @@ if (arg('--progress-report-cadence')) state.answers.progress_report_cadence = ar
 if (arg('--alias-consent')) state.answers.alias_consent = arg('--alias-consent');
 if (arg('--daemon-guide')) state.answers.daemon_guide = arg('--daemon-guide');
 if (arg('--install-surface')) state.answers.install_surface = arg('--install-surface');
+if (arg('--automation-mode')) state.answers.automation_mode = arg('--automation-mode');
 if (arg('--session')) state.answers.session = arg('--session');
 
 if (answersFile) {
   state = applyAnswers(state, JSON.parse(readFileSync(answersFile, 'utf8')));
+  state.answers.automation_mode ||= automationPolicy.defaultMode;
 }
 
 const missingDecision = missingGuidedDecision(state);

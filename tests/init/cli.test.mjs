@@ -45,6 +45,61 @@ test('--tone=dev switches output', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test('automation gate consumes YAML policy, blocks missing attempts, and records a failed attempt before handoff', () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const audit = join(home, 'attempts.jsonl');
+  const blocked = spawnSync(process.execPath, [BIN, 'automation-gate',
+    '--gate', 'browser_provider_setup',
+    '--automation-mode', 'auto',
+    '--audit-file', audit,
+  ], {
+    encoding: 'utf8',
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(blocked.status, 2, blocked.stdout + blocked.stderr);
+  assert.equal(JSON.parse(blocked.stdout).code, 'attempt_required');
+
+  const failed = spawnSync(process.execPath, [BIN, 'automation-gate',
+    '--gate', 'browser_provider_setup',
+    '--automation-mode', 'auto',
+    '--attempted',
+    '--status', 'failed',
+    '--provider', 'playwright',
+    '--operation', 'register-and-redetect',
+    '--reason', 'provider did not become callable',
+    '--browser-terminal-reason', 'provider_unavailable_after_install',
+    '--audit-file', audit,
+  ], {
+    encoding: 'utf8',
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(failed.status, 0, failed.stdout + failed.stderr);
+  const result = JSON.parse(failed.stdout);
+  assert.equal(result.code, 'attempt_failed_handoff_allowed');
+  assert.equal(result.handoff_allowed, true);
+  const rows = readFileSync(audit, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.deepEqual(rows.map(row => row.decision), ['blocked', 'handoff_allowed']);
+  assert.equal(rows[1].browser_terminal_reason, 'provider_unavailable_after_install');
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('non-interactive apply cannot silently select an automation strategy', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const result = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--non-interactive'], {
+    cwd: repo,
+    encoding: 'utf8',
+    input: '',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout + result.stderr, /automation_mode|auto.*manual/i);
+  assert.equal(existsSync(join(home, '.config', 'thiscodex', 'install-state.json')), false);
+  rmSync(repo, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
+});
+
 test('CLI derives repo root with fileURLToPath for Windows-safe URLs', () => {
   const source = readFileSync(BIN, 'utf8');
   assert.match(source, /fileURLToPath\(new URL\('\.\.', import\.meta\.url\)\)/);

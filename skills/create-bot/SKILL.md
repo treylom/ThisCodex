@@ -36,6 +36,35 @@ Codex configuration, create an application, reset a token, or invite a bot.
 Package tests and unattended CI are always dry-run. A real browser E2E uses a
 real account and therefore requires the account owner to be present.
 
+## 0.5 Automation mode and the code gate
+
+`thiscodex init` asks **Automatic (auto / 자동)** or **Manual (manual / 수동)**
+as its first interaction. Do not ask the same question again here. Before any
+manual handoff, call the shipped code gate; prose judgment is not evidence:
+
+```bash
+thiscodex automation-gate --gate <stable-gate-name> \
+  --status <succeeded|failed|human_required> \
+  --operation <operation> --reason '<non-secret result>'
+```
+
+In auto mode an unlisted gate is blocked unless the agent actually attempted
+the operation once. After a real browser-tool attempt, add `--attempted
+--surface browser --provider <discovered-provider> --browser-terminal-reason
+<completed|human_security_gate|provider_unavailable|tool_failed>`. The gate
+writes a secret-redacted result to
+`~/.config/thiscodex/automation-attempts.jsonl`.
+
+- `handoff_allowed: false` means continue automatically; do not show manual
+  instructions.
+- `handoff_allowed: true` means the failed attempt or named security boundary
+  is recorded, so the one necessary human action may be shown with that result.
+- An error or missing audit record means manual handoff is forbidden.
+
+The only no-attempt exceptions are stable names declared with reasons in
+`install/automation-policy.yaml`. A new gate is attempt-required by default.
+Never add an exception merely because automation is inconvenient.
+
 ## 1. Discover browser automation by capability
 
 Detect capability, not server or tool name. Tool prefixes and MCP server labels
@@ -83,6 +112,28 @@ If the user declines installation, use the manual fallback at the end and ask
 the user to return only non-secret completion facts. Never ask for a token in
 chat.
 
+Before that fallback, record the consent boundary:
+
+```bash
+thiscodex automation-gate --gate browser_provider_install_declined \
+  --status human_required --surface browser --provider <discovered-or-requested-provider> \
+  --operation request-provider-install-consent \
+  --reason 'user declined the Codex MCP configuration change' \
+  --browser-terminal-reason human_security_gate
+```
+
+If registration was approved, **run it**, restart/re-detect, and keep using the
+same browser provider through the terminal page state. If registration or
+re-detection fails, record that actual attempt before offering a manual path:
+
+```bash
+thiscodex automation-gate --gate browser_provider_setup --attempted \
+  --status failed --surface browser --provider playwright \
+  --operation register-restart-redetect \
+  --reason '<non-secret failure>' \
+  --browser-terminal-reason provider_unavailable
+```
+
 ## 2. Human-only gates
 
 Stop only at these security boundaries, state the one action required, and
@@ -95,6 +146,15 @@ resume as soon as the resulting page is visible:
 
 Do not type credentials, solve a captcha, or read authentication codes. All
 other portal actions are the agent's default responsibility.
+
+Navigate or inspect with the connected provider first, then record the observed
+security boundary before asking for the one human action. Use gate names
+`discord_portal_login`, `discord_hcaptcha`, and
+`discord_reset_token_modal`, status `human_required`, the provider and observed
+operation, a non-secret reason, `--surface browser`, and
+`--browser-terminal-reason human_security_gate`. These names are the policy-declared
+exceptions; the browser remains attached and must resume immediately after the
+user-owned action.
 
 ## 3. Automated portal flow
 
@@ -135,7 +195,12 @@ automated path into imperative instructions for the user.
    The corresponding reference value is `permissions=395137117248`.
 9. Navigate to the generated authorization URL, select the confirmed server,
    and approve. If Discord forces a desktop-app approval window that the
-   connected browser cannot operate, hand off only that approval click.
+   connected browser cannot operate, first attempt the approval with the same
+   provider, then call `automation-gate` with gate
+   `discord_desktop_approval`, `--attempted --status failed --surface browser`,
+   the provider, operation, failure reason, and browser terminal reason. Hand
+   off only that approval click, and only when the gate returns
+   `handoff_allowed: true`.
 10. For a private channel, add the bot as a channel member. Server invitation
     alone does not grant private-channel access.
 
@@ -186,6 +251,12 @@ If a model-blind clipboard path is unavailable, ask the user to copy the token
 directly into `<state-dir>/.env` in their terminal. The user reports only
 "saved"; the token never enters the conversation.
 
+Before showing that instruction, call `automation-gate` with gate
+`token_direct_entry`, status `human_required`, operation
+`model-blind-token-receipt`, and the non-secret reason the model-blind route is
+unavailable. This named exception protects the secret; it is not permission to
+skip the clipboard attempt when a supported path exists.
+
 Do not place a real token in a command literal, test fixture, log, screenshot,
 git diff, or generated report.
 
@@ -206,12 +277,19 @@ private-channel membership, then the channel entry in `access.json`.
 Report only the verified facts: application created, token saved (not its
 value), required intents on, invited server, and channel exposure.
 
-## Manual fallback (only after MCP installation is declined)
+## Manual fallback (only after the code gate allows it)
 
 Guide the user through the same ordered portal flow, including the same three
 human gates, two required intents, two scopes, eleven permissions, private
 channel membership, and secret-safe `.env` storage. Do not weaken the
 verification checklist merely because the clicks were manual.
+
+For every browser run, keep Playwright, claude-in-chrome, or the discovered
+equivalent connected browser capability in use from the first navigation until
+one terminal state: completed, a policy-declared human security gate, or a
+recorded tool/provider failure. Starting a provider and silently switching to
+instructions is forbidden. Every browser terminal reason must be present in
+the automation audit before a manual handoff.
 
 ## References
 

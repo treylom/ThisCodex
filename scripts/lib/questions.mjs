@@ -2,6 +2,7 @@ const hasCodex = answers => answers.harness === 'codex' || answers.harness === '
 const wantsDaemon = answers => answers.daemon_guide === 'yes';
 
 export const SCRIPT = [
+  { id: 'automation_mode', ask: '설치를 자동으로 진행할까요, 단계별 수동 안내로 진행할까요?', choices: ['auto', 'manual'], default: 'auto', scope: () => true },
   { id: 'tone', ask: '설명 말투', choices: ['plain', 'dev'], default: 'plain', scope: () => true },
   { id: 'os_confirm', ask: '감지된 OS가 맞나요?', choices: ['confirm', 'manual'], default: 'confirm', scope: () => true },
   { id: 'wsl_recommend', ask: 'Windows native입니다. WSL 가이드를 먼저 볼까요?', choices: ['wsl_guide', 'native'], default: 'native', scope: c => c.os === 'win' },

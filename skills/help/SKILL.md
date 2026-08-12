@@ -49,6 +49,16 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 3. **computer_use / browser_use 는 제안하지 마라** — codex CLI 에선 기능 플래그만 있고 **호출 가능한 도구가 아니다**(공식 명령 부재·데스크톱 앱 번들 MCP 전용, openai/codex#20851 — README §1 기능 표의 ⏸️ 보류 행·§6 과 동일 표기). 있는 척 ❌, 우회 시도 ❌.
 4. **최종 폴백**: 화면 단계별 텍스트 안내 ("왼쪽 위 New Application 파란 버튼을 눌러주세요" 수준).
 
+**자동 모드 코드 게이트 (hard)**: 최종 폴백을 말로 판단해 바로 띄우지
+않는다. 먼저 연결된 Playwright/claude-in-chrome 또는 동등한 브라우저 도구로
+해결을 실제 시도하고, `thiscodex automation-gate`에 `--attempted`, provider,
+operation, 실패 사유, browser terminal reason을 기록한다. 출력이
+`handoff_allowed: true`일 때만 그 실패 사유와 함께 단계별 안내를 보여준다.
+브라우저 작업을 재개할 수 있으면 처음 선택한 같은 provider를 끝까지 사용한다.
+로그인·MFA·hCaptcha 같은 선언된 보안 관문도 stable gate name과
+`human_required` 결과를 먼저 기록한다. 수동 모드는 게이트가 수동 선택을
+감사 로그에 남긴 뒤 안내한다.
+
 **개입 중 안전 경계 (hard)**: 토큰·시크릿 단계는 `/create-bot`의 모델 비노출 수령 계약을 따른다. 모델이 값을 읽거나 snapshot·DOM·로그·채팅에 노출하는 행위는 금지하며, 안전한 클립보드 경로가 없으면 사용자에게 직접 `.env` 입력을 넘긴다. 삭제·재설치·초기화는 실행 전 1줄 확인하고, 조작은 사용자가 보는 화면에서만 한다.
 
 ## STEP 2.6 — Discord 반응·스레드 기능

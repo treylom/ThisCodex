@@ -3,6 +3,16 @@
   "version": 1,
   "steps": [
     {
+      "id": "choose_automation_mode",
+      "order": 5,
+      "when": "always",
+      "action": "prompt",
+      "reason": "Before inspecting or changing the machine, choose whether ThisCodex should attempt recoverable setup steps itself or explain every step for manual execution.",
+      "safety": "none",
+      "verify": { "type": "answer-one-of", "state_key": "automation_mode", "choices": "auto,manual" },
+      "on_fail": { "next_command": "rerun `thiscodex init` and choose auto or manual as the first answer; non-interactive automation may pass --automation-mode auto" }
+    },
+    {
       "id": "detect_environment",
       "order": 10,
       "when": "always",

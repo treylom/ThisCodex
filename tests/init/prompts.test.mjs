@@ -2,6 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promptForStep } from '../../scripts/lib/prompts.mjs';
 
+test('installation strategy prompt is explicit, bilingual, and defaults from policy', () => {
+  const prompt = promptForStep({
+    id: 'choose_automation_mode',
+    reason: 'fallback',
+    verify: { type: 'answer-one-of', choices: 'auto,manual' },
+  }, { detected: { automation_mode: 'auto' } });
+  assert.match(prompt.question, /automatic.*auto.*manual.*수동/is);
+  assert.equal(prompt.defaultValue, 'auto');
+});
+
 test('guided prompt is concrete and not the step id', () => {
   const prompt = promptForStep({ id: 'confirm_bot_wd', reason: 'fallback' }, {
     detected: { cwd: '/repo' },

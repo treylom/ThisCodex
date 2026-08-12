@@ -7,7 +7,10 @@ description: Use when setting up an OpenAI Codex CLI agent as a persistent Disco
 
 ## Install — read this before doing anything
 
-**Default install = interactive guided onboarding.** Run:
+**Default install = interactive guided onboarding.** Its first interaction asks
+whether the user wants **Automatic (auto / 자동)** or **Manual (manual / 수동)**
+installation. This strategy is separate from placement versus guided setup.
+Run:
 
 ```
 thiscodex init
@@ -24,6 +27,13 @@ Use `--non-interactive` / `--yes` / `--answers` only when the user explicitly
 asks for CI or automation. If the installer stops on a missing required
 decision, it prints an interactive-recovery hint — relay that to the user and
 let them choose; never self-answer to push past it.
+
+In automatic mode, a manual handoff is allowed only after the shipped
+`thiscodex automation-gate` records either one real failed attempt or a named
+human-security boundary from `install/automation-policy.yaml`. For browser
+work, keep Playwright/claude-in-chrome or the discovered equivalent provider in
+use until completion or a logged terminal reason; starting a tool and falling
+back to instructions is not completion.
 
 Invocable skill. Install paths:
 - **user-tier**: copy this folder to `~/.agents/skills/thiscodex/` (codex 4-layer scan picks it up; deep docs are referenced by URL below so a loose copy still works).

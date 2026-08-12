@@ -1,4 +1,8 @@
 const PROMPTS = {
+  choose_automation_mode: {
+    question: 'Choose the installation strategy — Automatic (auto / 자동) attempts recoverable steps before asking; Manual (manual / 수동) explains each step for you to perform',
+    defaultKey: 'automation_mode',
+  },
   choose_install_surface: {
     question: 'Choose the install surface — placement copies only the skill file; guided sets up a working bot',
     defaultKey: 'install_surface',

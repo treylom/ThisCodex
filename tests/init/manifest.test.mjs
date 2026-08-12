@@ -8,6 +8,7 @@ test('manifest loads ordered ThisCodex steps', () => {
   assert.equal(manifest.product, 'thiscodex');
   const ids = sortSteps(manifest.steps).map(s => s.id);
   for (const id of [
+    'choose_automation_mode',
     'detect_environment',
     'choose_install_surface',
     'confirm_repo_root',
@@ -22,6 +23,21 @@ test('manifest loads ordered ThisCodex steps', () => {
   ]) {
     assert.ok(ids.includes(id), `${id} missing`);
   }
+});
+
+test('automatic/manual is the first interaction and remains separate from install surface', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const ordered = sortSteps(manifest.steps);
+  const firstPrompt = ordered.find(step => step.action === 'prompt');
+  const mode = manifest.steps.find(step => step.id === 'choose_automation_mode');
+  const detect = manifest.steps.find(step => step.id === 'detect_environment');
+  const surface = manifest.steps.find(step => step.id === 'choose_install_surface');
+
+  assert.equal(firstPrompt?.id, 'choose_automation_mode');
+  assert.equal(mode.verify.state_key, 'automation_mode');
+  assert.equal(mode.verify.choices, 'auto,manual');
+  assert.ok(mode.order < detect.order);
+  assert.notEqual(mode.verify.state_key, surface.verify.state_key);
 });
 
 test('guided onboarding asks for the bot runtime name before generating aliases', () => {

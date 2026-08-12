@@ -18,6 +18,12 @@ Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Clau
 
 > **포털(api.slack.com)에서 앱을 만들지 마세요** — 이 공정은 Slack CLI 가 앱 생성·설치·토큰 발급을 전부 처리합니다(`slack create`→`slack run`). 웹에 흔한 '봇 토큰 복사' 방식 튜토리얼과 다른 공식 경로라, 토큰을 직접 다룰 일이 없습니다.
 
+회사 워크스페이스의 관리자 승인이 필요하면 바로 안내하지 말고
+`slack_workspace_admin_approval`을 `human_required`, operation
+`review-workspace-app-install`로 기록한다. 새 OAuth scope를 승인하는 재설치
+직전에는 `slack_app_reinstall_approval`, operation `review-oauth-scope-grant`를
+같은 방식으로 기록한다. 두 이름은 자동화 불편이 아니라 소유권 경계다.
+
 ## 0단계 — Slack CLI 확보 [자동 — 엔진이 알아서 설치]
 
 사용자가 설치 명령을 칠 필요가 없다 — 이 스킬을 실행하는 엔진이 아래 블록을 그대로 수행한다. 이미 설치돼 있으면 아무것도 바꾸지 않는다(멱등).
@@ -65,7 +71,8 @@ slack login --no-prompt
 
 1. 위 `/slackauthticket …` 한 줄을 **Slack 아무 채널·DM 에 붙여넣고 전송** → 권한 모달에서 **Confirm** → 챌린지 코드 표시됨.
    - 자동화: 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기.
-   - Claude Code 환경 = claude-in-chrome 으로 완전 자동 실측 성공(2026-08-05). **Codex 앱 환경 = browser-use 도구로 같은 3동작(입력→Confirm→코드 회수)을 수행** — Codex 에서 이 스킬을 쓸 때는 수동 안내 대신 browser-use 자동화를 기본 경로로 시도하고, 도구가 없으면 사람 관문 1곳으로 안내한다.
+   - Claude Code 환경 = claude-in-chrome 으로 완전 자동 실측 성공(2026-08-05). **Codex 환경 = 연결된 Playwright MCP 또는 같은 능력의 브라우저 도구로 같은 3동작(입력→Confirm→코드 회수)을 수행**한다. provider 이름을 추측하지 말고 navigate/snapshot/click/fill/wait 능력을 확인한다.
+   - 자동 모드에서는 도구 부재를 곧바로 사람 관문으로 바꾸지 않는다. 설치 동의를 받은 뒤 Playwright MCP 등록·재시작·능력 재탐지를 실제로 시도하고, 실패한 경우에만 `thiscodex automation-gate --gate slack_browser_auth --attempted --status failed --surface browser --provider <provider> --operation login-ticket-confirm-challenge --reason '<non-secret failure>' --browser-terminal-reason <reason>`을 기록한다. `handoff_allowed: true`일 때만 실패 사유와 수동 행동을 보여준다. Slack 로그인 화면이면 선언된 `slack_browser_login`을 `human_required`로 기록하고 로그인 뒤 **같은 provider로 재개**한다. 도구를 시작만 하고 안내로 전환하는 경로는 금지한다.
 2. 코드로 인증 완료:
 
 ```bash

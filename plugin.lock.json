@@ -27,7 +27,7 @@
         "type": "repo",
         "path": "skills/create-bot/SKILL.md"
       },
-      "integrity": "sha256-9f98068647711dbe71db56b2e07443fc5bb43ad515a325d72225614ce7b3beb7"
+      "integrity": "sha256-4237928bcdc68615b804aa8791139fb6e627286cd878765f121f5fca44ccbd78"
     },
     {
       "id": "prompt",
@@ -45,7 +45,7 @@
         "type": "repo",
         "path": "skills/thiscodex/SKILL.md"
       },
-      "integrity": "sha256-e07414246fd97582037f90da1c75a2fca677473f075f96ca0b42d53128ce44d1"
+      "integrity": "sha256-6140a06c5eb65b7552a7df9ec8ce294827c4f573373b63e540de400accd3e361"
     }
   ]
 }

@@ -24,6 +24,12 @@ test('create-bot skill ports the Discord portal browser contract to Codex', () =
   assert.match(skill, /permissions=395137117248/);
   assert.match(skill, /do not.*(?:screenshot|snapshot).*token/is);
   assert.match(skill, /dry-run.*must not navigate/is);
+  assert.match(skill, /automation-gate/);
+  assert.match(skill, /attempt.*result.*manual|manual.*attempt.*result/is);
+  assert.match(skill, /browser.*terminal.*reason|terminal.*reason.*browser/is);
+  assert.match(skill, /discord_portal_login/);
+  assert.match(skill, /discord_hcaptcha/);
+  assert.match(skill, /discord_reset_token_modal/);
 });
 
 test('create-bot install and tool-equivalence docs expose the MCP path', () => {

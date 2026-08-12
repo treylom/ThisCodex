@@ -1,0 +1,31 @@
+# ThisCodex install automation contract. Parsed by a strict, dependency-free
+# subset reader in scripts/lib/automation-policy.mjs.
+schema_version: 1
+install:
+  default_mode: auto
+  browser_tools_required: true
+  manual_allowed_without_attempt:
+    - name: discord_portal_login
+      reason: Account credentials and MFA must be entered by the account owner.
+    - name: discord_hcaptcha
+      reason: CAPTCHA completion cannot be delegated or bypassed.
+    - name: discord_reset_token_modal
+      reason: Account password and MFA confirmation belong to the account owner.
+    - name: browser_provider_install_declined
+      reason: Changing Codex MCP configuration requires the user's consent.
+    - name: token_direct_entry
+      reason: A secret token must remain outside model-visible tools and conversation.
+    - name: slack_browser_login
+      reason: Slack account credentials and MFA must be entered by the account owner.
+    - name: host_package_install_consent
+      reason: Installing WSL, tmux, or another host package may require administrator authority or a reboot.
+    - name: codex_privilege_config_consent
+      reason: Raising the Codex sandbox ceiling changes the operator's security boundary.
+    - name: codex_hook_trust_approval
+      reason: Trusting executable hooks must be an explicit operator decision in the Codex UI.
+    - name: shell_profile_persistence
+      reason: Persisting aliases or PATH changes edits the operator's shell startup files.
+    - name: slack_workspace_admin_approval
+      reason: Workspace ownership and administrative app approval cannot be assumed by the installer.
+    - name: slack_app_reinstall_approval
+      reason: Granting new OAuth scopes requires a workspace owner or administrator approval.

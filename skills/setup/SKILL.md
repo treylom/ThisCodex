@@ -18,7 +18,14 @@ skipping decisions.
 
 ## Required Flow
 
-1. Run `thiscodex init` for guided onboarding.
+1. Run `thiscodex init` for guided onboarding. Its **first interaction** is the
+   Automatic (`auto` / 자동) versus Manual (`manual` / 수동) choice; do not run
+   environment checks or ask another setup question first. In automatic mode,
+   before relaying any command or telling the user to perform an action, call
+   `thiscodex automation-gate` with a stable gate name. An unlisted gate needs
+   one real attempted operation plus its result; a named security boundary
+   needs `human_required` evidence. Missing/blocked gate output means the
+   handoff must not be shown.
 2. Confirm repo root, workspace, BOT_WD, and Discord state dir before generating
    aliases. Then create `SOUL.md` (persona) + `AGENTS.md` (rules pointer) in
    BOT_WD — **REQUIRED, never skip silently** (2026-08-12 regression fix: real
@@ -34,7 +41,9 @@ skipping decisions.
    answer with the exact address without a follow-up question.
 3. Use tmux for the daemon/TUI split. Do not use cmux for this flow.
 4. Present safe mode first. Offer YOLO only as an explicit opt-in using the
-   bridge contract and operator-controlled sentinel.
+   bridge contract and operator-controlled sentinel. Before asking the operator
+   to approve the privilege change, record `codex_privilege_config_consent` as
+   `human_required` with operation `review-codex-privilege-boundary`.
 5. Ask `progress_report_cadence`: `per_task`, `1m`, `3m`, `5m`, `off`, or
    `custom`. `per_task` means a meaningful subtask or milestone completion,
    not every raw model turn boundary.
@@ -53,6 +62,8 @@ skipping decisions.
    snake_case (`pre_tool_use:…`) — same event, two notations; never "unify"
    them when transcribing. If you add / remove / reorder hook array entries,
    re-check `/hooks` approval: the trust keys are index-based.
+   Immediately before the trust prompt, record `codex_hook_trust_approval` as
+   `human_required` with operation `review-codex-hook-trust`.
    For multi-bot workspaces, additionally wire the dispatch-room gate
    (`hooks/dispatch-room-gate.py`, PreToolUse, matcher
    `mcp__discord__reply|mcp__discord__edit_message`), write
@@ -74,7 +85,9 @@ skipping decisions.
    explicitly declined, and the decline must be recorded in the completion
    contract below). Then tell the user to `source` the generated alias
    script/block; only add it to a shell rc file if they explicitly want it
-   permanent.
+   permanent. Before asking for that persistent edit, record
+   `shell_profile_persistence` as `human_required` with operation
+   `review-shell-profile-edit`.
 9. Finish with `thiscodex doctor`, and echo the completion contract below in
    the final report.
 10. Offer the **optional, non-blocking** Slack onboarding handoff. If the

@@ -9,6 +9,11 @@ test('SCRIPT includes ThisCodex-specific Q3c-f and Q6c-e', () => {
   }
 });
 
+test('legacy question adapter also starts with the automatic/manual choice', () => {
+  assert.equal(SCRIPT[0].id, 'automation_mode');
+  assert.deepEqual(SCRIPT[0].choices, ['auto', 'manual']);
+});
+
 test('Codex-specific Q3c-f active only when harness includes codex', () => {
   const q = SCRIPT.find(q => q.id === 'codex_skill_layer');
   assert.equal(isInScope(q, { os: 'mac', answers: { harness: 'claude' } }), false);
@@ -23,6 +28,6 @@ test('Q6c-e active only when daemon guide is yes and harness includes codex', ()
 });
 
 test('nextQuestion skips completed and out-of-scope', () => {
-  const q = nextQuestion({ os: 'mac', answers: { tone: 'plain' } }, ['tone']);
+  const q = nextQuestion({ os: 'mac', answers: { automation_mode: 'auto', tone: 'plain' } }, ['automation_mode', 'tone']);
   assert.equal(q.id, 'os_confirm');
 });
