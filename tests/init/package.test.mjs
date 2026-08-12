@@ -26,17 +26,24 @@ test('package excludes generated Python bytecode', () => {
 
 test('package bytecode exclusions remove real tar members with a positive control', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'thiscodex-pack-bytecode-'));
-  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const npmCli = process.env.npm_execpath;
   const packMembers = files => {
     writeFileSync(join(fixture, 'package.json'), JSON.stringify({
       name: '@treylom/thiscodex-pack-bytecode-fixture',
       version: '1.0.0',
       files,
     }));
-    const result = spawnSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+    // Run npm's JS entrypoint through the current Node executable. Windows
+    // cannot spawn npm.cmd directly without a shell; using argv here stays
+    // cross-platform and avoids reintroducing a shell-quoting boundary.
+    const args = ['pack', '--dry-run', '--json', '--ignore-scripts'];
+    const command = npmCli ? process.execPath : (process.platform === 'win32' ? 'npm.cmd' : 'npm');
+    const commandArgs = npmCli ? [npmCli, ...args] : args;
+    const result = spawnSync(command, commandArgs, {
       cwd: fixture,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
+      shell: !npmCli && process.platform === 'win32',
     });
     assert.equal(result.status, 0, result.stdout + result.stderr);
     return JSON.parse(result.stdout)[0].files.map(entry => entry.path);

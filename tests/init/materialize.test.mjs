@@ -398,7 +398,11 @@ test('THISCODEX_WIKI_PATH lands as a literal value in run.sh and infra-launch.sh
   }
 });
 
-test('all confirmed paths land as literal values in generated launch scripts', () => {
+test('all confirmed paths land as literal values in generated launch scripts', {
+  skip: process.platform === 'win32'
+    ? 'POSIX launch artifact is executed inside WSL, not native Windows'
+    : false,
+}, () => {
   const repo = "/tmp/repo $HOME `printf REINTERPRETED` \"quoted\" O'Brien";
   const bot = "/tmp/bot $HOME `printf REINTERPRETED` \"quoted\" O'Brien";
   const stateDir = "/tmp/state $HOME `printf REINTERPRETED` \"quoted\" O'Brien";
