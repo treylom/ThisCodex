@@ -42,9 +42,10 @@ The bridge (`examples/bot.py`) logs into Discord with a bot token. Create one:
 
 1. Open https://discord.com/developers/applications → "New Application" → pick a name.
 2. Left "Bot" tab → "Reset Token" → copy the token (you will paste it during setup).
-3. **Same "Bot" tab, scroll to "Privileged Gateway Intents" → turn ON "Message
-   Content Intent" → Save.** Without this the bridge **crashes at startup**
-   (`PrivilegedIntentsRequired`) — the token being valid is not enough.
+3. **Same "Bot" tab, scroll to "Privileged Gateway Intents" → turn ON both "Message
+   Content Intent" and "Server Members Intent" → Save.** Without either one the
+   bridge **crashes at startup** (`PrivilegedIntentsRequired`) — the token being
+   valid is not enough.
 4. OAuth2 → URL Generator → Scopes: `bot` → Permissions: Send Messages, Read
    Message History, Add Reactions, Attach Files → open the generated URL and
    invite the bot to your server.
