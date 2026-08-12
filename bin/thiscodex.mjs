@@ -18,9 +18,14 @@ import { verifyStep } from '../scripts/lib/doctor.mjs';
 import { applySkillInstall, marketplaceHint, patchCodexConfig } from '../scripts/lib/apply.mjs';
 import { aliasBlock, materializeBotFiles } from '../scripts/lib/materialize.mjs';
 import { promptForStep } from '../scripts/lib/prompts.mjs';
+import {
+  cliErrorResult,
+  executeDiscordThread,
+  parseDiscordThreadArgs,
+} from '../scripts/lib/discord-thread.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'discord-thread'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -48,6 +53,23 @@ const CONFIRMED_PATH_KEYS = [
   'confirmed_windows_profile',
   'confirmed_windows_skill_dir',
 ];
+
+if (command === 'discord-thread') {
+  let output;
+  try {
+    const options = parseDiscordThreadArgs(args);
+    const packageMetadata = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
+    output = await executeDiscordThread(options, {
+      packageVersion: packageMetadata.version,
+      env: process.env,
+      installState: loadInstallState(),
+    });
+  } catch (error) {
+    output = cliErrorResult(error);
+  }
+  console.log(JSON.stringify(output, null, 2));
+  process.exit(output.ok ? 0 : 2);
+}
 
 function applyConfirmedPath(state, key, value) {
   if (!value) return state;

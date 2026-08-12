@@ -1,4 +1,4 @@
-<!-- rules-seed v1.1.1 -->
+<!-- rules-seed v1.1.2 -->
 # Rules Seed — copy-once bot defaults
 
 > This file is copied into the bot working directory **once**, on first guided
@@ -39,9 +39,13 @@ explicit `[공지]` / `[단발]` / `[핑]` tag. Messages addressed to humans mus
 not mention bots.
 
 The currently shipped official Discord MCP does not expose thread creation.
-If no callable create-thread tool exists, ask an operator to create the thread
-and return its ID before dispatching. `reply_to` is only a reply reference and
-does not create a Discord thread; never label that fallback as creation.
+ThisCodex provides a separate dry-run-first adapter: use
+`thiscodex discord-thread public ... --name "공개 스레드"` for a public thread or
+`thiscodex discord-thread private ... --name "비공개 스레드"` for a private
+thread, review the request plan, then repeat with `--apply`. `reply_to` is only
+a reply reference and does not create a Discord thread; never label it as
+creation. If the CLI is unavailable, ask an operator to create the thread and
+return its ID before dispatching.
 
 Once installed and configured, this rule is also enforced mechanically by
 `hooks/dispatch-room-gate.py` (a PreToolUse deny hook plus a

@@ -15,6 +15,7 @@ const consumers = {
 };
 
 test('Discord reaction and thread-history guidance names the callable tools', () => {
+  assert.equal(Object.keys(consumers).length, 6, 'consumer inventory must stay explicit');
   for (const [name, body] of Object.entries(consumers)) {
     assert.match(body, /mcp__discord__react/, `${name}: react guidance missing`);
     assert.match(body, /mcp__discord__fetch_messages/, `${name}: thread-history guidance missing`);
@@ -25,23 +26,32 @@ test('Discord reaction and thread-history guidance names the callable tools', ()
   assert.match(consumers.agents, /parent channel must\s+be allowlisted/i);
 });
 
-test('Discord thread creation is labeled unavailable without conflating reply_to', () => {
+test('six guidance consumers distinguish the ThisCodex thread CLI from the official MCP', () => {
   for (const [name, body] of Object.entries(consumers)) {
     assert.match(body, /reply_to/iu, `${name}: reply_to boundary missing`);
-    assert.match(
-      body,
-      /(?:not exposed|미노출|호출 표면에 없음|does\s+(?:\*\*)?not(?:\*\*)?\s+expose)/iu,
-      `${name}: unavailable label missing`,
-    );
+    assert.match(body, /thiscodex discord-thread/iu, `${name}: thread CLI guidance missing`);
+    assert.match(body, /공개 스레드/u, `${name}: official Korean public-thread term missing`);
+    assert.match(body, /비공개 스레드/u, `${name}: official Korean private-thread term missing`);
+    assert.match(body, /official Discord MCP|공식 Discord MCP/iu, `${name}: MCP boundary missing`);
   }
 
   const rulesSeed = read('examples/rules-seed.md');
-  assert.match(rulesSeed, /rules-seed v1\.1\.1/);
+  assert.match(rulesSeed, /rules-seed v1\.1\.2/);
+  assert.match(rulesSeed, /thiscodex discord-thread/);
   assert.match(rulesSeed, /reply_to.*does not create a Discord thread/is);
   assert.doesNotMatch(
     Object.values(consumers).join('\n'),
     /mcp__discord__create_thread/,
     'must not invent a model-callable create-thread tool',
+  );
+});
+
+test('rules seed independently rejects a fictitious model-callable create-thread tool', () => {
+  const rulesSeed = read('examples/rules-seed.md');
+  assert.doesNotMatch(
+    rulesSeed,
+    /mcp__discord__create_thread/,
+    'copy-once rules must not teach a tool that the official MCP does not expose',
   );
 });
 

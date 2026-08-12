@@ -33,9 +33,12 @@ action is available.
   `mcp__discord__fetch_messages(channel=<thread_id>)`; its parent channel must
   be allowlisted.
 - The currently shipped official Discord MCP does **not** expose thread
-  creation. `reply_to` only references an existing message. Ask an operator to
-  create the thread and return its ID instead of pretending the reply created
-  one.
+  creation. ThisCodex provides a separate dry-run-first adapter: use
+  `thiscodex discord-thread public ... --name "공개 스레드"` for a public thread
+  or `thiscodex discord-thread private ... --name "비공개 스레드"` for a private
+  thread, review the request plan, then repeat with `--apply`. `reply_to` only
+  references an existing message and never creates a thread. If the CLI is not
+  installed, ask an operator to create the thread and return its ID.
 
 ## Report Rule
 

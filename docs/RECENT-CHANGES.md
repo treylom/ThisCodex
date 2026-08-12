@@ -33,6 +33,20 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ---
 
+## 2026-08-12 — Discord thread creation adapter
+
+- **rules-seed v1.1.2 — public/private thread creation without a fictitious MCP tool**:
+  `thiscodex discord-thread` now emits a non-network request plan by default
+  and creates 공개 스레드 (public threads) or 비공개 스레드 (private threads)
+  only with explicit `--apply`. The official Discord MCP boundary and the
+  `reply_to` non-creation rule remain explicit.
+- The adapter pins Discord REST API v10, sends private thread type `12`
+  explicitly, requires the DiscordBot User-Agent, keeps the bot token out of
+  dry-run/model-visible output, and reports access, permission, duplicate,
+  capacity, unsupported-surface, and ambiguous-transport failures separately.
+
+---
+
 ## 2026-08-12 — Meeting-room dispatch gate + solo-work ledger (P2 port)
 
 - **rules-seed v1.1.1 — honest Discord thread-creation fallback**:
