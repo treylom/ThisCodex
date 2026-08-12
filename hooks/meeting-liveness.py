@@ -52,8 +52,12 @@ def silent_bots(progress_path, participants, threshold):
 
 
 def _state_dir():
+    # ~/.claude-state: 배포 훅 8표면 중 이 파일만 ~/.codex-state 를 봤다 —
+    # 그 디렉터리는 어디에도 실재하지 않고(빈 자리), 워치독·리리드·GC 등
+    # 나머지 전부와 solo 원장이 ~/.claude-state 에 산다. 갈리면 liveness 가
+    # 남들과 다른 매니페스트를 보는 무징후 분리가 생긴다(2026-08-12 정합).
     return os.environ.get("MEETING_WATCHDOG_STATE_DIR",
-                          os.path.join(os.path.expanduser("~"), ".codex-state"))
+                          os.path.join(os.path.expanduser("~"), ".claude-state"))
 
 
 def meeting_active(thread_id):
