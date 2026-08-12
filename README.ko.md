@@ -67,6 +67,9 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 | 안전 기본 / YOLO(전체 권한) opt-in | ✅ 작동 | 기본 `workspace-write`, `THISCODEX_YOLO=1` 시에만 `thread/start`·`thread/resume` 둘 다 `danger-full-access`·`never` 전송 ([계약](docs/yolo-bridge-contract.md)) |
 | 이미지 생성 | ✅ 작동 | codex 내장 `image_gen.imagegen` 도구 |
 | 웹 조회·검색 | ✅ 작동 | codex 내장 `web.run` 도구 |
+| 디스코드 메시지 반응 추가 | ✅ 작동 | 노출된 `mcp__discord__react(chat_id, message_id, emoji)` 도구를 호출. 유니코드 이모지는 그대로, 커스텀 이모지는 `<:name:id>` 형식 |
+| 디스코드 스레드 읽기 | ✅ 작동 | `mcp__discord__fetch_messages(channel=<thread_id>)` 호출. 스레드의 부모 채널이 allowlist에 있어야 하고 봇의 Discord 보기·기록 권한도 필요 |
+| 디스코드 스레드 만들기 | ⏸️ **미노출** | 현재 동봉 경로의 공식 Discord MCP에는 스레드 생성 도구가 없다. `reply_to`는 기존 메시지를 답장으로 참조할 뿐 스레드를 만들지 않는다. 운영자가 스레드를 만든 뒤 ID를 넘겨야 한다. |
 | 디스코드 포털 인터랙티브 조작 | 🧭 **MCP 설정 경로** | 연결된 브라우저 자동화 MCP(통상 Playwright MCP). `/create-bot`이 도구 이름 하드코딩 없이 능력으로 탐지하며, 실계정 E2E는 계정 소유자 입회 게이트로 유지 |
 | `computer_use`/`browser_use`(데스크톱·브라우저 제어) | ⏸️ **보류** | `codex features list`엔 `stable,true`로 뜨지만 **이를 노출하는 공식 `codex` 명령/서브커맨드가 없어서** CLI/app-server 경로에서 **호출 가능한 도구가 아님** (데스크톱 앱 번들 MCP 전용). 업스트림 추적: [openai/codex#20851](https://github.com/openai/codex/issues/20851). 우회 없이 정직하게 문서화 |
 

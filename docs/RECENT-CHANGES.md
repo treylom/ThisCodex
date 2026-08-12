@@ -35,6 +35,11 @@ SessionStart) hook, and verify a Stop `trusted_hash` exists in
 
 ## 2026-08-12 — Meeting-room dispatch gate + solo-work ledger (P2 port)
 
+- **rules-seed v1.1.1 — honest Discord thread-creation fallback**:
+  the official Discord MCP currently exposes reaction and existing-thread
+  history tools, but no create-thread tool. Rule 3 still requires a dedicated
+  thread; when creation is unavailable, the bot asks an operator to create it
+  and return the ID. `reply_to` must never be labeled as thread creation.
 - **rules-seed v1.1.0 — new Rule 3 (no bot dispatch in top-level channels)**:
   bot-to-bot work orders go to a dedicated thread with the 4-file meeting
   folder; one-shot notices need an explicit `[공지]`/`[단발]`/`[핑]` tag.

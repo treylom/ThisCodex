@@ -31,6 +31,8 @@
 | `mcp__obsidian__*` | **Obsidian CLI wrapper** | Minimum set: `search / read / create / append / backlinks / tags / properties`, with vault-root + relative-path normalization in the wrapper contract. Tool-agnostic, so it is the common path for both runtimes. |
 | `WebFetch`, browser fetch (`mcp__playwright__*` / `mcp__hyperbrowser__*` used for fetch) | Codex **`web.run`** | Direct equivalent for fetch/read. |
 | Interactive browser control (navigation, snapshot/DOM inspection, click, fill/type, wait) | **Connected browser-automation MCP**, normally Playwright MCP | Discover the callable capability set at run time. Tool names and server names must not be hard-coded. If absent, ask before `codex mcp add playwright -- npx -y @playwright/mcp@latest`, restart Codex, and re-detect. `web.run` is not an interactive-control substitute. |
+| Discord reaction / existing-thread history | Official Discord MCP `react` / `fetch_messages` | Call `mcp__discord__react(chat_id,message_id,emoji)` or `mcp__discord__fetch_messages(channel=<thread_id>)` only when those tools are actually exposed. Thread access inherits the parent-channel allowlist and Discord permissions. |
+| Discord thread creation | **Not exposed by the currently shipped official Discord MCP** | `reply_to` is a reply reference, not creation. Ask an operator to create the thread and provide its ID. A model-callable implementation requires an upstream `create_thread` tool or a separately specified ThisCodex-owned adapter/patch. |
 | `mcp__notion__*` (Notion export) | **Out of KM core quality-equivalence scope** | KM core deliverable = vault write (Obsidian CLI path). Notion mirror is a *secondary export*; if Codex lacks a Notion equivalent it is marked **optional-degraded** and explicitly labeled — it does NOT block KM core quality-equivalence. |
 
 ## AskUserQuestion-shim security (hard requirements — prompt-injection defense)
@@ -245,6 +247,8 @@ Codex 등가는 progressive disclosure(점진적 노출) `references/codex-adapt
 | `mcp__obsidian__*` | **Obsidian CLI wrapper** | 최소셋 `search/read/create/append/backlinks/tags/properties` + vault-root·상대경로 normalization 계약. 도구 무관 = 양 런타임 공통 경로. |
 | `WebFetch`·browser fetch | Codex **`web.run`** | fetch/read 직접 등가. |
 | 인터랙티브 브라우저 제어(이동·snapshot/DOM 확인·클릭·입력·대기) | **연결된 브라우저 자동화 MCP**(통상 Playwright MCP) | 실행 시 호출 가능한 능력 묶음으로 탐지하며 서버·도구 이름을 하드코딩하지 않는다. 부재 시 승인 후 `codex mcp add playwright -- npx -y @playwright/mcp@latest`→Codex 재시작→재탐지. `web.run`은 인터랙티브 조작 대체재가 아니다. |
+| Discord 반응 / 기존 스레드 기록 읽기 | 공식 Discord MCP `react` / `fetch_messages` | 실제 도구 노출을 먼저 확인한 뒤 `mcp__discord__react(chat_id,message_id,emoji)` 또는 `mcp__discord__fetch_messages(channel=<thread_id>)`를 호출한다. 스레드 접근은 부모 채널 allowlist와 Discord 권한을 승계한다. |
+| Discord 스레드 만들기 | **현재 동봉 경로의 공식 Discord MCP에 미노출** | `reply_to`는 답장 참조이지 생성이 아니다. 운영자에게 스레드 생성과 ID 전달을 요청한다. 모델 호출 구현은 업스트림 `create_thread` 도구 또는 별도 스펙의 ThisCodex 소유 adapter/patch가 필요하다. |
 | `mcp__notion__*`(Notion export) | **KM core 품질등가 범위 밖** | KM core 산출=vault write(Obsidian CLI). Notion 미러는 *보조 export* — Codex 등가 없으면 **optional-degraded** 명시(independent review LOW: 스킬 `references/codex-adapter.md` + ThisCode SETUP.md 에 "Codex 에서 Notion write 불가, `export_notion:false`" 명문), KM core 품질등가를 막지 않음. |
 
 ### AskUserQuestion-shim 보안 (필수 — prompt-injection 방어)

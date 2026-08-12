@@ -23,6 +23,20 @@ discord MCP `reply` tool** (pass back the `chat_id` from the inbound
 - If the reply tool is missing or fails, say so in your text (the bridge logs
   it) — do not silently continue.
 
+## Discord Actions Beyond Reply
+
+Check the tools actually exposed in the current session before claiming an
+action is available.
+
+- Add a reaction with `mcp__discord__react(chat_id, message_id, emoji)`.
+- Read an existing Discord thread with
+  `mcp__discord__fetch_messages(channel=<thread_id>)`; its parent channel must
+  be allowlisted.
+- The currently shipped official Discord MCP does **not** expose thread
+  creation. `reply_to` only references an existing message. Ask an operator to
+  create the thread and return its ID instead of pretending the reply created
+  one.
+
 ## Report Rule
 
 Do not force fixed report labels. Write in plain prose while keeping these

@@ -83,6 +83,9 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 | YOLO (full-access) execution | ✅ working | `thread/start` **and** `thread/resume` both send `sandbox:"danger-full-access"`, `approvalPolicy:"never"` |
 | Image generation | ✅ working | codex built-in `image_gen.imagegen` tool |
 | Web fetch/search | ✅ working | codex built-in `web.run` tool |
+| Discord message reactions | ✅ working | Call the exposed `mcp__discord__react(chat_id, message_id, emoji)` tool. Unicode emoji work directly; custom emoji use `<:name:id>`. |
+| Discord thread history | ✅ working | Call `mcp__discord__fetch_messages(channel=<thread_id>)`. The thread's parent channel must be allowlisted, and the bot still needs Discord view/history permission. |
+| Discord thread creation | ⏸️ **not exposed** | The currently shipped official Discord MCP exposes no create-thread tool. `reply_to` references an existing message; it does **not** create a Discord thread. Ask an operator to create the thread and return its ID. |
 | Interactive Discord-portal control | 🧭 **MCP-configured path** | A connected browser-automation MCP, normally Playwright MCP; `/create-bot` discovers capabilities without hard-coded tool names. Real-account E2E remains an owner-present gate. |
 | `computer_use` / `browser_use` (desktop/browser control) | ⏸️ **parked** | `codex features list` shows `stable,true`, **but no official `codex` command/subcommand exposes it**, so it is **not a callable tool** on the CLI/app-server surface (ships only as a Desktop-app-bundled MCP). Tracked upstream: [openai/codex#20851](https://github.com/openai/codex/issues/20851). Documented, not hacked. |
 

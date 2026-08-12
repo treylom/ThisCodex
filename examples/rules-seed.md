@@ -1,4 +1,4 @@
-<!-- rules-seed v1.1.0 -->
+<!-- rules-seed v1.1.1 -->
 # Rules Seed — copy-once bot defaults
 
 > This file is copied into the bot working directory **once**, on first guided
@@ -37,6 +37,11 @@ record folder first (4 files: 00-context / 01-spec / 02-progress /
 notices and liveness pings may go to the channel body, but must carry an
 explicit `[공지]` / `[단발]` / `[핑]` tag. Messages addressed to humans must
 not mention bots.
+
+The currently shipped official Discord MCP does not expose thread creation.
+If no callable create-thread tool exists, ask an operator to create the thread
+and return its ID before dispatching. `reply_to` is only a reply reference and
+does not create a Discord thread; never label that fallback as creation.
 
 Once installed and configured, this rule is also enforced mechanically by
 `hooks/dispatch-room-gate.py` (a PreToolUse deny hook plus a

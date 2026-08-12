@@ -1,0 +1,64 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+const read = path => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+
+const consumers = {
+  readme: read('README.md'),
+  readmeKo: read('README.ko.md'),
+  help: read('skills/help/SKILL.md'),
+  features: read('skills/thiscodex/SKILL.md'),
+  agents: read('examples/AGENTS.md'),
+  contract: read('docs/tool-equivalence-contract.md'),
+};
+
+test('Discord reaction and thread-history guidance names the callable tools', () => {
+  for (const [name, body] of Object.entries(consumers)) {
+    assert.match(body, /mcp__discord__react/, `${name}: react guidance missing`);
+    assert.match(body, /mcp__discord__fetch_messages/, `${name}: thread-history guidance missing`);
+  }
+
+  assert.match(consumers.help, /channel=<thread_id>/);
+  assert.match(consumers.help, /최대 100건/);
+  assert.match(consumers.agents, /parent channel must\s+be allowlisted/i);
+});
+
+test('Discord thread creation is labeled unavailable without conflating reply_to', () => {
+  for (const [name, body] of Object.entries(consumers)) {
+    assert.match(body, /reply_to/iu, `${name}: reply_to boundary missing`);
+    assert.match(
+      body,
+      /(?:not exposed|미노출|호출 표면에 없음|does\s+(?:\*\*)?not(?:\*\*)?\s+expose)/iu,
+      `${name}: unavailable label missing`,
+    );
+  }
+
+  const rulesSeed = read('examples/rules-seed.md');
+  assert.match(rulesSeed, /rules-seed v1\.1\.1/);
+  assert.match(rulesSeed, /reply_to.*does not create a Discord thread/is);
+  assert.doesNotMatch(
+    Object.values(consumers).join('\n'),
+    /mcp__discord__create_thread/,
+    'must not invent a model-callable create-thread tool',
+  );
+});
+
+test('help keeps Discord thread ids distinct from Codex app-server thread ids', () => {
+  assert.match(consumers.help, /Discord 스레드 ID/);
+  assert.match(consumers.help, /codex app-server.*thread\/start/s);
+  assert.match(consumers.help, /서로 대신 쓰지 않는다/);
+});
+
+test('plugin lock pins the updated ThisCodex feature guidance', () => {
+  const skill = Buffer.from(read('skills/thiscodex/SKILL.md'), 'utf8');
+  const lock = JSON.parse(read('plugin.lock.json'));
+  const entry = lock.skills.find(item => item.id === 'thiscodex');
+
+  assert.ok(entry, 'thiscodex lock entry missing');
+  assert.equal(
+    entry.integrity,
+    `sha256-${createHash('sha256').update(skill).digest('hex')}`,
+  );
+});

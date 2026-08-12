@@ -102,7 +102,7 @@ When you invoke `/thiscodex`, the skill routes by intent. Common subcommands:
 | Set up multi-agent conventions | `/thiscodex multi-agent` — generates `bot-roster.yaml`, wires cross-bot addressing, meeting thread rules, and SessionStart roster injection for Claude Code + Codex coexistence. |
 | Launch the bot (tmux) | `/thiscodex run` — starts the infra (app-server + bot.py bridge) and codex TUI windows inside tmux session. Assumes setup is done. |
 | Tail bot logs | `/thiscodex logs` — shows live `bot.py` and app-server logs for debugging turns, tool calls, or Discord events. |
-| Check feature availability | `/thiscodex features` — lists what's working (Discord bot, multi-client same-thread, YOLO, image_gen, web.run) and what's parked (computer_use/browser_use). |
+| Check feature availability | `/thiscodex features` — lists what's working (Discord bot, reactions via `mcp__discord__react`, thread history via `mcp__discord__fetch_messages`, multi-client same-thread, YOLO, image_gen, web.run) and what's not exposed (Discord thread creation, computer_use/browser_use). `reply_to` is not thread creation. |
 | Generate troubleshooting guide | `/thiscodex troubleshoot <symptom>` — provides step-by-step fixes. Example: `/thiscodex troubleshoot "codex tui shows nothing"` for the common "TUI on wrong thread" issue. |
 
 ## Reference map (load on demand — GitHub URLs, robust for loose-copy or marketplace install)
