@@ -90,7 +90,6 @@ def main() -> int:
                         "permissionDecisionReason": REASON,
                     }
                 },
-                ensure_ascii=False,
             )
         )
         return 0
