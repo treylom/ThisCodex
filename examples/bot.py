@@ -50,7 +50,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from automation_observer import classify_automation_item
+from automation_observer import classify_automation_item, route_automation_record
 
 # unbuffered stdout — immediate tmux pane log visibility
 sys.stdout.reconfigure(line_buffering=True)
@@ -264,11 +264,20 @@ def observe_automation_item(item: dict, thread_id: str, turn_id: str) -> None:
     try:
         _automation_private_dir()
         flow = _automation_flow_for_thread(str(thread_id))
-        attempt = _automation_attempt_for_flow(str(thread_id), str(turn_id), str(flow.get("flow") if flow else ""))
-        if not attempt or record["tool_class"] != attempt["evidence_tool"]:
+        if not flow:
             return
+        attempt = _automation_attempt_for_flow(str(thread_id), str(turn_id), str(flow.get("flow") if flow else ""))
+        route = route_automation_record(
+            record,
+            str(flow.get("provider") or ""),
+            str(attempt.get("evidence_tool") if attempt else ""),
+        )
         auxiliary_provider = record["provider"] == "model-blind-clipboard"
-        if not flow or (not auxiliary_provider and not _automation_bind_flow_provider(flow, record["provider"])):
+        if not route["provider_allowed"]:
+            return
+        if not auxiliary_provider and not _automation_bind_flow_provider(flow, record["provider"]):
+            return
+        if not attempt or not route["evidence_eligible"]:
             return
         row = {
             "schema_version": 2,

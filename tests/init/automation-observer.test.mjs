@@ -17,6 +17,22 @@ function classify(item) {
   return result.stdout.trim();
 }
 
+function route(record, boundProvider, expectedToolClass) {
+  const program = [
+    'import json,sys',
+    'from automation_observer import route_automation_record',
+    'record,bound,expected=json.load(sys.stdin)',
+    'print(json.dumps(route_automation_record(record,bound,expected)))',
+  ].join(';');
+  const result = spawnSync('python3', ['-c', program], {
+    cwd: process.cwd(), encoding: 'utf8',
+    input: JSON.stringify([record, boundProvider, expectedToolClass]),
+    env: { ...process.env, PYTHONPATH: 'examples' },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
 test('bridge classifier keeps only provider/tool/status/error class from MCP completion', () => {
   const output = classify({
     type: 'mcpToolCall', id: 'item-1', server: 'playwright', tool: 'browser_navigate',
@@ -47,4 +63,34 @@ test('bridge classifier ignores unrelated commands and records clipboard/provide
     type: 'mcpToolCall', id: 'item-close', server: 'playwright', tool: 'browser_close',
     status: 'completed',
   }).includes('"tool_class": "browser_other"'), true);
+});
+
+test('the first browser completion binds provider even when its tool class cannot satisfy the attempt', () => {
+  const navigate = { provider: 'claude-in-chrome', tool_class: 'browser_action' };
+  const first = route(navigate, '', 'browser_inspect');
+  assert.deepEqual(first, {
+    provider_allowed: true, next_provider: 'claude-in-chrome', evidence_eligible: false,
+  });
+  const laterSnapshot = route(
+    { provider: 'playwright', tool_class: 'browser_inspect' },
+    first.next_provider,
+    'browser_inspect',
+  );
+  assert.deepEqual(laterSnapshot, {
+    provider_allowed: false, next_provider: 'claude-in-chrome', evidence_eligible: false,
+  });
+  const alreadyBoundAlternateAction = route(
+    { provider: 'claude-in-chrome', tool_class: 'browser_action' },
+    'playwright',
+    'browser_inspect',
+  );
+  assert.equal(alreadyBoundAlternateAction.provider_allowed, false);
+  const clipboard = route(
+    { provider: 'model-blind-clipboard', tool_class: 'clipboard' },
+    'playwright',
+    'clipboard',
+  );
+  assert.deepEqual(clipboard, {
+    provider_allowed: true, next_provider: 'playwright', evidence_eligible: true,
+  });
 });

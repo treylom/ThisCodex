@@ -54,3 +54,29 @@ def classify_automation_item(item: dict, browser_servers: set[str]) -> dict | No
             "status": status, "error_class": error_class,
         }
     return None
+
+
+def route_automation_record(
+    record: dict,
+    bound_provider: str,
+    expected_tool_class: str,
+) -> dict:
+    """Decide provider continuity before deciding evidence eligibility.
+
+    A wrong-class browser completion still used a provider, so it must bind or
+    conflict with the flow even though it cannot satisfy the armed attempt.
+    Clipboard is the sole auxiliary provider and never changes that binding.
+    """
+    provider = str(record.get("provider") or "")
+    auxiliary = provider == "model-blind-clipboard"
+    provider_allowed = auxiliary or not bound_provider or bound_provider == provider
+    next_provider = bound_provider or ("" if auxiliary else provider)
+    return {
+        "provider_allowed": provider_allowed,
+        "next_provider": next_provider,
+        "evidence_eligible": bool(
+            provider_allowed
+            and expected_tool_class
+            and record.get("tool_class") == expected_tool_class
+        ),
+    }
