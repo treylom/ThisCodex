@@ -1,5 +1,5 @@
 import { accessSync, constants, existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { detectCodexConfig, whichSync } from './detect.mjs';
 import { detectSuperpowers } from './superpowers.mjs';
 
@@ -52,22 +52,30 @@ export function automationHandoffHookReady(home, env = process.env) {
   }
   const groups = hooks?.hooks?.PreToolUse || [];
   let coordinate = null;
+  let hookPath = '';
   for (const [groupIndex, group] of groups.entries()) {
+    const matcher = String(group?.matcher || '');
+    if (!matcher.includes('mcp__discord__reply') || !matcher.includes('mcp__discord__edit_message')) continue;
     for (const [hookIndex, hook] of (group?.hooks || []).entries()) {
-      if (String(hook?.command || '').includes('automation-handoff-gate.py')) {
+      const command = String(hook?.command || '');
+      const pathMatch = command.match(/(?:^|\s)([^\s"']*automation-handoff-gate\.py)(?:\s|$)/);
+      if (pathMatch) {
         coordinate = `${groupIndex}:${hookIndex}`;
+        const raw = pathMatch[1].replace(/^~(?=\/)/, home);
+        hookPath = isAbsolute(raw) ? raw : resolve(raw);
       }
     }
   }
   if (!coordinate) return { ok: false, message: 'automation handoff hook is not wired' };
+  if (!existsSync(hookPath)) return { ok: false, message: `automation handoff hook path missing: ${hookPath}` };
   let config = '';
   try {
     config = readFileSync(configPath, 'utf8');
   } catch {
     return { ok: false, message: 'automation handoff hook is wired but not trusted' };
   }
-  const escaped = coordinate.replace(':', '\\:');
-  const trust = new RegExp(`pre_tool_use:${escaped.replace('\\:', ':')}"?\\]?[\\s\\S]{0,240}trusted_hash\\s*=`, 'i');
+  const escaped = coordinate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const trust = new RegExp(`pre_tool_use:${escaped}"?\\]?[\\s\\S]{0,240}trusted_hash\\s*=`, 'i');
   return trust.test(config)
     ? { ok: true }
     : { ok: false, message: `automation handoff hook ${coordinate} is wired but not trusted` };

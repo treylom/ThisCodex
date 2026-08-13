@@ -61,18 +61,24 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
     '--terminal', 'tool_failed', '--reason-code', 'provider_not_callable',
     '--audit-file', audit,
   ];
+  const cliEnv = { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir };
+  const started = spawnSync(process.execPath, [BIN, 'automation-flow', '--start', '--flow', 'browser-provider'], {
+    encoding: 'utf8', env: cliEnv,
+  });
+  assert.equal(started.status, 0, started.stdout + started.stderr);
   const blocked = spawnSync(process.execPath, [BIN, 'automation-gate',
     ...common,
   ], {
     encoding: 'utf8',
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir },
+    env: cliEnv,
   });
   assert.equal(blocked.status, 2, blocked.stdout + blocked.stderr);
   assert.equal(JSON.parse(blocked.stdout).code, 'matching_evidence_missing');
 
   writeFileSync(join(evidenceDir, 'browser-evidence.jsonl'), `${JSON.stringify({
     schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
-    provider: 'playwright', tool: 'codex.mcp.register', status: 'failed', error_class: 'tool_error',
+    flow: 'browser-provider', provider: 'playwright', tool: 'provider-setup-command',
+    tool_class: 'provider_setup', status: 'failed', error_class: 'tool_error',
     observed_at: new Date().toISOString(),
   })}\n`);
 
@@ -80,7 +86,7 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
     ...common,
   ], {
     encoding: 'utf8',
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir },
+    env: cliEnv,
   });
   assert.equal(failed.status, 0, failed.stdout + failed.stderr);
   const result = JSON.parse(failed.stdout);
@@ -90,6 +96,29 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
   const rows = readFileSync(audit, 'utf8').trim().split('\n').map(JSON.parse);
   assert.deepEqual(rows.map(row => row.decision), ['blocked', 'handoff_allowed']);
   assert.equal(rows[1].evidence_item_id, 'item-1');
+
+  writeFileSync(join(evidenceDir, 'active-turn.json'), JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-2', started_at: new Date(Date.now() - 1000).toISOString(),
+  }));
+  writeFileSync(join(evidenceDir, 'browser-evidence.jsonl'), `${JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-2', item_id: 'item-2',
+    flow: 'browser-provider', provider: 'playwright', tool: 'browser_snapshot',
+    tool_class: 'browser_inspect', status: 'completed', error_class: 'none',
+    observed_at: new Date().toISOString(),
+  })}\n`, { flag: 'a' });
+  const completed = spawnSync(process.execPath, [BIN, 'automation-gate',
+    '--gate', 'browser_provider_ready', '--automation-mode', 'auto',
+    '--status', 'succeeded', '--provider', 'playwright',
+    '--surface', 'browser', '--flow', 'browser-provider',
+    '--operation', 'verify-browser-provider-callable',
+    '--terminal', 'flow_completed', '--reason-code', 'automatic_flow_completed',
+    '--audit-file', audit,
+  ], { encoding: 'utf8', env: cliEnv });
+  assert.equal(completed.status, 0, completed.stdout + completed.stderr);
+  const completion = JSON.parse(completed.stdout);
+  assert.equal(completion.code, 'attempt_succeeded_continue');
+  assert.equal(completion.flow_result, 'flow_cleared');
+  assert.equal(existsSync(join(evidenceDir, 'active-flow.json')), false);
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -358,7 +387,7 @@ test('doctor on a materialized install points to the exact runner instead of res
   mkdirSync(join(home, '.codex'), { recursive: true });
   writeFileSync(join(home, '.codex', 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
     matcher: 'mcp__discord__reply|mcp__discord__edit_message',
-    hooks: [{ type: 'command', command: 'python3 hooks/automation-handoff-gate.py' }],
+    hooks: [{ type: 'command', command: `python3 ${join(process.cwd(), 'hooks', 'automation-handoff-gate.py')}` }],
   }] } }));
   writeFileSync(join(home, '.codex', 'config.toml'), '[hooks.state."hooks.json:pre_tool_use:0:0"]\ntrusted_hash = "sha256:test"\n');
   const doctor = spawnSync(process.execPath, [BIN, 'doctor', '--non-interactive'], {

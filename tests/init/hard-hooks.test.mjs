@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const HOOKS = [
   'hooks/lib/hookkit.sh',
@@ -68,7 +68,7 @@ test('PreToolUse automation guard denies with permissionDecision JSON', () => {
   assert.match(payload.hookSpecificOutput.permissionDecisionReason, /AskUserQuestion|무인 자동화/);
 });
 
-test('automatic handoff hook denies prose without a receipt and consumes a valid current-turn receipt once', () => {
+test('automatic handoff hook flow state denies unmarked prose and atomically consumes a receipt once', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-handoff-'));
   const input = {
     hook_event_name: 'PreToolUse',
@@ -86,9 +86,18 @@ test('automatic handoff hook denies prose without a receipt and consumes a valid
   writeFileSync(join(dir, 'active-turn.json'), JSON.stringify({
     thread_id: 'thread-1', turn_id: 'turn-1', started_at: new Date().toISOString(),
   }));
+  writeFileSync(join(dir, 'active-flow.json'), JSON.stringify({
+    thread_id: 'thread-1', flow: 'discord-portal', provider: 'playwright',
+    started_at: new Date().toISOString(),
+  }));
+  const unmarked = run({
+    ...input, tool_input: { text: 'Please sign in to Discord in the current browser window, then tell me when finished.' },
+  });
+  assert.equal(JSON.parse(unmarked.stdout).hookSpecificOutput.permissionDecision, 'deny');
   writeFileSync(join(dir, 'handoff-receipts.jsonl'), `${JSON.stringify({
     schema_version: 1, token, thread_id: 'thread-1', turn_id: 'turn-1',
     gate: 'discord_hcaptcha', flow: 'discord-portal', provider: 'playwright',
+    resume_required: true,
     issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 60000).toISOString(),
   })}\n`);
   const withReceipt = {
@@ -97,6 +106,49 @@ test('automatic handoff hook denies prose without a receipt and consumes a valid
   };
   assert.equal(JSON.parse(run(withReceipt).stdout).hookSpecificOutput.permissionDecision, 'allow');
   assert.equal(JSON.parse(run(withReceipt).stdout).hookSpecificOutput.permissionDecision, 'deny');
+  assert.equal(JSON.parse(readFileSync(join(dir, 'active-flow.json'), 'utf8')).provider, 'playwright');
+  const afterPause = run({
+    ...input, tool_input: { text: 'Please sign in to Discord, then tell me when finished.' },
+  });
+  assert.equal(JSON.parse(afterPause.stdout).hookSpecificOutput.permissionDecision, 'deny');
+
+  const parallelToken = 'b'.repeat(48);
+  writeFileSync(join(dir, 'active-flow.json'), JSON.stringify({
+    thread_id: 'thread-1', flow: 'discord-portal', provider: 'playwright',
+    started_at: new Date().toISOString(),
+  }));
+  writeFileSync(join(dir, 'handoff-receipts.jsonl'), `${JSON.stringify({
+    schema_version: 1, token: parallelToken, thread_id: 'thread-1', turn_id: 'turn-1',
+    gate: 'discord_hcaptcha', flow: 'discord-portal', provider: 'playwright',
+    resume_required: true,
+    issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 60000).toISOString(),
+  })}\n`, { flag: 'a' });
+  const parallelInput = JSON.stringify({
+    ...input,
+    tool_input: { text: `Please sign in to Discord. <!-- thiscodex-automation-receipt:${parallelToken} -->` },
+  });
+  const invoke = () => new Promise((resolve, reject) => {
+    const child = spawn('python3', ['hooks/automation-handoff-gate.py'], {
+      cwd: process.cwd(),
+      env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto' },
+    });
+    let stdout = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.on('error', reject);
+    child.on('close', () => resolve(JSON.parse(stdout).hookSpecificOutput.permissionDecision));
+    child.stdin.end(parallelInput);
+  });
+  const decisions = await Promise.all([invoke(), invoke()]);
+  assert.deepEqual(decisions.sort(), ['allow', 'deny']);
+
+  writeFileSync(join(dir, 'active-flow.json'), JSON.stringify({
+    thread_id: 'thread-1', flow: 'discord-portal', provider: 'playwright',
+    started_at: new Date(Date.now() - (3 * 60 * 60 * 1000)).toISOString(),
+  }));
+  const staleFlow = run({
+    ...input, tool_input: { text: 'Ordinary automatic progress update.' },
+  });
+  assert.equal(JSON.parse(staleFlow.stdout).hookSpecificOutput.permissionDecision, 'allow');
   rmSync(dir, { recursive: true, force: true });
 });
 

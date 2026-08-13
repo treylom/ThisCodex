@@ -13,6 +13,7 @@ install:
       flow: init
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-wsl-install
       terminal: human_security_gate
       reason_code: host_permission_required
@@ -21,6 +22,7 @@ install:
       flow: init
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-tmux-install
       terminal: human_security_gate
       reason_code: host_permission_required
@@ -29,6 +31,7 @@ install:
       flow: setup
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-codex-privilege-boundary
       terminal: human_security_gate
       reason_code: security_boundary_review
@@ -37,6 +40,7 @@ install:
       flow: setup
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-codex-hook-trust
       terminal: human_security_gate
       reason_code: security_boundary_review
@@ -45,6 +49,7 @@ install:
       flow: setup
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-shell-profile-edit
       terminal: human_security_gate
       reason_code: security_boundary_review
@@ -53,6 +58,7 @@ install:
       flow: init
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-daemon-start
       terminal: human_security_gate
       reason_code: security_boundary_review
@@ -61,6 +67,7 @@ install:
       flow: init
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-superpowers-install
       terminal: human_security_gate
       reason_code: host_permission_required
@@ -69,6 +76,7 @@ install:
       flow: init
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: complete-github-login
       terminal: human_security_gate
       reason_code: account_credentials_required
@@ -77,6 +85,7 @@ install:
       flow: setup
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-discord-mcp-config
       terminal: human_security_gate
       reason_code: security_boundary_review
@@ -85,6 +94,7 @@ install:
       flow: browser-provider
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-browser-provider-install
       terminal: human_security_gate
       reason_code: operator_declined
@@ -93,14 +103,25 @@ install:
       flow: browser-provider
       requirement: observed_attempt
       evidence: command
+      evidence_tool: provider_setup
       operation: register-restart-redetect-provider
       terminal: tool_failed
       reason_code: provider_not_callable
+    - name: browser_provider_ready
+      surface: browser
+      flow: browser-provider
+      requirement: observed_attempt
+      evidence: browser
+      evidence_tool: browser_inspect
+      operation: verify-browser-provider-callable
+      terminal: flow_completed
+      reason_code: automatic_flow_completed
     - name: discord_portal_login
       surface: browser
       flow: discord-portal
       requirement: named_human
       evidence: browser
+      evidence_tool: browser_inspect
       operation: inspect-discord-login
       terminal: human_security_gate
       reason_code: account_credentials_required
@@ -109,6 +130,7 @@ install:
       flow: discord-portal
       requirement: named_human
       evidence: browser
+      evidence_tool: browser_inspect
       operation: inspect-discord-hcaptcha
       terminal: human_security_gate
       reason_code: captcha_required
@@ -117,6 +139,7 @@ install:
       flow: discord-portal
       requirement: named_human
       evidence: browser
+      evidence_tool: browser_inspect
       operation: inspect-discord-token-modal
       terminal: human_security_gate
       reason_code: account_credentials_required
@@ -125,14 +148,25 @@ install:
       flow: discord-portal
       requirement: observed_attempt
       evidence: browser
+      evidence_tool: browser_action
       operation: approve-discord-desktop-window
       terminal: tool_failed
       reason_code: provider_cannot_control_window
+    - name: discord_portal_complete
+      surface: browser
+      flow: discord-portal
+      requirement: observed_attempt
+      evidence: browser
+      evidence_tool: browser_inspect
+      operation: verify-discord-portal-complete
+      terminal: flow_completed
+      reason_code: automatic_flow_completed
     - name: token_direct_entry
       surface: secret
-      flow: discord-token
+      flow: discord-portal
       requirement: observed_attempt
       evidence: command
+      evidence_tool: clipboard
       operation: model-blind-token-receipt
       terminal: tool_failed
       reason_code: model_blind_channel_unavailable
@@ -141,6 +175,7 @@ install:
       flow: slack-auth
       requirement: named_human
       evidence: browser
+      evidence_tool: browser_inspect
       operation: inspect-slack-login
       terminal: human_security_gate
       reason_code: account_credentials_required
@@ -149,14 +184,25 @@ install:
       flow: slack-auth
       requirement: observed_attempt
       evidence: browser
+      evidence_tool: browser_action
       operation: login-ticket-confirm-challenge
       terminal: tool_failed
       reason_code: browser_tool_failed
+    - name: slack_browser_auth_complete
+      surface: browser
+      flow: slack-auth
+      requirement: observed_attempt
+      evidence: browser
+      evidence_tool: browser_inspect
+      operation: verify-slack-auth-complete
+      terminal: flow_completed
+      reason_code: automatic_flow_completed
     - name: slack_workspace_admin_approval
       surface: consent
       flow: slack-app
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-slack-workspace-admin
       terminal: human_security_gate
       reason_code: admin_approval_required
@@ -165,6 +211,7 @@ install:
       flow: slack-scope
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-oauth-scope-grant
       terminal: human_security_gate
       reason_code: admin_approval_required
@@ -173,6 +220,7 @@ install:
       flow: slack-cli
       requirement: named_human
       evidence: none
+      evidence_tool: none
       operation: review-slack-native-install
       terminal: human_security_gate
       reason_code: host_permission_required

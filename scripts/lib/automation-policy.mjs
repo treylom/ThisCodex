@@ -7,9 +7,10 @@ const MODES = new Set(['auto', 'manual']);
 const SURFACES = new Set(['browser', 'consent', 'host', 'secret']);
 const REQUIREMENTS = new Set(['named_human', 'observed_attempt']);
 const EVIDENCE_KINDS = new Set(['none', 'browser', 'command']);
-const TERMINALS = new Set(['human_security_gate', 'tool_failed']);
+const EVIDENCE_TOOLS = new Set(['none', 'browser_inspect', 'browser_action', 'provider_setup', 'clipboard']);
+const TERMINALS = new Set(['human_security_gate', 'tool_failed', 'flow_completed']);
 const GATE_KEYS = new Set([
-  'surface', 'flow', 'requirement', 'evidence', 'operation', 'terminal', 'reason_code',
+  'surface', 'flow', 'requirement', 'evidence', 'evidence_tool', 'operation', 'terminal', 'reason_code',
 ]);
 const ASCII_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
 
@@ -33,6 +34,7 @@ function finishGate(policy, gate) {
   if (!SURFACES.has(gate.surface)) throw new Error(`handoff gate ${gate.name} has invalid surface`);
   if (!REQUIREMENTS.has(gate.requirement)) throw new Error(`handoff gate ${gate.name} has invalid requirement`);
   if (!EVIDENCE_KINDS.has(gate.evidence)) throw new Error(`handoff gate ${gate.name} has invalid evidence`);
+  if (!EVIDENCE_TOOLS.has(gate.evidence_tool)) throw new Error(`handoff gate ${gate.name} has invalid evidence_tool`);
   if (!TERMINALS.has(gate.terminal)) throw new Error(`handoff gate ${gate.name} has invalid terminal`);
   for (const key of ['name', 'flow', 'operation', 'reason_code']) {
     if (!ASCII_ID.test(gate[key])) throw new Error(`handoff gate ${gate.name} has invalid ${key}`);
@@ -42,6 +44,9 @@ function finishGate(policy, gate) {
   }
   if (gate.requirement === 'observed_attempt' && gate.evidence === 'none') {
     throw new Error(`attempt gate ${gate.name} must require observed evidence`);
+  }
+  if ((gate.evidence === 'none') !== (gate.evidence_tool === 'none')) {
+    throw new Error(`handoff gate ${gate.name} has incompatible evidence_tool`);
   }
   if (policy.gates.has(gate.name)) throw new Error(`duplicate handoff gate: ${gate.name}`);
   policy.gates.set(gate.name, Object.freeze({ ...gate }));
@@ -159,7 +164,8 @@ function auditBase(gatePolicy, mode, request, evidence) {
     provider: observed?.provider || request.provider || '',
     evidence_turn_id: observed?.turn_id || '',
     evidence_item_id: observed?.item_id || '',
-    evidence_tool: observed?.tool || '',
+    evidence_tool: observed?.tool_class || '',
+    evidence_tool_name: observed?.tool || '',
     evidence_status: observed?.status || '',
   };
 }
@@ -195,6 +201,9 @@ export function decideManualHandoff({ gate, mode, policy, request = {}, evidence
       return { ok: false, handoffAllowed: false, code: 'successful_evidence_required', gatePolicy, audit: { ...base, decision: 'blocked' } };
     }
     return { ok: true, handoffAllowed: false, code: 'attempt_succeeded_continue', gatePolicy, audit: { ...base, decision: 'continue_automatic' } };
+  }
+  if (gatePolicy.terminal === 'flow_completed') {
+    return { ok: false, handoffAllowed: false, code: 'completion_gate_requires_success', gatePolicy, audit: { ...base, decision: 'blocked' } };
   }
   if (gatePolicy.requirement === 'named_human') {
     if (request.status !== 'human_required') {

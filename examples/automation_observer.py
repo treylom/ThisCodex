@@ -20,9 +20,18 @@ def classify_automation_item(item: dict, browser_servers: set[str]) -> dict | No
         status = str(item.get("status") or "")
         if provider not in browser_servers or status not in ("completed", "failed"):
             return None
+        tool = str(item.get("tool") or "unknown")[:96]
+        normalized = tool.lower().replace("-", "_")
+        if re.search(r"snapshot|inspect|accessibility|dom|page_content|screenshot", normalized):
+            tool_class = "browser_inspect"
+        elif re.search(r"navigate|goto|click|fill|type|press|select|wait|evaluate", normalized):
+            tool_class = "browser_action"
+        else:
+            tool_class = "browser_other"
         return {
             "provider": provider,
-            "tool": str(item.get("tool") or "unknown")[:96],
+            "tool": tool,
+            "tool_class": tool_class,
             "status": status,
             "error_class": _error_class(item),
         }
@@ -31,15 +40,17 @@ def classify_automation_item(item: dict, browser_servers: set[str]) -> dict | No
     command = str(item.get("command") or "")
     status = "completed" if item.get("exitCode") == 0 else "failed"
     error_class = "none" if status == "completed" else "tool_error"
-    if re.search(r"\bcodex\s+mcp\s+(?:add|list|get)\b", command):
+    if re.search(r"\bcodex\s+mcp\s+add\s+(?:playwright|claude-in-chrome)\b", command, re.I):
         provider_match = re.search(r"\b(playwright|claude-in-chrome)\b", command, re.I)
         return {
-            "provider": provider_match.group(1).lower() if provider_match else "playwright",
-            "tool": "provider-setup-command", "status": status, "error_class": error_class,
+            "provider": provider_match.group(1).lower(),
+            "tool": "provider-setup-command", "tool_class": "provider_setup",
+            "status": status, "error_class": error_class,
         }
     if re.search(r"\b(pbcopy|pbpaste|xclip|wl-copy|clip\.exe)\b", command):
         return {
             "provider": "model-blind-clipboard",
-            "tool": "clipboard-receipt-command", "status": status, "error_class": error_class,
+            "tool": "clipboard-receipt-command", "tool_class": "clipboard",
+            "status": status, "error_class": error_class,
         }
     return None

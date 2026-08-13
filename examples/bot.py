@@ -91,6 +91,7 @@ AUTOMATION_DIR = Path(os.environ.get(
     str(ENV_PATH.parent / ".thiscodex-automation"),
 ))
 AUTOMATION_ACTIVE_TURN_PATH = AUTOMATION_DIR / "active-turn.json"
+AUTOMATION_ACTIVE_FLOW_PATH = AUTOMATION_DIR / "active-flow.json"
 AUTOMATION_EVIDENCE_PATH = AUTOMATION_DIR / "browser-evidence.jsonl"
 _BROWSER_PROVIDER_SERVERS = {
     value.strip()
@@ -176,6 +177,32 @@ def _automation_clear_active_turn(turn_id: str | None = None) -> None:
         print(f"[AUTOMATION] active-turn clear failed: {type(e).__name__}: {e}")
 
 
+def _automation_flow_for_thread(thread_id: str) -> dict | None:
+    try:
+        flow = json.loads(AUTOMATION_ACTIVE_FLOW_PATH.read_text())
+        started = datetime.fromisoformat(str(flow.get("started_at")).replace("Z", "+00:00"))
+        fresh = (datetime.now(timezone.utc) - started).total_seconds() <= 2 * 60 * 60
+        return flow if fresh and flow.get("thread_id") == thread_id and flow.get("flow") else None
+    except Exception:
+        return None
+
+
+def _automation_bind_flow_provider(flow: dict, provider: str) -> bool:
+    """Bind the first observed provider; app-server notifications are serial."""
+    if flow.get("provider") and flow.get("provider") != provider:
+        return False
+    if flow.get("provider") == provider:
+        return True
+    flow = {**flow, "provider": provider,
+            "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    temp = AUTOMATION_ACTIVE_FLOW_PATH.with_suffix(f".{os.getpid()}.tmp")
+    temp.write_text(json.dumps(flow, ensure_ascii=True))
+    temp.chmod(0o600)
+    temp.replace(AUTOMATION_ACTIVE_FLOW_PATH)
+    AUTOMATION_ACTIVE_FLOW_PATH.chmod(0o600)
+    return True
+
+
 def observe_automation_item(item: dict, thread_id: str, turn_id: str) -> None:
     """Persist only an MCP/command completion envelope — never args or result.
 
@@ -196,11 +223,16 @@ def observe_automation_item(item: dict, thread_id: str, turn_id: str) -> None:
 
     try:
         _automation_private_dir()
+        flow = _automation_flow_for_thread(str(thread_id))
+        auxiliary_provider = record["provider"] == "model-blind-clipboard"
+        if not flow or (not auxiliary_provider and not _automation_bind_flow_provider(flow, record["provider"])):
+            return
         row = {
             "schema_version": 1,
             "thread_id": str(thread_id)[:96],
             "turn_id": str(turn_id)[:96],
             "item_id": item_id[:96],
+            "flow": str(flow["flow"])[:96],
             **record,
             "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
@@ -214,19 +246,19 @@ def observe_automation_item(item: dict, thread_id: str, turn_id: str) -> None:
 
 def automation_fallback_handoff_allowed(text: str) -> bool:
     """Fail closed when fallback relay would bypass the PreToolUse receipt gate."""
-    if not _AUTOMATION_HANDOFF_RE.search(text or ""):
-        return True
-    match = _AUTOMATION_RECEIPT_RE.search(text or "")
-    if not match:
-        return False
     try:
         active = json.loads(AUTOMATION_ACTIVE_TURN_PATH.read_text())
+        active_flow = _automation_flow_for_thread(str(active.get("thread_id") or ""))
+        if not active_flow and not _AUTOMATION_HANDOFF_RE.search(text or ""):
+            return True
+        match = _AUTOMATION_RECEIPT_RE.search(text or "")
+        if not match:
+            return False
         receipts_path = AUTOMATION_DIR / "handoff-receipts.jsonl"
         used_path = AUTOMATION_DIR / "used-handoff-receipts.jsonl"
         receipts = [json.loads(line) for line in receipts_path.read_text().splitlines() if line]
-        used = ({json.loads(line).get("token") for line in used_path.read_text().splitlines() if line}
-                if used_path.exists() else set())
         token = match.group(1)
+        used_marker = AUTOMATION_DIR / f"receipt-{token}.used"
         receipt = next((row for row in reversed(receipts)
                         if row.get("token") == token), None)
         expires = datetime.fromisoformat(
@@ -234,13 +266,20 @@ def automation_fallback_handoff_allowed(text: str) -> bool:
         )
         now = datetime.now(timezone.utc)
         valid = bool(
-            receipt and token not in used and expires >= now
+            receipt and not used_marker.exists() and expires >= now
             and receipt.get("thread_id") == active.get("thread_id")
             and receipt.get("turn_id") == active.get("turn_id")
+            and (not active_flow or receipt.get("flow") == active_flow.get("flow"))
         )
         if not valid:
             return False
         _automation_private_dir()
+        try:
+            fd = os.open(used_marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return False
+        with os.fdopen(fd, "w", encoding="utf-8") as marker:
+            marker.write(json.dumps({"token": token, "used_at": now.isoformat()}))
         with used_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps({
                 "schema_version": 1, "token": token,
@@ -249,6 +288,8 @@ def automation_fallback_handoff_allowed(text: str) -> bool:
                 "used_at": now.isoformat(),
             }, ensure_ascii=True) + "\n")
         used_path.chmod(0o600)
+        if active_flow and receipt.get("resume_required") is False:
+            AUTOMATION_ACTIVE_FLOW_PATH.unlink(missing_ok=True)
         return True
     except Exception as e:
         print(f"[AUTOMATION] fallback receipt validation failed: {type(e).__name__}: {e}")

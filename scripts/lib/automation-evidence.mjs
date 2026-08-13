@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
@@ -13,6 +14,7 @@ import { randomBytes } from 'node:crypto';
 const ASCII_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
 const EVIDENCE_TTL_MS = 15 * 60 * 1000;
 const RECEIPT_TTL_MS = 10 * 60 * 1000;
+const FLOW_TTL_MS = 2 * 60 * 60 * 1000;
 
 function ensurePrivateDir(path) {
   mkdirSync(path, { recursive: true, mode: 0o700 });
@@ -62,12 +64,58 @@ export function automationEvidenceDir(env = process.env) {
 export function automationEvidencePaths(dir) {
   return {
     activeTurn: join(dir, 'active-turn.json'),
+    activeFlow: join(dir, 'active-flow.json'),
     evidence: join(dir, 'browser-evidence.jsonl'),
     consumed: join(dir, 'consumed-evidence.jsonl'),
-    flows: join(dir, 'flow-bindings.json'),
     receipts: join(dir, 'handoff-receipts.jsonl'),
     usedReceipts: join(dir, 'used-handoff-receipts.jsonl'),
   };
+}
+
+export function readActiveAutomationFlow(dir, now = new Date()) {
+  const flow = readJson(automationEvidencePaths(dir).activeFlow);
+  if (!flow?.thread_id || !flow?.flow || !flow?.started_at) return null;
+  const startedAt = Date.parse(flow.started_at);
+  if (!Number.isFinite(startedAt) || now.getTime() - startedAt > FLOW_TTL_MS) return null;
+  return flow;
+}
+
+export function startAutomationFlow({ dir, policy, flow, now = new Date() }) {
+  validateId('flow', flow);
+  if (![...policy.gates.values()].some(gate => gate.flow === flow)) {
+    return { ok: false, code: 'unknown_flow' };
+  }
+  const active = readActiveAutomationTurn(dir, now);
+  if (!active) return { ok: false, code: 'bridge_evidence_unavailable' };
+  const prior = readActiveAutomationFlow(dir, now);
+  if (prior && (prior.thread_id !== active.thread_id || prior.flow !== flow)) {
+    return { ok: false, code: 'different_flow_already_active' };
+  }
+  const row = {
+    schema_version: 1,
+    thread_id: active.thread_id,
+    flow,
+    provider: prior?.provider || '',
+    started_at: prior?.started_at || now.toISOString(),
+    updated_at: now.toISOString(),
+  };
+  writePrivateJson(automationEvidencePaths(dir).activeFlow, row);
+  return { ok: true, code: prior ? 'flow_already_active' : 'flow_started', flow: row };
+}
+
+export function clearAutomationFlow({ dir, flow, threadId = '', now = new Date() }) {
+  const paths = automationEvidencePaths(dir);
+  const active = readActiveAutomationFlow(dir, now);
+  if (!active) return { ok: true, code: 'flow_already_clear' };
+  if (active.flow !== flow || (threadId && active.thread_id !== threadId)) {
+    return { ok: false, code: 'active_flow_mismatch' };
+  }
+  try {
+    unlinkSync(paths.activeFlow);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  return { ok: true, code: 'flow_cleared' };
 }
 
 function validEvidence(row) {
@@ -76,8 +124,10 @@ function validEvidence(row) {
     && ASCII_ID.test(String(row.thread_id || ''))
     && ASCII_ID.test(String(row.turn_id || ''))
     && ASCII_ID.test(String(row.item_id || ''))
+    && ASCII_ID.test(String(row.flow || ''))
     && ASCII_ID.test(String(row.provider || ''))
     && ASCII_ID.test(String(row.tool || ''))
+    && ['browser_inspect', 'browser_action', 'provider_setup', 'clipboard'].includes(row.tool_class)
     && ['completed', 'failed'].includes(row.status)
     && ['none', 'mcp_error', 'tool_error', 'cancelled', 'unknown'].includes(row.error_class)
     && Number.isFinite(Date.parse(row.observed_at));
@@ -121,6 +171,14 @@ export function observeCurrentTurnEvidence({
   if (!active) {
     return { ok: false, code: 'bridge_evidence_unavailable' };
   }
+  const activeFlow = readActiveAutomationFlow(dir, now);
+  if (!activeFlow || activeFlow.thread_id !== active.thread_id || activeFlow.flow !== flow) {
+    return { ok: false, code: 'active_flow_required' };
+  }
+  const auxiliaryProvider = provider === 'model-blind-clipboard';
+  if (activeFlow.provider && activeFlow.provider !== provider && !auxiliaryProvider) {
+    return { ok: false, code: 'provider_mismatch' };
+  }
   const activeStarted = Date.parse(active.started_at);
   const nowMs = now.getTime();
   if (!Number.isFinite(activeStarted) || nowMs - activeStarted > EVIDENCE_TTL_MS) {
@@ -131,7 +189,9 @@ export function observeCurrentTurnEvidence({
   const candidates = readJsonl(paths.evidence)
     .filter(validEvidence)
     .filter(row => row.thread_id === active.thread_id && row.turn_id === active.turn_id)
+    .filter(row => row.flow === flow)
     .filter(row => row.provider === provider)
+    .filter(row => row.tool_class === gatePolicy.evidence_tool)
     .filter(row => Date.parse(row.observed_at) >= activeStarted)
     .filter(row => nowMs - Date.parse(row.observed_at) <= EVIDENCE_TTL_MS)
     .filter(row => !consumed.has(`${row.turn_id}:${row.item_id}`))
@@ -140,22 +200,6 @@ export function observeCurrentTurnEvidence({
   const expectedStatus = status === 'failed' ? 'failed' : 'completed';
   const evidence = candidates.find(row => row.status === expectedStatus);
   if (!evidence) return { ok: false, code: 'matching_evidence_missing' };
-
-  const flows = readJson(paths.flows, { schema_version: 1, bindings: {} });
-  flows.bindings ||= {};
-  const flowKey = `${active.thread_id}:${flow}`;
-  const prior = flows.bindings[flowKey];
-  if (prior?.provider && prior.provider !== provider) {
-    return { ok: false, code: 'provider_mismatch' };
-  }
-  flows.bindings[flowKey] = {
-    thread_id: active.thread_id,
-    flow,
-    provider,
-    first_turn_id: prior?.first_turn_id || active.turn_id,
-    updated_at: now.toISOString(),
-  };
-  writePrivateJson(paths.flows, flows);
 
   appendPrivateJsonl(paths.consumed, {
     schema_version: 1,
@@ -175,6 +219,7 @@ export function observeCurrentTurnEvidence({
       item_id: evidence.item_id,
       provider: evidence.provider,
       tool: evidence.tool,
+      tool_class: evidence.tool_class,
       status: evidence.status,
       error_class: evidence.error_class,
       observed_at: evidence.observed_at,
@@ -182,7 +227,15 @@ export function observeCurrentTurnEvidence({
   };
 }
 
-export function issueHandoffReceipt({ dir, evidence, gate, flow, provider, now = new Date() }) {
+export function issueHandoffReceipt({
+  dir,
+  evidence,
+  gate,
+  flow,
+  provider,
+  resumeRequired = false,
+  now = new Date(),
+}) {
   const paths = automationEvidencePaths(dir);
   const active = evidence?.turn_id ? evidence : readActiveAutomationTurn(dir, now);
   if (!active?.thread_id || !active?.turn_id) {
@@ -197,6 +250,7 @@ export function issueHandoffReceipt({ dir, evidence, gate, flow, provider, now =
     gate,
     flow,
     provider: provider || '',
+    resume_required: resumeRequired === true,
     issued_at: now.toISOString(),
     expires_at: new Date(now.getTime() + RECEIPT_TTL_MS).toISOString(),
   };

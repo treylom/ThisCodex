@@ -24,7 +24,8 @@ test('bridge classifier keeps only provider/tool/status/error class from MCP com
     result: { text: 'credential-value' }, error: { message: 'secret raw failure' },
   });
   assert.deepEqual(JSON.parse(output), {
-    provider: 'playwright', tool: 'browser_navigate', status: 'failed', error_class: 'mcp_error',
+    provider: 'playwright', tool: 'browser_navigate', tool_class: 'browser_action',
+    status: 'failed', error_class: 'mcp_error',
   });
   assert.doesNotMatch(output, /secret|credential|https?:|arguments|result/i);
 });
@@ -37,7 +38,13 @@ test('bridge classifier ignores unrelated commands and records clipboard/provide
   });
   assert.deepEqual(JSON.parse(clipboard), {
     provider: 'model-blind-clipboard', tool: 'clipboard-receipt-command',
+    tool_class: 'clipboard',
     status: 'failed', error_class: 'tool_error',
   });
   assert.doesNotMatch(clipboard, /super-secret|pbcopy|output/);
+  assert.equal(classify({ type: 'commandExecution', command: 'codex mcp list playwright', exitCode: 1 }), 'null');
+  assert.equal(classify({
+    type: 'mcpToolCall', id: 'item-close', server: 'playwright', tool: 'browser_close',
+    status: 'completed',
+  }).includes('"tool_class": "browser_other"'), true);
 });

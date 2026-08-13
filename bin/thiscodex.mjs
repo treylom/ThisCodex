@@ -27,8 +27,10 @@ import {
 } from '../scripts/lib/automation-policy.mjs';
 import {
   automationEvidenceDir,
+  clearAutomationFlow,
   issueHandoffReceipt,
   observeCurrentTurnEvidence,
+  startAutomationFlow,
 } from '../scripts/lib/automation-evidence.mjs';
 import {
   cliErrorResult,
@@ -37,7 +39,7 @@ import {
 } from '../scripts/lib/discord-thread.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke', 'discord-thread', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'discord-thread', 'automation-flow', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -67,6 +69,26 @@ const CONFIRMED_PATH_KEYS = [
   'confirmed_windows_profile',
   'confirmed_windows_skill_dir',
 ];
+
+if (command === 'automation-flow') {
+  let output;
+  let exitCode = 0;
+  try {
+    if (!has('--start')) throw new Error('automation-flow requires --start');
+    const flow = startAutomationFlow({
+      dir: automationEvidenceDir(process.env),
+      policy: getAutomationPolicy(),
+      flow: arg('--flow'),
+    });
+    output = flow;
+    if (!flow.ok) exitCode = 2;
+  } catch (error) {
+    output = { ok: false, code: 'automation_flow_error', message: error.message };
+    exitCode = 2;
+  }
+  console.log(JSON.stringify(output, null, 2));
+  process.exit(exitCode);
+}
 
 if (command === 'automation-gate') {
   let output;
@@ -114,12 +136,30 @@ if (command === 'automation-gate') {
     }
     let receipt = null;
     if (decision.ok && decision.handoffAllowed) {
+      const flowStart = startAutomationFlow({
+        dir: automationEvidenceDir(process.env),
+        policy: automationPolicy,
+        flow: request.flow || decision.gatePolicy?.flow,
+      });
+      if (!flowStart.ok) {
+        decision = {
+          ...decision,
+          ok: false,
+          handoffAllowed: false,
+          code: flowStart.code,
+          audit: { ...decision.audit, decision: 'blocked', gate_result: flowStart.code },
+        };
+      }
+    }
+    if (decision.ok && decision.handoffAllowed) {
       receipt = issueHandoffReceipt({
         dir: automationEvidenceDir(process.env),
         evidence: evidence?.evidence,
         gate: arg('--gate'),
         flow: request.flow || decision.gatePolicy?.flow,
         provider: request.provider,
+        resumeRequired: decision.gatePolicy?.surface === 'browser'
+          || decision.gatePolicy?.name === 'token_direct_entry',
       });
       if (!receipt.ok) {
         decision = {
@@ -128,6 +168,23 @@ if (command === 'automation-gate') {
           handoffAllowed: false,
           code: receipt.code,
           audit: { ...decision.audit, decision: 'blocked', gate_result: receipt.code },
+        };
+      }
+    }
+    let flowResult = null;
+    if (decision.ok && decision.code === 'attempt_succeeded_continue'
+        && decision.gatePolicy?.terminal === 'flow_completed') {
+      flowResult = clearAutomationFlow({
+        dir: automationEvidenceDir(process.env),
+        flow: request.flow,
+        threadId: evidence?.evidence?.thread_id || '',
+      });
+      if (!flowResult.ok) {
+        decision = {
+          ...decision,
+          ok: false,
+          code: flowResult.code,
+          audit: { ...decision.audit, decision: 'blocked', gate_result: flowResult.code },
         };
       }
     }
@@ -142,6 +199,7 @@ if (command === 'automation-gate') {
       audit,
       receipt_marker: receipt?.marker || '',
       receipt_expires_at: receipt?.expires_at || '',
+      flow_result: flowResult?.code || '',
     };
     if (!decision.ok) exitCode = 2;
   } catch (error) {

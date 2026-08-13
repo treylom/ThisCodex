@@ -46,7 +46,7 @@ test('strict YAML policy exposes a closed gate inventory and auto default', () =
   assert.equal(policy.defaultMode, 'auto');
   assert.equal(policy.browserToolsRequired, true);
   assert.deepEqual([...policy.browserProviders], ['playwright', 'claude-in-chrome']);
-  assert.equal(policy.gates.size, 21);
+  assert.equal(policy.gates.size, 24);
   assert.equal(policy.gates.get('discord_hcaptcha').reason_code, 'captcha_required');
 });
 
@@ -88,6 +88,17 @@ test('successful observed attempts continue automatically instead of handing off
     evidence: evidenceFor(request, { status: 'completed' }),
   });
   assert.equal(decision.code, 'attempt_succeeded_continue');
+  assert.equal(decision.handoffAllowed, false);
+});
+
+test('flow-completion gates cannot be repurposed as failure handoffs', () => {
+  const policy = loadAutomationPolicy(POLICY);
+  const gate = policy.gates.get('discord_portal_complete');
+  const request = requestFor(gate);
+  const decision = decideManualHandoff({
+    gate: gate.name, mode: 'auto', policy, request, evidence: evidenceFor(request),
+  });
+  assert.equal(decision.code, 'completion_gate_requires_success');
   assert.equal(decision.handoffAllowed, false);
 });
 
