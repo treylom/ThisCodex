@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+"""PreToolUse gate for automatic-mode manual handoff messages.
+
+The model cannot authorize its own handoff with prose.  A message that looks
+like a manual handoff must carry a short-lived receipt issued by
+`thiscodex automation-gate` for the bridge's current turn.  Receipt files hold
+only coordinates and policy labels; tool arguments/results are never stored.
+"""
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+import re
+import sys
+from datetime import datetime, timezone
+
+HANDOFF_RE = re.compile(
+    r"thiscodex-manual-handoff|직접\s*(?:해|입력|설치|승인|로그인)|"
+    r"수동으로\s*(?:진행|해|입력)|please\s+(?:do|complete|enter|install|approve).{0,40}manually|"
+    r"manual\s+handoff",
+    re.I | re.S,
+)
+RECEIPT_RE = re.compile(r"<!--\s*thiscodex-automation-receipt:([a-f0-9]{48})\s*-->")
+
+
+def _payload() -> dict:
+    try:
+        return json.load(sys.stdin)
+    except Exception:
+        return {}
+
+
+def _decision(allow: bool, reason: str = "") -> None:
+    value = "allow" if allow else "deny"
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": value,
+        **({"permissionDecisionReason": reason} if reason else {}),
+    }}, ensure_ascii=False))
+
+
+def _state_dir() -> Path:
+    explicit = os.environ.get("THISCODEX_AUTOMATION_EVIDENCE_DIR")
+    if explicit:
+        return Path(explicit).expanduser()
+    discord = os.environ.get("DISCORD_STATE_DIR")
+    if discord:
+        return Path(discord).expanduser() / ".thiscodex-automation"
+    return Path.home() / ".config" / "thiscodex" / "automation-evidence"
+
+
+def _auto_mode() -> bool:
+    if os.environ.get("THISCODEX_AUTOMATION_MODE"):
+        return os.environ["THISCODEX_AUTOMATION_MODE"] == "auto"
+    state = Path.home() / ".config" / "thiscodex" / "install-state.json"
+    try:
+        return json.loads(state.read_text()).get("answers", {}).get("automation_mode", "auto") == "auto"
+    except Exception:
+        return True  # missing/corrupt state fails closed for a detected handoff
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        return json.loads(path.read_text())
+    except Exception:
+        return {}
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    try:
+        return [json.loads(line) for line in path.read_text().splitlines() if line]
+    except Exception:
+        return []
+
+
+def _text(tool_input: dict) -> str:
+    for key in ("text", "content", "message", "body"):
+        value = tool_input.get(key)
+        if isinstance(value, str):
+            return value
+    return json.dumps(tool_input, ensure_ascii=False)
+
+
+def main() -> None:
+    event = _payload()
+    tool = str(event.get("tool_name") or "")
+    if not re.search(r"(?:discord.*(?:reply|edit)|reply.*discord)", tool, re.I):
+        _decision(True)
+        return
+    body = _text(event.get("tool_input") or {})
+    if not _auto_mode() or not HANDOFF_RE.search(body):
+        _decision(True)
+        return
+    match = RECEIPT_RE.search(body)
+    if not match:
+        _decision(False, "자동 모드의 수동 인계 문구에는 thiscodex automation-gate가 발급한 현재 턴 receipt가 필요합니다.")
+        return
+
+    directory = _state_dir()
+    active = _read_json(directory / "active-turn.json")
+    receipts = _read_jsonl(directory / "handoff-receipts.jsonl")
+    used = {row.get("token") for row in _read_jsonl(directory / "used-handoff-receipts.jsonl")}
+    token = match.group(1)
+    receipt = next((row for row in reversed(receipts) if row.get("token") == token), None)
+    now = datetime.now(timezone.utc)
+    try:
+        expires = datetime.fromisoformat(str(receipt.get("expires_at")).replace("Z", "+00:00"))
+    except Exception:
+        expires = datetime.fromtimestamp(0, timezone.utc)
+    valid = bool(
+        receipt
+        and token not in used
+        and receipt.get("thread_id") == active.get("thread_id")
+        and receipt.get("turn_id") == active.get("turn_id")
+        and expires >= now
+    )
+    if not valid:
+        _decision(False, "수동 인계 receipt가 만료·재사용됐거나 현재 bridge turn과 일치하지 않습니다.")
+        return
+
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    used_path = directory / "used-handoff-receipts.jsonl"
+    with used_path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({
+            "schema_version": 1,
+            "token": token,
+            "thread_id": active.get("thread_id"),
+            "turn_id": active.get("turn_id"),
+            "used_at": now.isoformat(),
+        }, separators=(",", ":")) + "\n")
+    os.chmod(used_path, 0o600)
+    _decision(True)
+
+
+if __name__ == "__main__":
+    main()

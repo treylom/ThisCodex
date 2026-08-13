@@ -41,6 +41,38 @@ export function detectStaleSuperpowersWrapper({ wrapperVersion, home }) {
   };
 }
 
+export function automationHandoffHookReady(home, env = process.env) {
+  const hooksPath = env.THISCODEX_HOOKS_FILE || join(home, '.codex', 'hooks.json');
+  const configPath = env.THISCODEX_CODEX_CONFIG || join(home, '.codex', 'config.toml');
+  let hooks;
+  try {
+    hooks = JSON.parse(readFileSync(hooksPath, 'utf8'));
+  } catch {
+    return { ok: false, message: 'automation handoff hook is not wired' };
+  }
+  const groups = hooks?.hooks?.PreToolUse || [];
+  let coordinate = null;
+  for (const [groupIndex, group] of groups.entries()) {
+    for (const [hookIndex, hook] of (group?.hooks || []).entries()) {
+      if (String(hook?.command || '').includes('automation-handoff-gate.py')) {
+        coordinate = `${groupIndex}:${hookIndex}`;
+      }
+    }
+  }
+  if (!coordinate) return { ok: false, message: 'automation handoff hook is not wired' };
+  let config = '';
+  try {
+    config = readFileSync(configPath, 'utf8');
+  } catch {
+    return { ok: false, message: 'automation handoff hook is wired but not trusted' };
+  }
+  const escaped = coordinate.replace(':', '\\:');
+  const trust = new RegExp(`pre_tool_use:${escaped.replace('\\:', ':')}"?\\]?[\\s\\S]{0,240}trusted_hash\\s*=`, 'i');
+  return trust.test(config)
+    ? { ok: true }
+    : { ok: false, message: `automation handoff hook ${coordinate} is wired but not trusted` };
+}
+
 export async function verifyStep(step, state, env = process.env) {
   const type = step.verify?.type;
   if (type === 'pass' || type === 'environment-detected' || type === 'guide-shown') return { ok: true };
@@ -88,6 +120,10 @@ export async function verifyStep(step, state, env = process.env) {
   if (type === 'tmux-present-or-guide-shown') return whichSync('tmux', env) ? { ok: true } : { ok: true, message: 'tmux guide shown' };
   if (type === 'runner-files-present') return { ok: true };
   if (type === 'aliases-parameterized') return { ok: true };
+  if (type === 'automation-handoff-hook-ready') {
+    const home = env.HOME || env.USERPROFILE || '';
+    return automationHandoffHookReady(home, env);
+  }
   if (type === 'rollout-materialized') {
     let tid = state.thread_id || state.answers?.thread_id;
     const threadFile = state.confirmed_bot_wd ? join(state.confirmed_bot_wd, '.codex-thread-id') : null;

@@ -26,6 +26,11 @@ import {
   resolveAutomationMode,
 } from '../scripts/lib/automation-policy.mjs';
 import {
+  automationEvidenceDir,
+  issueHandoffReceipt,
+  observeCurrentTurnEvidence,
+} from '../scripts/lib/automation-evidence.mjs';
+import {
   cliErrorResult,
   executeDiscordThread,
   parseDiscordThreadArgs,
@@ -50,9 +55,9 @@ const yes = has('--yes');
 const answersFile = arg('--answers');
 const repoRoot = resolve(process.env.THISCODEX_REPO_ROOT || fileURLToPath(new URL('..', import.meta.url)));
 const automationPolicyPath = resolve(arg('--automation-policy') || process.env.THISCODEX_AUTOMATION_POLICY || join(repoRoot, 'install', 'automation-policy.yaml'));
-const automationPolicy = loadAutomationPolicy(automationPolicyPath);
+let automationPolicyCache;
+const getAutomationPolicy = () => (automationPolicyCache ||= loadAutomationPolicy(automationPolicyPath));
 const cwd = process.cwd();
-const env = detectEnv();
 const tone = arg('--tone') || 'plain';
 const CONFIRMED_PATH_KEYS = [
   'confirmed_repo_root',
@@ -67,28 +72,67 @@ if (command === 'automation-gate') {
   let output;
   let exitCode = 0;
   try {
+    const automationPolicy = getAutomationPolicy();
     const installState = loadInstallState();
     const automationMode = resolveAutomationMode({
       explicit: arg('--automation-mode'),
       state: installState,
       policy: automationPolicy,
     });
-    const decision = decideManualHandoff({
+    const request = {
+      status: arg('--status'),
+      provider: arg('--provider'),
+      operation: arg('--operation'),
+      surface: arg('--surface'),
+      flow: arg('--flow'),
+      terminal: arg('--terminal'),
+      reasonCode: arg('--reason-code'),
+    };
+    let evidence = null;
+    let decision = decideManualHandoff({
       gate: arg('--gate'),
       mode: automationMode,
       policy: automationPolicy,
-      attempt: {
-        attempted: has('--attempted'),
-        status: arg('--status'),
-        provider: arg('--provider'),
-        operation: arg('--operation'),
-        reason: arg('--reason'),
-        surface: arg('--surface'),
-        browserTerminalReason: arg('--browser-terminal-reason'),
-      },
+      request,
     });
+    if (decision.code === 'observed_evidence_required') {
+      evidence = observeCurrentTurnEvidence({
+        dir: automationEvidenceDir(process.env),
+        policy: automationPolicy,
+        gatePolicy: decision.gatePolicy,
+        flow: request.flow,
+        provider: request.provider,
+        status: request.status,
+      });
+      decision = decideManualHandoff({
+        gate: arg('--gate'),
+        mode: automationMode,
+        policy: automationPolicy,
+        request,
+        evidence,
+      });
+    }
+    let receipt = null;
+    if (decision.ok && decision.handoffAllowed) {
+      receipt = issueHandoffReceipt({
+        dir: automationEvidenceDir(process.env),
+        evidence: evidence?.evidence,
+        gate: arg('--gate'),
+        flow: request.flow || decision.gatePolicy?.flow,
+        provider: request.provider,
+      });
+      if (!receipt.ok) {
+        decision = {
+          ...decision,
+          ok: false,
+          handoffAllowed: false,
+          code: receipt.code,
+          audit: { ...decision.audit, decision: 'blocked', gate_result: receipt.code },
+        };
+      }
+    }
     const auditFile = resolve(arg('--audit-file') || automationAuditPath());
-    const audit = appendAutomationAudit(auditFile, decision.audit);
+    const audit = decision.audit ? appendAutomationAudit(auditFile, decision.audit) : null;
     output = {
       ok: decision.ok,
       code: decision.code,
@@ -96,6 +140,8 @@ if (command === 'automation-gate') {
       handoff_allowed: decision.handoffAllowed,
       audit_file: auditFile,
       audit,
+      receipt_marker: receipt?.marker || '',
+      receipt_expires_at: receipt?.expires_at || '',
     };
     if (!decision.ok) exitCode = 2;
   } catch (error) {
@@ -122,6 +168,44 @@ if (command === 'discord-thread') {
   console.log(JSON.stringify(output, null, 2));
   process.exit(output.ok ? 0 : 2);
 }
+
+const automationPolicy = getAutomationPolicy();
+
+function hasPreselectedAutomationMode() {
+  if (arg('--automation-mode') || loadInstallState()?.answers?.automation_mode) return true;
+  if (!answersFile) return false;
+  try {
+    return Boolean(JSON.parse(readFileSync(answersFile, 'utf8')).automation_mode);
+  } catch {
+    return false;
+  }
+}
+
+if (command === 'init' && !tty && !has('--non-interactive') && !hasPreselectedAutomationMode()) {
+  console.log('ThisCodex guided onboarding needs automation_mode as its first interaction.');
+  console.log('Ask the operator to choose auto or manual, then rerun with --automation-mode <choice>.');
+  process.exit(2);
+}
+
+async function chooseAutomationModeBeforeDetection() {
+  if (command !== 'init' || nonInteractive) return '';
+  const persisted = loadInstallState()?.answers?.automation_mode;
+  if (arg('--automation-mode') || persisted) return arg('--automation-mode') || persisted;
+  if (answersFile) {
+    const answer = JSON.parse(readFileSync(answersFile, 'utf8')).automation_mode;
+    if (answer) return answer;
+  }
+  const readline = await import('node:readline/promises');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = (await rl.question('Install mode — automatic (auto / 자동) or manual (manual / 수동) [auto]: ')).trim();
+  rl.close();
+  const selected = answer || 'auto';
+  if (!['auto', 'manual'].includes(selected)) throw new Error('automation mode must be auto or manual');
+  return selected;
+}
+
+const preDetectionAutomationMode = await chooseAutomationModeBeforeDetection();
+const env = detectEnv();
 
 function applyConfirmedPath(state, key, value) {
   if (!value) return state;
@@ -194,6 +278,7 @@ let state = withDetectedDefaults(loadInstallState(), {
 });
 state.answers ||= {};
 state.completed_steps ||= [];
+if (preDetectionAutomationMode) state.answers.automation_mode = preDetectionAutomationMode;
 state = applyConfirmedPath(state, 'confirmed_repo_root', arg('--repo-root'));
 state = applyConfirmedPath(state, 'confirmed_workspace_root', arg('--workspace-root'));
 state = applyConfirmedPath(state, 'confirmed_bot_wd', arg('--bot-wd'));
@@ -239,6 +324,26 @@ if (nonInteractive) {
 }
 
 const handlers = {
+  async prepare(step, ctx) {
+    if (!step.handoff_gate) return { ok: true };
+    const gatePolicy = automationPolicy.gates.get(step.handoff_gate);
+    if (!gatePolicy) return { ok: false, message: `unknown automation handoff gate: ${step.handoff_gate}` };
+    const automationMode = resolveAutomationMode({ state, policy: automationPolicy });
+    const request = {
+      status: 'human_required',
+      provider: '',
+      surface: gatePolicy.surface,
+      flow: gatePolicy.flow,
+      operation: gatePolicy.operation,
+      terminal: gatePolicy.terminal,
+      reasonCode: gatePolicy.reason_code,
+    };
+    const decision = decideManualHandoff({
+      gate: step.handoff_gate, mode: automationMode, policy: automationPolicy, request,
+    });
+    if (decision.audit && ctx.mode !== 'check') appendAutomationAudit(automationAuditPath(), decision.audit);
+    return { ok: decision.ok && decision.handoffAllowed, message: decision.code };
+  },
   explain(step) {
     console.log(`\n[${step.id}] ${step.reason}`);
   },
@@ -246,6 +351,7 @@ const handlers = {
     if (step.action === 'detect' || step.action === 'check' || step.action === 'guide') return;
     if (step.action === 'prompt') {
       const key = step.verify?.state_key || step.id;
+      if (key === 'automation_mode' && state.answers.automation_mode) return;
       if (ctx.tty === false || ctx.nonInteractive) {
         const prompt = promptForStep(step, state);
         if (!key.startsWith('confirmed_')) {

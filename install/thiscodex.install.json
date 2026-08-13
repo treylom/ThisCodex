@@ -37,6 +37,7 @@
       "order": 20,
       "when": "os == 'win'",
       "action": "guide",
+      "handoff_gate": "host_wsl_install_consent",
       "reason": "ThisCodex runs a Codex bot daemon. On Windows, WSL gives the bot a Linux shell, tmux, and predictable paths.",
       "safety": "dry-run-only",
       "verify": { "type": "guide-shown" },
@@ -147,6 +148,7 @@
       "order": 100,
       "when": "tools.tmux == false",
       "action": "guide",
+      "handoff_gate": "host_tmux_install_consent",
       "reason": "tmux keeps the infra window and Codex TUI attached to the same bot session. Without it, the daemon guide cannot start cleanly.",
       "safety": "consent-gated",
       "verify": { "type": "tmux-present-or-guide-shown" },
@@ -201,6 +203,16 @@
       "safety": "consent-gated",
       "verify": { "type": "runner-files-present" },
       "on_fail": { "next_command": "thiscodex init --apply --yes --daemon-guide yes" }
+    },
+    {
+      "id": "automation_handoff_hook_ready",
+      "order": 128,
+      "when": "answers.automation_mode == 'auto' and mode == 'doctor' or answers.automation_mode == 'auto' and mode == 'smoke'",
+      "action": "check",
+      "reason": "Automatic mode is safe only when the manual-handoff PreToolUse gate is both wired and trusted; otherwise prose can bypass the YAML policy.",
+      "safety": "dry-run-only",
+      "verify": { "type": "automation-handoff-hook-ready" },
+      "on_fail": { "next_command": "wire hooks/automation-handoff-gate.py under PreToolUse for Discord reply/edit tools, approve it with /hooks, then rerun thiscodex doctor" }
     },
     {
       "id": "doctor_rollout_materialized",

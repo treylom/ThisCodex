@@ -48,7 +48,9 @@ import sys
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
+from automation_observer import classify_automation_item
 
 # unbuffered stdout — immediate tmux pane log visibility
 sys.stdout.reconfigure(line_buffering=True)
@@ -84,6 +86,28 @@ ENV_PATH = (Path(_state_dir) / ".env") if _state_dir else (
 DEDUP_PATH = WD / "dedup.json"
 BOT_INFO_PATH = WD / "bot-info.json"
 THREAD_ID_PATH = WD / ".codex-thread-id"
+AUTOMATION_DIR = Path(os.environ.get(
+    "THISCODEX_AUTOMATION_EVIDENCE_DIR",
+    str(ENV_PATH.parent / ".thiscodex-automation"),
+))
+AUTOMATION_ACTIVE_TURN_PATH = AUTOMATION_DIR / "active-turn.json"
+AUTOMATION_EVIDENCE_PATH = AUTOMATION_DIR / "browser-evidence.jsonl"
+_BROWSER_PROVIDER_SERVERS = {
+    value.strip()
+    for value in os.environ.get(
+        "THISCODEX_BROWSER_MCP_SERVERS", "playwright,claude-in-chrome"
+    ).split(",")
+    if value.strip()
+}
+_automation_seen_items: set[tuple[str, str]] = set()
+_AUTOMATION_HANDOFF_RE = re.compile(
+    r"thiscodex-manual-handoff|직접\s*(?:해|입력|설치|승인|로그인)|"
+    r"수동으로\s*(?:진행|해|입력)|please\s+(?:do|complete|enter|install|approve).{0,40}manually|"
+    r"manual\s+handoff", re.I | re.S,
+)
+_AUTOMATION_RECEIPT_RE = re.compile(
+    r"<!--\s*thiscodex-automation-receipt:([a-f0-9]{48})\s*-->"
+)
 _THISCODEX_ROOT = Path(__file__).resolve().parents[1]
 for _scripts_dir in (
     Path(os.environ.get("THISCODEX_ROOT", _THISCODEX_ROOT)) / "scripts",
@@ -111,6 +135,124 @@ class ReplyAckState:
 
     message_ids: list[str] = field(default_factory=list)
     failures: list[str] = field(default_factory=list)
+
+
+def _automation_private_dir() -> None:
+    AUTOMATION_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    AUTOMATION_DIR.chmod(0o700)
+
+
+def _automation_write_active_turn(thread_id: str, turn_id: str) -> None:
+    """Publish the one app-server turn whose MCP completions may be consumed.
+
+    The file is bridge-owned, outside BOT_WD. The model may ask the shipped CLI
+    to consume evidence, but it cannot turn a prior/cross-turn MCP call into the
+    current attempt merely by passing flags.
+    """
+    try:
+        _automation_private_dir()
+        temp = AUTOMATION_ACTIVE_TURN_PATH.with_suffix(f".{os.getpid()}.tmp")
+        temp.write_text(json.dumps({
+            "schema_version": 1,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }))
+        temp.chmod(0o600)
+        temp.replace(AUTOMATION_ACTIVE_TURN_PATH)
+        AUTOMATION_ACTIVE_TURN_PATH.chmod(0o600)
+    except Exception as e:
+        print(f"[AUTOMATION] active-turn write failed: {type(e).__name__}: {e}")
+
+
+def _automation_clear_active_turn(turn_id: str | None = None) -> None:
+    try:
+        if turn_id and AUTOMATION_ACTIVE_TURN_PATH.exists():
+            current = json.loads(AUTOMATION_ACTIVE_TURN_PATH.read_text())
+            if current.get("turn_id") != turn_id:
+                return
+        AUTOMATION_ACTIVE_TURN_PATH.unlink(missing_ok=True)
+    except Exception as e:
+        print(f"[AUTOMATION] active-turn clear failed: {type(e).__name__}: {e}")
+
+
+def observe_automation_item(item: dict, thread_id: str, turn_id: str) -> None:
+    """Persist only an MCP/command completion envelope — never args or result.
+
+    `arguments`, DOM/page text, URLs, screenshots, command strings, stdout and
+    raw errors may contain credentials. They are deliberately neither copied
+    nor summarized into this ledger.
+    """
+    if not thread_id or not turn_id or not isinstance(item, dict):
+        return
+    item_id = str(item.get("id") or "")
+    key = (turn_id, item_id)
+    if not item_id or key in _automation_seen_items:
+        return
+
+    record = classify_automation_item(item, _BROWSER_PROVIDER_SERVERS)
+    if record is None:
+        return
+
+    try:
+        _automation_private_dir()
+        row = {
+            "schema_version": 1,
+            "thread_id": str(thread_id)[:96],
+            "turn_id": str(turn_id)[:96],
+            "item_id": item_id[:96],
+            **record,
+            "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+        with AUTOMATION_EVIDENCE_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=True) + "\n")
+        AUTOMATION_EVIDENCE_PATH.chmod(0o600)
+        _automation_seen_items.add(key)
+    except Exception as e:
+        print(f"[AUTOMATION] evidence write failed: {type(e).__name__}: {e}")
+
+
+def automation_fallback_handoff_allowed(text: str) -> bool:
+    """Fail closed when fallback relay would bypass the PreToolUse receipt gate."""
+    if not _AUTOMATION_HANDOFF_RE.search(text or ""):
+        return True
+    match = _AUTOMATION_RECEIPT_RE.search(text or "")
+    if not match:
+        return False
+    try:
+        active = json.loads(AUTOMATION_ACTIVE_TURN_PATH.read_text())
+        receipts_path = AUTOMATION_DIR / "handoff-receipts.jsonl"
+        used_path = AUTOMATION_DIR / "used-handoff-receipts.jsonl"
+        receipts = [json.loads(line) for line in receipts_path.read_text().splitlines() if line]
+        used = ({json.loads(line).get("token") for line in used_path.read_text().splitlines() if line}
+                if used_path.exists() else set())
+        token = match.group(1)
+        receipt = next((row for row in reversed(receipts)
+                        if row.get("token") == token), None)
+        expires = datetime.fromisoformat(
+            str(receipt.get("expires_at")).replace("Z", "+00:00")
+        )
+        now = datetime.now(timezone.utc)
+        valid = bool(
+            receipt and token not in used and expires >= now
+            and receipt.get("thread_id") == active.get("thread_id")
+            and receipt.get("turn_id") == active.get("turn_id")
+        )
+        if not valid:
+            return False
+        _automation_private_dir()
+        with used_path.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({
+                "schema_version": 1, "token": token,
+                "thread_id": active.get("thread_id"),
+                "turn_id": active.get("turn_id"),
+                "used_at": now.isoformat(),
+            }, ensure_ascii=True) + "\n")
+        used_path.chmod(0o600)
+        return True
+    except Exception as e:
+        print(f"[AUTOMATION] fallback receipt validation failed: {type(e).__name__}: {e}")
+        return False
 
 
 def _extract_discord_message_ids(value) -> list[str]:
@@ -325,6 +467,7 @@ class CodexRPC:
                                 fut.set_result(turn)
                 elif method == "item/completed":
                     params = msg.get("params", {})
+                    thread_id = params.get("threadId")
                     tid = params.get("turnId")
                     item = params.get("item")
                     if tid and isinstance(item, dict):
@@ -332,6 +475,7 @@ class CodexRPC:
                             item,
                             self.reply_ack.setdefault(tid, ReplyAckState()),
                         )
+                        observe_automation_item(item, thread_id, tid)
                 elif method.startswith("item/agentMessage"):
                     # stream notification — log only
                     pass
@@ -488,6 +632,7 @@ class CodexRPC:
                     for item in (turn.get("items") or []):
                         if isinstance(item, dict):
                             observe_discord_reply_item(item, state)
+                            observe_automation_item(item, thread_id, turn_id)
                     fut.set_result(_attach_reply_ack(turn, state))
                 print(f"[CODEX-RPC] reconciled late turn via thread/read: {turn_id} status={status}")
             return
@@ -505,6 +650,7 @@ class CodexRPC:
             # crash-recovery marker: record the live turn id so a mid-turn
             # bridge restart can reconcile this exact turn via thread/read.
             _inflight_update({"turn_id": turn_id})
+            _automation_write_active_turn(thread_id, turn_id)
         if not turn_id:
             return turn
         fut = asyncio.get_running_loop().create_future()
@@ -794,6 +940,7 @@ async def _recover_inflight() -> None:
                     for item in (turn.get("items") or []):
                         if isinstance(item, dict):
                             observe_discord_reply_item(item, _ack)
+                            observe_automation_item(item, t_id, turn_id)
                     already_replied = bool(_ack.message_ids and not _ack.failures)
                     break
         except Exception as e:
@@ -1258,13 +1405,20 @@ async def worker():
                 fb_text = await _fallback_agent_text(result)
                 if fb_text:
                     try:
-                        await channel.send(
-                            "📨 (bridge relay — the model wrote this reply but did not call "
-                            "the discord reply tool; check BOT_WD/AGENTS.md instructions)\n"
-                            + str(fb_text)[:1800],
-                            allowed_mentions=_NO_MENTIONS)
-                        print("[FALLBACK-RELAY] sent agent text via bridge "
-                              "(no reply tool call this turn)")
+                        if automation_fallback_handoff_allowed(str(fb_text)):
+                            await channel.send(
+                                "📨 (bridge relay — the model wrote this reply but did not call "
+                                "the discord reply tool; check BOT_WD/AGENTS.md instructions)\n"
+                                + str(fb_text)[:1800],
+                                allowed_mentions=_NO_MENTIONS)
+                            print("[FALLBACK-RELAY] sent agent text via bridge "
+                                  "(no reply tool call this turn)")
+                        else:
+                            await channel.send(
+                                "⚠️ automatic handoff blocked — run the shipped automation "
+                                "gate in this turn before asking for manual action.",
+                                allowed_mentions=_NO_MENTIONS)
+                            print("[FALLBACK-RELAY] blocked manual handoff without current-turn receipt")
                     except Exception as e:
                         print(f"[FALLBACK-RELAY] send failed: {type(e).__name__}: {e}")
             # O-3 (2026-08-09 field, condition table): the model DID call the
@@ -1331,6 +1485,7 @@ async def worker():
             # in-process outcomes) → the reply obligation was handled above,
             # so the crash-recovery marker must not survive into next boot.
             _inflight_clear()
+            _automation_clear_active_turn()
             # turn over → invalidate origin so a late message can't match a
             # stale question against the wrong turn.
             _active_origin.update({"channel": None, "chat_id": None, "user_id": None})

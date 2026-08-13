@@ -12,6 +12,7 @@ const HOOKS = [
   'hooks/dispatch-verify.sh',
   'hooks/kst-timestamp.sh',
   'hooks/automation-no-interactive.sh',
+  'hooks/automation-handoff-gate.py',
   'hooks/verify-before-push.sh',
   'hooks/meeting-liveness.py',
   'hooks/tests/run-hook-tests.sh',
@@ -65,6 +66,38 @@ test('PreToolUse automation guard denies with permissionDecision JSON', () => {
   assert.equal(payload.hookSpecificOutput.hookEventName, 'PreToolUse');
   assert.equal(payload.hookSpecificOutput.permissionDecision, 'deny');
   assert.match(payload.hookSpecificOutput.permissionDecisionReason, /AskUserQuestion|무인 자동화/);
+});
+
+test('automatic handoff hook denies prose without a receipt and consumes a valid current-turn receipt once', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tcx-handoff-'));
+  const input = {
+    hook_event_name: 'PreToolUse',
+    tool_name: 'mcp__discord__reply',
+    tool_input: { text: '<!-- thiscodex-manual-handoff --> 직접 로그인해 주세요.' },
+  };
+  const run = value => spawnSync('python3', ['hooks/automation-handoff-gate.py'], {
+    cwd: process.cwd(), encoding: 'utf8', input: JSON.stringify(value),
+    env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto' },
+  });
+  const denied = run(input);
+  assert.equal(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision, 'deny');
+
+  const token = 'a'.repeat(48);
+  writeFileSync(join(dir, 'active-turn.json'), JSON.stringify({
+    thread_id: 'thread-1', turn_id: 'turn-1', started_at: new Date().toISOString(),
+  }));
+  writeFileSync(join(dir, 'handoff-receipts.jsonl'), `${JSON.stringify({
+    schema_version: 1, token, thread_id: 'thread-1', turn_id: 'turn-1',
+    gate: 'discord_hcaptcha', flow: 'discord-portal', provider: 'playwright',
+    issued_at: new Date().toISOString(), expires_at: new Date(Date.now() + 60000).toISOString(),
+  })}\n`);
+  const withReceipt = {
+    ...input,
+    tool_input: { text: `${input.tool_input.text}\n<!-- thiscodex-automation-receipt:${token} -->` },
+  };
+  assert.equal(JSON.parse(run(withReceipt).stdout).hookSpecificOutput.permissionDecision, 'allow');
+  assert.equal(JSON.parse(run(withReceipt).stdout).hookSpecificOutput.permissionDecision, 'deny');
+  rmSync(dir, { recursive: true, force: true });
 });
 
 test('verify-before-push denies git push when enforce is on and no verify command exists', () => {

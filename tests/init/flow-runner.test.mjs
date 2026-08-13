@@ -68,3 +68,19 @@ test('non-TTY check mode shows consent-gated guidance without failing', async ()
   assert.equal(result.ok, true);
   assert.equal(verified, true);
 });
+
+test('manual guidance is prepared by the code gate before any explanation is emitted', async () => {
+  const order = [];
+  const result = await runFlow({
+    steps: [{ id: 'handoff', order: 1, when: 'always', action: 'guide', reason: 'manual action', safety: 'none', verify: { type: 'pass' }, on_fail: { next_command: 'retry' } }],
+    ctx: { mode: 'apply', os: 'mac', answers: {}, tools: {} },
+    handlers: {
+      prepare() { order.push('gate'); return { ok: true }; },
+      explain() { order.push('explain'); },
+      action() { order.push('action'); },
+      verify() { return { ok: true }; },
+    },
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(order, ['gate', 'explain', 'action']);
+});

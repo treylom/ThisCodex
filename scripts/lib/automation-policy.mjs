@@ -4,7 +4,14 @@ import { dirname, join } from 'node:path';
 export const AUTOMATION_POLICY_REL = 'install/automation-policy.yaml';
 export const AUTOMATION_AUDIT_REL = '.config/thiscodex/automation-attempts.jsonl';
 const MODES = new Set(['auto', 'manual']);
-const STATUSES = new Set(['succeeded', 'failed', 'human_required']);
+const SURFACES = new Set(['browser', 'consent', 'host', 'secret']);
+const REQUIREMENTS = new Set(['named_human', 'observed_attempt']);
+const EVIDENCE_KINDS = new Set(['none', 'browser', 'command']);
+const TERMINALS = new Set(['human_security_gate', 'tool_failed']);
+const GATE_KEYS = new Set([
+  'surface', 'flow', 'requirement', 'evidence', 'operation', 'terminal', 'reason_code',
+]);
+const ASCII_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
 
 function scalar(raw) {
   const value = raw.trim();
@@ -18,22 +25,42 @@ function unique(seen, key) {
   seen.add(key);
 }
 
-/**
- * Parse only the shipped automation-policy.yaml shape. This is deliberately not
- * advertised as a general YAML parser: rejecting unknown syntax is safer than
- * silently accepting a policy the installer did not understand.
- */
+function finishGate(policy, gate) {
+  if (!gate) return;
+  for (const key of GATE_KEYS) {
+    if (!gate[key]) throw new Error(`handoff gate ${gate.name} missing ${key}`);
+  }
+  if (!SURFACES.has(gate.surface)) throw new Error(`handoff gate ${gate.name} has invalid surface`);
+  if (!REQUIREMENTS.has(gate.requirement)) throw new Error(`handoff gate ${gate.name} has invalid requirement`);
+  if (!EVIDENCE_KINDS.has(gate.evidence)) throw new Error(`handoff gate ${gate.name} has invalid evidence`);
+  if (!TERMINALS.has(gate.terminal)) throw new Error(`handoff gate ${gate.name} has invalid terminal`);
+  for (const key of ['name', 'flow', 'operation', 'reason_code']) {
+    if (!ASCII_ID.test(gate[key])) throw new Error(`handoff gate ${gate.name} has invalid ${key}`);
+  }
+  if (gate.surface === 'browser' && gate.evidence === 'none') {
+    throw new Error(`browser gate ${gate.name} must require observed evidence`);
+  }
+  if (gate.requirement === 'observed_attempt' && gate.evidence === 'none') {
+    throw new Error(`attempt gate ${gate.name} must require observed evidence`);
+  }
+  if (policy.gates.has(gate.name)) throw new Error(`duplicate handoff gate: ${gate.name}`);
+  policy.gates.set(gate.name, Object.freeze({ ...gate }));
+}
+
+/** Parse only the shipped policy shape; unknown syntax fails closed. */
 export function parseAutomationPolicyYaml(text) {
   const policy = {
     schemaVersion: null,
     defaultMode: null,
     browserToolsRequired: null,
-    manualAllowedWithoutAttempt: new Map(),
+    browserProviders: new Set(),
+    gates: new Map(),
   };
   const seen = new Set();
   let inInstall = false;
-  let inManual = false;
-  let pending = null;
+  let section = '';
+  let gate = null;
+  let gateSeen = new Set();
 
   for (const [index, original] of String(text).replace(/\r\n/g, '\n').split('\n').entries()) {
     const lineNumber = index + 1;
@@ -49,7 +76,6 @@ export function parseAutomationPolicyYaml(text) {
     if (line === 'install:') {
       unique(seen, 'install');
       inInstall = true;
-      inManual = false;
       continue;
     }
     if (!inInstall) throw new Error(`unknown YAML field at line ${lineNumber}: ${line}`);
@@ -63,45 +89,53 @@ export function parseAutomationPolicyYaml(text) {
       policy.browserToolsRequired = match[1] === 'true';
       continue;
     }
-    if (line === '  manual_allowed_without_attempt:') {
-      unique(seen, 'install.manual_allowed_without_attempt');
-      inManual = true;
+    if (line === '  browser_provider_servers:') {
+      unique(seen, 'install.browser_provider_servers');
+      finishGate(policy, gate);
+      gate = null;
+      section = 'providers';
       continue;
     }
-    if (inManual && (match = line.match(/^    - name:\s*([A-Za-z0-9_-]+)$/))) {
-      if (pending && !pending.reason) throw new Error(`manual gate ${pending.name} missing reason`);
-      pending = { name: match[1], reason: '' };
-      if (policy.manualAllowedWithoutAttempt.has(pending.name)) throw new Error(`duplicate manual gate: ${pending.name}`);
-      policy.manualAllowedWithoutAttempt.set(pending.name, '');
+    if (line === '  handoff_gates:') {
+      unique(seen, 'install.handoff_gates');
+      finishGate(policy, gate);
+      gate = null;
+      section = 'gates';
       continue;
     }
-    if (inManual && (match = line.match(/^      reason:\s*(.+)$/))) {
-      if (!pending) throw new Error(`manual gate reason without name at line ${lineNumber}`);
-      if (pending.reason) throw new Error(`duplicate YAML key: manual gate ${pending.name}.reason`);
-      pending.reason = scalar(match[1]);
-      policy.manualAllowedWithoutAttempt.set(pending.name, pending.reason);
+    if (section === 'providers' && (match = line.match(/^    - ([A-Za-z0-9_.-]+)$/))) {
+      if (policy.browserProviders.has(match[1])) throw new Error(`duplicate browser provider: ${match[1]}`);
+      policy.browserProviders.add(match[1]);
+      continue;
+    }
+    if (section === 'gates' && (match = line.match(/^    - name:\s*([A-Za-z0-9_.-]+)$/))) {
+      finishGate(policy, gate);
+      gate = { name: match[1] };
+      gateSeen = new Set(['name']);
+      continue;
+    }
+    if (section === 'gates' && (match = line.match(/^      ([a-z_]+):\s*(.+)$/))) {
+      if (!gate) throw new Error(`handoff gate field without name at line ${lineNumber}`);
+      const key = match[1];
+      if (!GATE_KEYS.has(key)) throw new Error(`unknown handoff gate field at line ${lineNumber}: ${key}`);
+      unique(gateSeen, key);
+      gate[key] = scalar(match[2]);
       continue;
     }
     throw new Error(`unknown or unsupported YAML field at line ${lineNumber}: ${line}`);
   }
+  finishGate(policy, gate);
 
-  if (pending && !pending.reason) throw new Error(`manual gate ${pending.name} missing reason`);
-  if (policy.schemaVersion !== 1) throw new Error(`automation policy schema_version must be 1`);
+  if (policy.schemaVersion !== 2) throw new Error('automation policy schema_version must be 2');
   if (!MODES.has(policy.defaultMode)) throw new Error('automation policy default_mode must be auto or manual');
   if (typeof policy.browserToolsRequired !== 'boolean') throw new Error('automation policy browser_tools_required missing');
-  if (!seen.has('install.manual_allowed_without_attempt')) throw new Error('automation policy manual_allowed_without_attempt missing');
+  if (!policy.browserProviders.size) throw new Error('automation policy browser_provider_servers missing');
+  if (!policy.gates.size) throw new Error('automation policy handoff_gates missing');
   return policy;
 }
 
 export function loadAutomationPolicy(path = AUTOMATION_POLICY_REL) {
   return parseAutomationPolicyYaml(readFileSync(path, 'utf8'));
-}
-
-function clean(value, max = 500) {
-  return String(value || '')
-    .replace(/[A-Za-z0-9_.-]{50,}/g, '[REDACTED_LONG_VALUE]')
-    .replace(/[\r\n\t]+/g, ' ')
-    .slice(0, max);
 }
 
 export function resolveAutomationMode({ explicit, state, policy }) {
@@ -110,67 +144,71 @@ export function resolveAutomationMode({ explicit, state, policy }) {
   return value;
 }
 
-export function decideManualHandoff({ gate, mode, policy, attempt = {} }) {
-  if (!gate || !/^[A-Za-z0-9_-]+$/.test(gate)) throw new Error('gate must be a stable ASCII identifier');
-  if (!MODES.has(mode)) throw new Error('mode must be auto or manual');
-  const listedReason = policy.manualAllowedWithoutAttempt.get(gate) || '';
-  const base = {
-    schema_version: 1,
-    gate,
+function auditBase(gatePolicy, mode, request, evidence) {
+  const observed = evidence?.evidence || evidence;
+  return {
+    schema_version: 2,
+    gate: gatePolicy.name,
     mode,
-    attempted: attempt.attempted === true,
-    status: clean(attempt.status),
-    provider: clean(attempt.provider),
-    operation: clean(attempt.operation),
-    reason: clean(attempt.reason),
-    surface: clean(attempt.surface),
-    browser_terminal_reason: clean(attempt.browserTerminalReason),
+    surface: gatePolicy.surface,
+    flow: gatePolicy.flow,
+    requirement: gatePolicy.requirement,
+    operation: gatePolicy.operation,
+    terminal: gatePolicy.terminal,
+    reason_code: gatePolicy.reason_code,
+    provider: observed?.provider || request.provider || '',
+    evidence_turn_id: observed?.turn_id || '',
+    evidence_item_id: observed?.item_id || '',
+    evidence_tool: observed?.tool || '',
+    evidence_status: observed?.status || '',
   };
+}
+
+export function decideManualHandoff({ gate, mode, policy, request = {}, evidence = null }) {
+  if (!ASCII_ID.test(String(gate || ''))) throw new Error('gate must be a stable ASCII identifier');
+  if (!MODES.has(mode)) throw new Error('mode must be auto or manual');
+  const gatePolicy = policy.gates.get(gate);
+  if (!gatePolicy) return { ok: false, handoffAllowed: false, code: 'unknown_gate' };
+  const base = auditBase(gatePolicy, mode, request, evidence);
 
   if (mode === 'manual') {
-    return { ok: true, handoffAllowed: true, code: 'manual_mode', audit: { ...base, decision: 'handoff_allowed' } };
+    return { ok: true, handoffAllowed: true, code: 'manual_mode', gatePolicy, audit: { ...base, decision: 'handoff_allowed' } };
   }
-
-  if (attempt.surface === 'browser' && policy.browserToolsRequired) {
-    if (!attempt.provider) {
-      return { ok: false, handoffAllowed: false, code: 'browser_provider_required', audit: { ...base, decision: 'blocked' } };
-    }
-    if (!attempt.browserTerminalReason) {
-      return { ok: false, handoffAllowed: false, code: 'browser_terminal_reason_required', audit: { ...base, decision: 'blocked' } };
+  for (const key of ['surface', 'flow', 'operation', 'terminal', 'reasonCode']) {
+    const policyKey = key === 'reasonCode' ? 'reason_code' : key;
+    if (request[key] !== gatePolicy[policyKey]) {
+      return { ok: false, handoffAllowed: false, code: `${policyKey}_mismatch`, gatePolicy, audit: { ...base, decision: 'blocked' } };
     }
   }
-
-  if (listedReason) {
-    if (!attempt.operation) {
-      return { ok: false, handoffAllowed: false, code: 'attempt_operation_required', audit: { ...base, decision: 'blocked' } };
+  if (gatePolicy.evidence !== 'none' && !evidence) {
+    return { ok: false, handoffAllowed: false, code: 'observed_evidence_required', gatePolicy, audit: { ...base, decision: 'blocked' } };
+  }
+  if (gatePolicy.evidence !== 'none' && evidence?.ok !== true) {
+    return { ok: false, handoffAllowed: false, code: evidence?.code || 'observed_evidence_invalid', gatePolicy, audit: { ...base, decision: 'blocked' } };
+  }
+  const observed = evidence?.evidence || evidence;
+  if (gatePolicy.evidence === 'browser' && !policy.browserProviders.has(observed?.provider)) {
+    return { ok: false, handoffAllowed: false, code: 'browser_provider_required', gatePolicy, audit: { ...base, decision: 'blocked' } };
+  }
+  if (request.status === 'succeeded') {
+    if (!observed || observed.status !== 'completed') {
+      return { ok: false, handoffAllowed: false, code: 'successful_evidence_required', gatePolicy, audit: { ...base, decision: 'blocked' } };
     }
-    if (attempt.status !== 'human_required' || !attempt.reason) {
-      return { ok: false, handoffAllowed: false, code: 'human_gate_evidence_required', audit: { ...base, decision: 'blocked' } };
+    return { ok: true, handoffAllowed: false, code: 'attempt_succeeded_continue', gatePolicy, audit: { ...base, decision: 'continue_automatic' } };
+  }
+  if (gatePolicy.requirement === 'named_human') {
+    if (request.status !== 'human_required') {
+      return { ok: false, handoffAllowed: false, code: 'human_gate_evidence_required', gatePolicy, audit: { ...base, decision: 'blocked' } };
     }
-    return {
-      ok: true,
-      handoffAllowed: true,
-      code: 'declared_human_security_gate',
-      audit: { ...base, declared_reason: listedReason, decision: 'handoff_allowed' },
-    };
+    if (observed && observed.status !== 'completed') {
+      return { ok: false, handoffAllowed: false, code: 'human_gate_observation_failed', gatePolicy, audit: { ...base, decision: 'blocked' } };
+    }
+  } else {
+    if (request.status !== 'failed' || !observed || observed.status !== 'failed') {
+      return { ok: false, handoffAllowed: false, code: 'failed_attempt_evidence_required', gatePolicy, audit: { ...base, decision: 'blocked' } };
+    }
   }
-
-  if (attempt.attempted !== true) {
-    return { ok: false, handoffAllowed: false, code: 'attempt_required', audit: { ...base, decision: 'blocked' } };
-  }
-  if (!STATUSES.has(attempt.status) || attempt.status === 'human_required') {
-    return { ok: false, handoffAllowed: false, code: 'invalid_attempt_status', audit: { ...base, decision: 'blocked' } };
-  }
-  if (!attempt.operation) {
-    return { ok: false, handoffAllowed: false, code: 'attempt_operation_required', audit: { ...base, decision: 'blocked' } };
-  }
-  if (attempt.status === 'failed' && !attempt.reason) {
-    return { ok: false, handoffAllowed: false, code: 'failure_reason_required', audit: { ...base, decision: 'blocked' } };
-  }
-  if (attempt.status === 'succeeded') {
-    return { ok: true, handoffAllowed: false, code: 'attempt_succeeded_continue', audit: { ...base, decision: 'continue_automatic' } };
-  }
-  return { ok: true, handoffAllowed: true, code: 'attempt_failed_handoff_allowed', audit: { ...base, decision: 'handoff_allowed' } };
+  return { ok: true, handoffAllowed: true, code: 'verified_handoff_allowed', gatePolicy, audit: { ...base, decision: 'handoff_allowed' } };
 }
 
 export function automationAuditPath(env = process.env) {
@@ -179,7 +217,8 @@ export function automationAuditPath(env = process.env) {
 }
 
 export function appendAutomationAudit(path, audit, now = new Date()) {
-  mkdirSync(dirname(path), { recursive: true });
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  chmodSync(dirname(path), 0o700);
   const row = { ...audit, timestamp: now.toISOString() };
   appendFileSync(path, `${JSON.stringify(row)}\n`, { mode: 0o600 });
   chmodSync(path, 0o600);

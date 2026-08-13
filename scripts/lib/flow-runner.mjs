@@ -40,6 +40,16 @@ export async function runFlow({ steps, ctx, handlers }) {
       events.push({ id: step.id, status: 'skipped' });
       continue;
     }
+    const prepared = await handlers.prepare?.(step, ctx);
+    if (prepared && prepared.ok === false) {
+      return {
+        ok: false,
+        failed_step: step.id,
+        reason: prepared.message || 'automatic handoff gate blocked',
+        next_command: step.on_fail.next_command,
+        events,
+      };
+    }
     handlers.explain?.(step, ctx);
     if (ctx.mode === 'apply' && (ctx.tty === false || ctx.nonInteractive === true) && step.safety === 'consent-gated' && !hasConsent(step, ctx)) {
       return {

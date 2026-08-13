@@ -3,13 +3,27 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { verifyStep, detectStaleSuperpowersWrapper, rolloutFilesForThread } from '../../scripts/lib/doctor.mjs';
+import { automationHandoffHookReady, verifyStep, detectStaleSuperpowersWrapper, rolloutFilesForThread } from '../../scripts/lib/doctor.mjs';
 
 test('path-writable verify passes for existing writable path', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
   const result = await verifyStep({ verify: { type: 'path-writable', state_key: 'confirmed_bot_wd' } }, { confirmed_bot_wd: dir });
   assert.equal(result.ok, true);
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('automatic handoff hook readiness requires exact wiring and matching trust coordinate', () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const codex = join(home, '.codex');
+  mkdirSync(codex, { recursive: true });
+  writeFileSync(join(codex, 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
+    matcher: 'mcp__discord__reply|mcp__discord__edit_message',
+    hooks: [{ type: 'command', command: 'python3 /repo/hooks/automation-handoff-gate.py' }],
+  }] } }));
+  assert.equal(automationHandoffHookReady(home).ok, false);
+  writeFileSync(join(codex, 'config.toml'), '[hooks.state."hooks.json:pre_tool_use:0:0"]\nenabled = true\ntrusted_hash = "sha256:abc"\n');
+  assert.equal(automationHandoffHookReady(home).ok, true);
+  rmSync(home, { recursive: true, force: true });
 });
 
 test('path-writable verify fails with friendly message', async () => {

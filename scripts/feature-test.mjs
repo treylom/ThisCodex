@@ -171,6 +171,8 @@ const FEATURES = [
     id: 'hooks',
     aliases: ['hooks', 'session hook', 'stop hook', 'hard hooks', 'bot session'],
     run() {
+      const missing = requireFiles(['hooks/automation-handoff-gate.py']);
+      if (missing) return missing;
       return bashSyntax([
         'hooks/bot-session-init.sh',
         'hooks/meeting-stop-reread.sh',

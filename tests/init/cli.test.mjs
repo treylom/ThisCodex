@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,41 +45,51 @@ test('--tone=dev switches output', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('automation gate consumes YAML policy, blocks missing attempts, and records a failed attempt before handoff', () => {
+test('automation gate consumes bridge-observed evidence and emits a current-turn receipt', () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   const audit = join(home, 'attempts.jsonl');
-  const blocked = spawnSync(process.execPath, [BIN, 'automation-gate',
-    '--gate', 'browser_provider_setup',
-    '--automation-mode', 'auto',
+  const evidenceDir = join(home, 'evidence');
+  mkdirSync(evidenceDir, { recursive: true });
+  writeFileSync(join(evidenceDir, 'active-turn.json'), JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', started_at: new Date(Date.now() - 1000).toISOString(),
+  }));
+  const common = [
+    '--gate', 'browser_provider_setup', '--automation-mode', 'auto',
+    '--status', 'failed', '--provider', 'playwright',
+    '--surface', 'browser', '--flow', 'browser-provider',
+    '--operation', 'register-restart-redetect-provider',
+    '--terminal', 'tool_failed', '--reason-code', 'provider_not_callable',
     '--audit-file', audit,
+  ];
+  const blocked = spawnSync(process.execPath, [BIN, 'automation-gate',
+    ...common,
   ], {
     encoding: 'utf8',
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir },
   });
   assert.equal(blocked.status, 2, blocked.stdout + blocked.stderr);
-  assert.equal(JSON.parse(blocked.stdout).code, 'attempt_required');
+  assert.equal(JSON.parse(blocked.stdout).code, 'matching_evidence_missing');
+
+  writeFileSync(join(evidenceDir, 'browser-evidence.jsonl'), `${JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
+    provider: 'playwright', tool: 'codex.mcp.register', status: 'failed', error_class: 'tool_error',
+    observed_at: new Date().toISOString(),
+  })}\n`);
 
   const failed = spawnSync(process.execPath, [BIN, 'automation-gate',
-    '--gate', 'browser_provider_setup',
-    '--automation-mode', 'auto',
-    '--attempted',
-    '--status', 'failed',
-    '--provider', 'playwright',
-    '--operation', 'register-and-redetect',
-    '--reason', 'provider did not become callable',
-    '--browser-terminal-reason', 'provider_unavailable_after_install',
-    '--audit-file', audit,
+    ...common,
   ], {
     encoding: 'utf8',
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir },
   });
   assert.equal(failed.status, 0, failed.stdout + failed.stderr);
   const result = JSON.parse(failed.stdout);
-  assert.equal(result.code, 'attempt_failed_handoff_allowed');
+  assert.equal(result.code, 'verified_handoff_allowed');
   assert.equal(result.handoff_allowed, true);
+  assert.match(result.receipt_marker, /thiscodex-automation-receipt/);
   const rows = readFileSync(audit, 'utf8').trim().split('\n').map(JSON.parse);
   assert.deepEqual(rows.map(row => row.decision), ['blocked', 'handoff_allowed']);
-  assert.equal(rows[1].browser_terminal_reason, 'provider_unavailable_after_install');
+  assert.equal(rows[1].evidence_item_id, 'item-1');
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -106,7 +116,31 @@ test('CLI derives repo root with fileURLToPath for Windows-safe URLs', () => {
   assert.doesNotMatch(source, /new URL\('\.\.', import\.meta\.url\)\.pathname/);
 });
 
-test('non-TTY init does not enter readline and exits 0', () => {
+test('malformed install automation policy does not block the unrelated Discord thread CLI', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'tcx-policy-'));
+  const policy = join(dir, 'bad.yaml');
+  writeFileSync(policy, 'not: valid: policy\n');
+  const result = spawnSync(process.execPath, [BIN, 'discord-thread', 'public',
+    '--channel-id', '123456789012345678', '--channel-type', '0',
+    '--message-id', '223456789012345678', '--name', 'thread',
+  ], {
+    cwd: dir, encoding: 'utf8',
+    env: { ...process.env, THISCODEX_AUTOMATION_POLICY: policy, THISCODEX_REPO_ROOT: process.cwd() },
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(JSON.parse(result.stdout).ok, true);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('interactive init chooses automatic/manual before environment detection', () => {
+  const source = readFileSync(BIN, 'utf8');
+  assert.ok(
+    source.indexOf('await chooseAutomationModeBeforeDetection()') < source.indexOf('const env = detectEnv()'),
+    'detectEnv ran before the first automatic/manual interaction',
+  );
+});
+
+test('implicit non-TTY guided init stops before detection until auto/manual is relayed', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
   const result = spawnSync(process.execPath, [BIN, 'init'], {
     cwd: dir,
@@ -115,8 +149,9 @@ test('non-TTY init does not enter readline and exits 0', () => {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd() },
   });
-  assert.equal(result.status, 0);
-  assert.match(result.stdout, /ThisCodex|next command|check/i);
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /automation_mode|auto.*manual/i);
+  assert.doesNotMatch(result.stdout, /OS=/);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -181,6 +216,7 @@ test('answers file confirms guided paths and persists them explicitly', () => {
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,
@@ -222,6 +258,7 @@ test('guided apply defaults launch helpers to yes and emits them after run.sh ex
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,
@@ -262,6 +299,7 @@ test('guided apply carries the chosen runtime name into session, BOT_NAME, and a
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,
@@ -299,6 +337,7 @@ test('doctor on a materialized install points to the exact runner instead of res
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,
@@ -316,6 +355,12 @@ test('doctor on a materialized install points to the exact runner instead of res
     cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
   });
   assert.equal(apply.status, 0, apply.stdout + apply.stderr);
+  mkdirSync(join(home, '.codex'), { recursive: true });
+  writeFileSync(join(home, '.codex', 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
+    matcher: 'mcp__discord__reply|mcp__discord__edit_message',
+    hooks: [{ type: 'command', command: 'python3 hooks/automation-handoff-gate.py' }],
+  }] } }));
+  writeFileSync(join(home, '.codex', 'config.toml'), '[hooks.state."hooks.json:pre_tool_use:0:0"]\ntrusted_hash = "sha256:test"\n');
   const doctor = spawnSync(process.execPath, [BIN, 'doctor', '--non-interactive'], {
     cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
   });
@@ -336,6 +381,7 @@ test('guided apply rejects an unsafe runtime name before materializing runner fi
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,
@@ -373,6 +419,7 @@ test('non-interactive guided apply without a wiki path completes with wiki_path 
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,
@@ -415,6 +462,7 @@ test('answers file with a wiki path lands THISCODEX_WIKI_PATH in the generated r
   const answers = join(home, 'answers.json');
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
+    automation_mode: 'auto',
     confirmed_repo_root: process.cwd(),
     confirmed_workspace_root: workspace,
     confirmed_bot_wd: bot,

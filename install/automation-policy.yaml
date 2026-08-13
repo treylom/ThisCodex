@@ -1,31 +1,178 @@
 # ThisCodex install automation contract. Parsed by a strict, dependency-free
 # subset reader in scripts/lib/automation-policy.mjs.
-schema_version: 1
+schema_version: 2
 install:
   default_mode: auto
   browser_tools_required: true
-  manual_allowed_without_attempt:
-    - name: discord_portal_login
-      reason: Account credentials and MFA must be entered by the account owner.
-    - name: discord_hcaptcha
-      reason: CAPTCHA completion cannot be delegated or bypassed.
-    - name: discord_reset_token_modal
-      reason: Account password and MFA confirmation belong to the account owner.
-    - name: browser_provider_install_declined
-      reason: Changing Codex MCP configuration requires the user's consent.
-    - name: token_direct_entry
-      reason: A secret token must remain outside model-visible tools and conversation.
-    - name: slack_browser_login
-      reason: Slack account credentials and MFA must be entered by the account owner.
-    - name: host_package_install_consent
-      reason: Installing WSL, tmux, or another host package may require administrator authority or a reboot.
+  browser_provider_servers:
+    - playwright
+    - claude-in-chrome
+  handoff_gates:
+    - name: host_wsl_install_consent
+      surface: host
+      flow: init
+      requirement: named_human
+      evidence: none
+      operation: review-wsl-install
+      terminal: human_security_gate
+      reason_code: host_permission_required
+    - name: host_tmux_install_consent
+      surface: host
+      flow: init
+      requirement: named_human
+      evidence: none
+      operation: review-tmux-install
+      terminal: human_security_gate
+      reason_code: host_permission_required
     - name: codex_privilege_config_consent
-      reason: Raising the Codex sandbox ceiling changes the operator's security boundary.
+      surface: consent
+      flow: setup
+      requirement: named_human
+      evidence: none
+      operation: review-codex-privilege-boundary
+      terminal: human_security_gate
+      reason_code: security_boundary_review
     - name: codex_hook_trust_approval
-      reason: Trusting executable hooks must be an explicit operator decision in the Codex UI.
+      surface: consent
+      flow: setup
+      requirement: named_human
+      evidence: none
+      operation: review-codex-hook-trust
+      terminal: human_security_gate
+      reason_code: security_boundary_review
     - name: shell_profile_persistence
-      reason: Persisting aliases or PATH changes edits the operator's shell startup files.
+      surface: consent
+      flow: setup
+      requirement: named_human
+      evidence: none
+      operation: review-shell-profile-edit
+      terminal: human_security_gate
+      reason_code: security_boundary_review
+    - name: daemon_start_consent
+      surface: consent
+      flow: init
+      requirement: named_human
+      evidence: none
+      operation: review-daemon-start
+      terminal: human_security_gate
+      reason_code: security_boundary_review
+    - name: superpowers_install_consent
+      surface: consent
+      flow: init
+      requirement: named_human
+      evidence: none
+      operation: review-superpowers-install
+      terminal: human_security_gate
+      reason_code: host_permission_required
+    - name: github_auth_login
+      surface: secret
+      flow: init
+      requirement: named_human
+      evidence: none
+      operation: complete-github-login
+      terminal: human_security_gate
+      reason_code: account_credentials_required
+    - name: codex_discord_mcp_config_consent
+      surface: consent
+      flow: setup
+      requirement: named_human
+      evidence: none
+      operation: review-discord-mcp-config
+      terminal: human_security_gate
+      reason_code: security_boundary_review
+    - name: browser_provider_install_declined
+      surface: consent
+      flow: browser-provider
+      requirement: named_human
+      evidence: none
+      operation: review-browser-provider-install
+      terminal: human_security_gate
+      reason_code: operator_declined
+    - name: browser_provider_setup
+      surface: browser
+      flow: browser-provider
+      requirement: observed_attempt
+      evidence: command
+      operation: register-restart-redetect-provider
+      terminal: tool_failed
+      reason_code: provider_not_callable
+    - name: discord_portal_login
+      surface: browser
+      flow: discord-portal
+      requirement: named_human
+      evidence: browser
+      operation: inspect-discord-login
+      terminal: human_security_gate
+      reason_code: account_credentials_required
+    - name: discord_hcaptcha
+      surface: browser
+      flow: discord-portal
+      requirement: named_human
+      evidence: browser
+      operation: inspect-discord-hcaptcha
+      terminal: human_security_gate
+      reason_code: captcha_required
+    - name: discord_reset_token_modal
+      surface: browser
+      flow: discord-portal
+      requirement: named_human
+      evidence: browser
+      operation: inspect-discord-token-modal
+      terminal: human_security_gate
+      reason_code: account_credentials_required
+    - name: discord_desktop_approval
+      surface: browser
+      flow: discord-portal
+      requirement: observed_attempt
+      evidence: browser
+      operation: approve-discord-desktop-window
+      terminal: tool_failed
+      reason_code: provider_cannot_control_window
+    - name: token_direct_entry
+      surface: secret
+      flow: discord-token
+      requirement: observed_attempt
+      evidence: command
+      operation: model-blind-token-receipt
+      terminal: tool_failed
+      reason_code: model_blind_channel_unavailable
+    - name: slack_browser_login
+      surface: browser
+      flow: slack-auth
+      requirement: named_human
+      evidence: browser
+      operation: inspect-slack-login
+      terminal: human_security_gate
+      reason_code: account_credentials_required
+    - name: slack_browser_auth
+      surface: browser
+      flow: slack-auth
+      requirement: observed_attempt
+      evidence: browser
+      operation: login-ticket-confirm-challenge
+      terminal: tool_failed
+      reason_code: browser_tool_failed
     - name: slack_workspace_admin_approval
-      reason: Workspace ownership and administrative app approval cannot be assumed by the installer.
+      surface: consent
+      flow: slack-app
+      requirement: named_human
+      evidence: none
+      operation: review-slack-workspace-admin
+      terminal: human_security_gate
+      reason_code: admin_approval_required
     - name: slack_app_reinstall_approval
-      reason: Granting new OAuth scopes requires a workspace owner or administrator approval.
+      surface: consent
+      flow: slack-scope
+      requirement: named_human
+      evidence: none
+      operation: review-oauth-scope-grant
+      terminal: human_security_gate
+      reason_code: admin_approval_required
+    - name: slack_native_host_install_consent
+      surface: host
+      flow: slack-cli
+      requirement: named_human
+      evidence: none
+      operation: review-slack-native-install
+      terminal: human_security_gate
+      reason_code: host_permission_required
