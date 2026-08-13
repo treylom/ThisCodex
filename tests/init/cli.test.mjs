@@ -7,10 +7,20 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const BIN = fileURLToPath(new URL('../../bin/thiscodex.mjs', import.meta.url));
+const PRODUCTION_POLICY = fileURLToPath(new URL('../../install/automation-policy.yaml', import.meta.url));
+const TEST_POLICY_ROOT = mkdtempSync(join(tmpdir(), 'tcx-cli-policy-'));
+const TEST_POLICY = join(TEST_POLICY_ROOT, 'automation-policy.yaml');
+writeFileSync(
+  TEST_POLICY,
+  readFileSync(PRODUCTION_POLICY, 'utf8')
+    .replace('browser_tools_required: true', 'browser_tools_required: false'),
+);
+const TEST_CLI_ENV = { THISCODEX_AUTOMATION_POLICY: TEST_POLICY };
+process.on('exit', () => rmSync(TEST_POLICY_ROOT, { recursive: true, force: true }));
 const run = (args, cwd, extraEnv = {}) => execFileSync(process.execPath, [BIN, ...args], {
   cwd,
   encoding: 'utf8',
-  env: { ...process.env, ...extraEnv },
+  env: { ...process.env, ...TEST_CLI_ENV, ...extraEnv },
 });
 
 test('--check --non-interactive writes nothing', () => {
@@ -30,7 +40,7 @@ test('--apply --non-interactive without yes stops before consent-gated writes', 
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 2);
   assert.match(result.stdout + result.stderr, /--yes|--answers|next command/i);
@@ -61,7 +71,8 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
     '--terminal', 'tool_failed', '--reason-code', 'provider_not_callable',
     '--audit-file', audit,
   ];
-  const cliEnv = { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir };
+  const cliEnv = { ...process.env, ...TEST_CLI_ENV, THISCODEX_AUTOMATION_POLICY: PRODUCTION_POLICY,
+    THISCODEX_REPO_ROOT: process.cwd(), HOME: home, THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir };
   const started = spawnSync(process.execPath, [BIN, 'automation-flow', '--start', '--flow', 'browser-provider'], {
     encoding: 'utf8', env: cliEnv,
   });
@@ -168,7 +179,8 @@ test('concurrent automation gates can consume one observed attempt only once', a
     '--terminal', 'tool_failed', '--reason-code', 'browser_tool_failed',
     '--audit-file', join(home, 'attempts.jsonl'),
   ];
-  const env = { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home,
+  const env = { ...process.env, ...TEST_CLI_ENV, THISCODEX_AUTOMATION_POLICY: PRODUCTION_POLICY,
+    THISCODEX_REPO_ROOT: process.cwd(), HOME: home,
     THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir };
   const invoke = () => new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, { env });
@@ -195,7 +207,7 @@ test('non-interactive apply cannot silently select an automation strategy', () =
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 2);
   assert.match(result.stdout + result.stderr, /automation_mode|auto.*manual/i);
@@ -219,7 +231,7 @@ test('malformed install automation policy does not block the unrelated Discord t
     '--message-id', '223456789012345678', '--name', 'thread',
   ], {
     cwd: dir, encoding: 'utf8',
-    env: { ...process.env, THISCODEX_AUTOMATION_POLICY: policy, THISCODEX_REPO_ROOT: process.cwd() },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_AUTOMATION_POLICY: policy, THISCODEX_REPO_ROOT: process.cwd() },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.equal(JSON.parse(result.stdout).ok, true);
@@ -241,7 +253,7 @@ test('implicit non-TTY guided init stops before detection until auto/manual is r
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd() },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd() },
   });
   assert.equal(result.status, 2);
   assert.match(result.stdout, /automation_mode|auto.*manual/i);
@@ -255,7 +267,7 @@ test('doctor replays verify checks and prints ordered result', () => {
   const result = spawnSync(process.execPath, [BIN, 'doctor', '--non-interactive'], {
     cwd: dir,
     encoding: 'utf8',
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout + result.stderr, /doctor|verify|BOT_WD|Codex/i);
@@ -271,7 +283,7 @@ test('non-TTY apply does not persist confirmed_* as check_only placeholder', () 
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   const statePath = join(home, '.config', 'thiscodex', 'install-state.json');
   if (existsSync(statePath)) {
@@ -292,7 +304,7 @@ test('non-interactive apply with yes but no answers stops before guided path per
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 2);
   assert.match(result.stdout + result.stderr, /Next command:/);
@@ -327,7 +339,7 @@ test('answers file confirms guided paths and persists them explicitly', () => {
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
@@ -369,7 +381,7 @@ test('guided apply defaults launch helpers to yes and emits them after run.sh ex
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
@@ -411,7 +423,7 @@ test('guided apply carries the chosen runtime name into session, BOT_NAME, and a
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
@@ -444,7 +456,7 @@ test('doctor on a materialized install points to the exact runner instead of res
     alias_consent: 'yes',
     daemon_guide: 'yes',
   }));
-  const env = { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home };
+  const env = { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home };
   const apply = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
     cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
   });
@@ -493,7 +505,7 @@ test('guided apply rejects an unsafe runtime name before materializing runner fi
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 2);
   assert.match(result.stdout + result.stderr, /session.*letters|runtime|dash|underscore/i);
@@ -531,7 +543,7 @@ test('non-interactive guided apply without a wiki path completes with wiki_path 
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));
@@ -574,7 +586,7 @@ test('answers file with a wiki path lands THISCODEX_WIKI_PATH in the generated r
     encoding: 'utf8',
     input: '',
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
+    env: { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home },
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   const state = JSON.parse(readFileSync(join(home, '.config', 'thiscodex', 'install-state.json'), 'utf8'));

@@ -38,9 +38,14 @@ import {
   executeDiscordThread,
   parseDiscordThreadArgs,
 } from '../scripts/lib/discord-thread.mjs';
+import {
+  ensureBrowserTools,
+  inspectBrowserTools,
+  runPlaywrightMcpE2e,
+} from '../scripts/lib/browser-tools.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke', 'discord-thread', 'automation-flow', 'automation-attempt', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'discord-thread', 'browser-e2e', 'automation-flow', 'automation-attempt', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -248,6 +253,44 @@ if (command === 'discord-thread') {
 
 const automationPolicy = getAutomationPolicy();
 
+if (command === 'browser-e2e') {
+  let output;
+  try {
+    const status = inspectBrowserTools({ env: process.env });
+    if (has('--ensure')) {
+      const installState = loadInstallState();
+      const automationMode = resolveAutomationMode({
+        explicit: arg('--automation-mode'),
+        state: installState,
+        policy: automationPolicy,
+      });
+      output = await ensureBrowserTools({
+        required: automationPolicy.browserToolsRequired,
+        automationMode,
+        env: process.env,
+      });
+    } else if (!status.ready) {
+      output = {
+        ok: false,
+        code: 'browser_tools_not_ready',
+        message: 'Playwright CLI/MCP is not installed and registered; rerun with browser-e2e --ensure --automation-mode auto',
+        status,
+      };
+    } else {
+      const e2e = await runPlaywrightMcpE2e({
+        command: status.playwright_mcp_path,
+        args: ['--headless', '--isolated'],
+        env: process.env,
+      });
+      output = { ...e2e, status };
+    }
+  } catch (error) {
+    output = { ok: false, code: 'browser_e2e_error', message: error.message };
+  }
+  console.log(JSON.stringify(output, null, 2));
+  process.exit(output.ok ? 0 : 2);
+}
+
 function hasPreselectedAutomationMode() {
   if (arg('--automation-mode') || loadInstallState()?.answers?.automation_mode) return true;
   if (!answersFile) return false;
@@ -400,6 +443,7 @@ if (nonInteractive) {
   console.log(msg('non_tty_next_command', tone));
 }
 
+let browserToolsResult = null;
 const handlers = {
   async prepare(step, ctx) {
     if (!step.handoff_gate) return { ok: true };
@@ -467,6 +511,15 @@ const handlers = {
       patchCodexConfig(homedir(), false, { yoloCeiling: true });
       return;
     }
+    if (step.action === 'apply' && step.id === 'browser_tools_bootstrap') {
+      if (ctx.mode !== 'apply') return;
+      browserToolsResult = await ensureBrowserTools({
+        required: automationPolicy.browserToolsRequired,
+        automationMode: resolveAutomationMode({ state, policy: automationPolicy }),
+        env: process.env,
+      });
+      return;
+    }
     if (step.action === 'generate') {
       if (ctx.mode !== 'apply') return;
       if (step.id === 'alias_consent') console.log(aliasBlock(state));
@@ -474,6 +527,20 @@ const handlers = {
     }
   },
   async verify(step) {
+    if (step.verify?.type === 'browser-tools-ready') {
+      if (browserToolsResult) {
+        return {
+          ok: browserToolsResult.ok,
+          message: browserToolsResult.message || browserToolsResult.code,
+          detail: browserToolsResult,
+        };
+      }
+      if (!automationPolicy.browserToolsRequired) return { ok: true, detail: { required: false } };
+      const status = inspectBrowserTools({ env: process.env });
+      return status.ready
+        ? { ok: true, detail: status }
+        : { ok: false, message: 'Playwright CLI/MCP is not installed and registered', detail: status };
+    }
     const result = await verifyStep(step, state, process.env);
     // wiki-path-optional never fails (PRD: absence must never block bot
     // creation) — its advisory (missing path / not provided) surfaces here

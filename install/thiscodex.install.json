@@ -134,6 +134,16 @@
       "on_fail": { "next_command": "thiscodex doctor --fix-guide codex-config" }
     },
     {
+      "id": "browser_tools_bootstrap",
+      "order": 85,
+      "when": "always",
+      "action": "apply",
+      "reason": "When browser tools are required, automatic mode installs Playwright CLI and MCP, registers the MCP with Codex, re-detects the registration, and proves direct use with a headless DOM-click E2E before onboarding can continue.",
+      "safety": "none",
+      "verify": { "type": "browser-tools-ready" },
+      "on_fail": { "next_command": "thiscodex browser-e2e --ensure --automation-mode auto" }
+    },
+    {
       "id": "config_ceiling_patch",
       "order": 90,
       "when": "answers.codex_yolo == 'config_ceiling_patch'",

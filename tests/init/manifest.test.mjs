@@ -16,6 +16,7 @@ test('manifest loads ordered ThisCodex steps', () => {
     'confirm_bot_wd',
     'confirm_runtime_name',
     'codex_skill_layer',
+    'browser_tools_bootstrap',
     'config_ceiling_patch',
     'tmux_install_consent',
     'alias_consent',
@@ -38,6 +39,20 @@ test('automatic/manual is the first interaction and remains separate from instal
   assert.equal(mode.verify.choices, 'auto,manual');
   assert.ok(mode.order < detect.order);
   assert.notEqual(mode.verify.state_key, surface.verify.state_key);
+});
+
+test('browser tools policy has an executable install and E2E consumer', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const step = manifest.steps.find(candidate => candidate.id === 'browser_tools_bootstrap');
+  const source = readFileSync('bin/thiscodex.mjs', 'utf8');
+
+  assert.equal(step.action, 'apply');
+  assert.equal(step.verify.type, 'browser-tools-ready');
+  assert.match(step.reason, /installs Playwright CLI and MCP/i);
+  assert.match(step.reason, /E2E/i);
+  assert.match(source, /step\.id === 'browser_tools_bootstrap'/);
+  assert.match(source, /ensureBrowserTools\(\{/);
+  assert.match(source, /command === 'browser-e2e'/);
 });
 
 test('guided onboarding asks for the bot runtime name before generating aliases', () => {
