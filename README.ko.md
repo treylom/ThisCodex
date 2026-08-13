@@ -131,11 +131,14 @@ superpowers 가용성, runner 안내, 최종 doctor 검증을 한 번에 한 질
 
 자동 모드는 `install/automation-policy.yaml`을 설치기의 strict YAML subset
 reader가 읽어 코드에서 강제합니다. AI 에이전트가 수동 안내를 띄우기 전에는
-`thiscodex automation-gate`를 호출해야 합니다. 이름 없는 관문은 실제 시도와
-결과가 필요하고, 자격증명·CAPTCHA·동의·소유권처럼 이름 있는 사람 관문도
-`human_required` 근거를 남겨야 합니다. 결과는 비밀값을 지운 뒤
-`~/.config/thiscodex/automation-attempts.jsonl`(mode `0600`)에 기록합니다.
-브라우저 작업은 Playwright·claude-in-chrome 또는 발견된 동등 provider를
+`thiscodex automation-gate`를 호출해야 합니다. 이름 없는 관문은 차단되고,
+시도 필수 관문은 app-server bridge가 현재 턴에 독립 기록한 완료 이벤트만
+소비합니다. 자격증명·CAPTCHA·동의·소유권처럼 이름 있는 사람 관문은
+`human_required`로 기록합니다. 반환되는 짧은 receipt는 Discord PreToolUse
+훅과 bridge fallback이 함께 확인합니다. 감사 로그에는 정책 라벨과 증거 좌표만
+남고 도구 인자·결과·페이지 본문·URL·raw 오류는 남지 않습니다
+(`~/.config/thiscodex/automation-attempts.jsonl`, mode `0600`).
+브라우저 작업은 정책에 등록된 Playwright·claude-in-chrome 중 선택한 provider를
 완료·정책상 사람 보안 관문·기록된 provider/tool 실패 중 하나까지 유지합니다.
 도구를 시작만 하고 설명으로 바꾸는 것은 완료가 아닙니다.
 

@@ -16,16 +16,48 @@ Generated through the mandatory `/prompt` workflow:
 Guide `thiscodex setup` / `thiscodex init` without inventing paths or silently
 skipping decisions.
 
+## Automatic handoff inventory (runtime source of truth)
+
+`install/automation-policy.yaml` owns the machine-readable names below. In
+automatic mode, every user-facing manual instruction must first pass
+`thiscodex automation-gate`; copy its `receipt_marker` unchanged into the
+Discord message together with `<!-- thiscodex-manual-handoff -->`. The bridge
+and the PreToolUse hook reject a handoff without a current-turn receipt.
+
+| Gate | Automatic action before handoff | Human-only / terminal reason |
+|---|---|---|
+| <!-- thiscodex-handoff-gate:host_wsl_install_consent --> `host_wsl_install_consent` | inspect host/WSL state | host install consent |
+| <!-- thiscodex-handoff-gate:host_tmux_install_consent --> `host_tmux_install_consent` | inspect tmux state | host install consent |
+| <!-- thiscodex-handoff-gate:codex_privilege_config_consent --> `codex_privilege_config_consent` | inspect safe/YOLO config | privilege-boundary consent |
+| <!-- thiscodex-handoff-gate:codex_hook_trust_approval --> `codex_hook_trust_approval` | wire and probe the hook | Codex `/hooks` trust approval |
+| <!-- thiscodex-handoff-gate:shell_profile_persistence --> `shell_profile_persistence` | generate a sourceable block | persistent profile edit consent |
+| <!-- thiscodex-handoff-gate:daemon_start_consent --> `daemon_start_consent` | materialize and verify runner | daemon start consent |
+| <!-- thiscodex-handoff-gate:superpowers_install_consent --> `superpowers_install_consent` | detect the skill/plugin | install consent |
+| <!-- thiscodex-handoff-gate:github_auth_login --> `github_auth_login` | run secret-safe auth detection | account login |
+| <!-- thiscodex-handoff-gate:codex_discord_mcp_config_consent --> `codex_discord_mcp_config_consent` | inspect current MCP config | config edit consent |
+| <!-- thiscodex-handoff-gate:browser_provider_install_declined --> `browser_provider_install_declined` | offer provider registration | explicit operator decline |
+| <!-- thiscodex-handoff-gate:browser_provider_setup --> `browser_provider_setup` | register, restart, and re-detect | observed provider failure |
+| <!-- thiscodex-handoff-gate:discord_portal_login --> `discord_portal_login` | inspect with the bound provider | credentials/MFA |
+| <!-- thiscodex-handoff-gate:discord_hcaptcha --> `discord_hcaptcha` | inspect with the bound provider | CAPTCHA |
+| <!-- thiscodex-handoff-gate:discord_reset_token_modal --> `discord_reset_token_modal` | inspect with the bound provider | password/MFA modal |
+| <!-- thiscodex-handoff-gate:discord_desktop_approval --> `discord_desktop_approval` | attempt with the bound provider | observed uncontrollable-window failure |
+| <!-- thiscodex-handoff-gate:token_direct_entry --> `token_direct_entry` | attempt model-blind clipboard receipt | observed clipboard failure, then user-only secret entry |
+| <!-- thiscodex-handoff-gate:slack_browser_login --> `slack_browser_login` | inspect with the bound provider | credentials/MFA |
+| <!-- thiscodex-handoff-gate:slack_browser_auth --> `slack_browser_auth` | ticket → confirm → challenge with the bound provider | observed browser failure |
+| <!-- thiscodex-handoff-gate:slack_workspace_admin_approval --> `slack_workspace_admin_approval` | inspect workspace requirement | admin approval |
+| <!-- thiscodex-handoff-gate:slack_app_reinstall_approval --> `slack_app_reinstall_approval` | inspect requested scopes | OAuth reinstall approval |
+| <!-- thiscodex-handoff-gate:slack_native_host_install_consent --> `slack_native_host_install_consent` | detect native-host path | native install consent |
+
 ## Required Flow
 
 1. Run `thiscodex init` for guided onboarding. Its **first interaction** is the
    Automatic (`auto` / 자동) versus Manual (`manual` / 수동) choice; do not run
    environment checks or ask another setup question first. In automatic mode,
    before relaying any command or telling the user to perform an action, call
-   `thiscodex automation-gate` with a stable gate name. An unlisted gate needs
-   one real attempted operation plus its result; a named security boundary
-   needs `human_required` evidence. Missing/blocked gate output means the
-   handoff must not be shown.
+   `thiscodex automation-gate` with a policy-listed stable gate name. Unlisted
+   gates fail closed. Attempt-required gates consume a current-turn completion
+   envelope written by the bridge; named security boundaries use
+   `human_required`. Missing/blocked output means the handoff must not be shown.
 2. Confirm repo root, workspace, BOT_WD, and Discord state dir before generating
    aliases. Then create `SOUL.md` (persona) + `AGENTS.md` (rules pointer) in
    BOT_WD — **REQUIRED, never skip silently** (2026-08-12 regression fix: real
@@ -62,6 +94,11 @@ skipping decisions.
    snake_case (`pre_tool_use:…`) — same event, two notations; never "unify"
    them when transcribing. If you add / remove / reorder hook array entries,
    re-check `/hooks` approval: the trust keys are index-based.
+   Automatic mode additionally requires `hooks/automation-handoff-gate.py`
+   under `PreToolUse` with matcher
+   `mcp__discord__reply|mcp__discord__edit_message`. Run `/hooks`, approve that
+   exact hook, and rerun `thiscodex doctor`; doctor fails until both wiring and
+   its matching `pre_tool_use:<group>:<hook>` `trusted_hash` are present.
    Immediately before the trust prompt, record `codex_hook_trust_approval` as
    `human_required` with operation `review-codex-hook-trust`.
    For multi-bot workspaces, additionally wire the dispatch-room gate

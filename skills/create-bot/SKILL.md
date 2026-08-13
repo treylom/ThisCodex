@@ -45,20 +45,24 @@ manual handoff, call the shipped code gate; prose judgment is not evidence:
 ```bash
 thiscodex automation-gate --gate <stable-gate-name> \
   --status <succeeded|failed|human_required> \
-  --operation <operation> --reason '<non-secret result>'
+  --surface <policy-surface> --flow <policy-flow> \
+  --provider <observed-provider-or-empty> --operation <policy-operation> \
+  --terminal <policy-terminal> --reason-code <policy-reason-code>
 ```
 
-In auto mode an unlisted gate is blocked unless the agent actually attempted
-the operation once. After a real browser-tool attempt, add `--attempted
---surface browser --provider <discovered-provider> --browser-terminal-reason
-<completed|human_security_gate|provider_unavailable|tool_failed>`. The gate
-writes a secret-redacted result to
+In auto mode an unlisted gate is blocked. For attempt-required gates the CLI
+accepts only a completion envelope independently written by the app-server
+bridge for the current turn; flags or prose cannot claim an attempt. The first
+provider observed for a flow is bound to that flow. The gate writes only
+policy labels plus evidence coordinates (never arguments, page text, URL,
+result, or raw error) to
 `~/.config/thiscodex/automation-attempts.jsonl`.
 
 - `handoff_allowed: false` means continue automatically; do not show manual
   instructions.
 - `handoff_allowed: true` means the failed attempt or named security boundary
-  is recorded, so the one necessary human action may be shown with that result.
+  is recorded. Put `<!-- thiscodex-manual-handoff -->` and the returned
+  `receipt_marker` unchanged in the one necessary human-action message.
 - An error or missing audit record means manual handoff is forbidden.
 
 The only no-attempt exceptions are stable names declared with reasons in
@@ -67,9 +71,11 @@ Never add an exception merely because automation is inconvenient.
 
 ## 1. Discover browser automation by capability
 
-Detect capability, not server or tool name. Tool prefixes and MCP server labels
-vary by installation, so never require a literal name such as
-`mcp__playwright__browser_click`.
+Accept only the policy-listed providers `playwright` and `claude-in-chrome`,
+then discover each provider's callable tool names by capability. Tool prefixes
+vary, so never require a literal tool name such as
+`mcp__playwright__browser_click`; the app-server completion envelope, not model
+prose, proves which allowed provider actually ran.
 
 1. Inspect the callable tool metadata exposed to the current turn. If the
    harness offers tool search, search tool descriptions as well.
@@ -103,8 +109,7 @@ command = "npx"
 args = ["-y", "@playwright/mcp@latest"]
 ```
 
-`playwright` is only an example registration label; capability discovery must
-still ignore the label. Restart Codex so the new MCP tools enter the session,
+`playwright` is the policy-listed server label. Restart Codex so the new MCP tools enter the session,
 invoke this skill again, and repeat the capability check. Do not claim the
 tools are usable before that re-detection.
 
@@ -116,10 +121,9 @@ Before that fallback, record the consent boundary:
 
 ```bash
 thiscodex automation-gate --gate browser_provider_install_declined \
-  --status human_required --surface browser --provider <discovered-or-requested-provider> \
-  --operation request-provider-install-consent \
-  --reason 'user declined the Codex MCP configuration change' \
-  --browser-terminal-reason human_security_gate
+  --status human_required --surface consent --flow browser-provider \
+  --operation review-browser-provider-install \
+  --terminal human_security_gate --reason-code operator_declined
 ```
 
 If registration was approved, **run it**, restart/re-detect, and keep using the
@@ -127,11 +131,10 @@ same browser provider through the terminal page state. If registration or
 re-detection fails, record that actual attempt before offering a manual path:
 
 ```bash
-thiscodex automation-gate --gate browser_provider_setup --attempted \
+thiscodex automation-gate --gate browser_provider_setup \
   --status failed --surface browser --provider playwright \
-  --operation register-restart-redetect \
-  --reason '<non-secret failure>' \
-  --browser-terminal-reason provider_unavailable
+  --flow browser-provider --operation register-restart-redetect-provider \
+  --terminal tool_failed --reason-code provider_not_callable
 ```
 
 ## 2. Human-only gates
@@ -152,7 +155,7 @@ security boundary before asking for the one human action. Use gate names
 `discord_portal_login`, `discord_hcaptcha`, and
 `discord_reset_token_modal`, status `human_required`, the provider and observed
 operation, a non-secret reason, `--surface browser`, and
-`--browser-terminal-reason human_security_gate`. These names are the policy-declared
+the exact flow/operation/terminal/reason-code fields from the policy. These names are the policy-declared
 exceptions; the browser remains attached and must resume immediately after the
 user-owned action.
 
@@ -197,8 +200,9 @@ automated path into imperative instructions for the user.
    and approve. If Discord forces a desktop-app approval window that the
    connected browser cannot operate, first attempt the approval with the same
    provider, then call `automation-gate` with gate
-   `discord_desktop_approval`, `--attempted --status failed --surface browser`,
-   the provider, operation, failure reason, and browser terminal reason. Hand
+   `discord_desktop_approval`, `--status failed --surface browser --flow
+   discord-portal`, the provider, operation `approve-discord-desktop-window`,
+   terminal `tool_failed`, and reason code `provider_cannot_control_window`. Hand
    off only that approval click, and only when the gate returns
    `handoff_allowed: true`.
 10. For a private channel, add the bot as a channel member. Server invitation
@@ -252,10 +256,11 @@ directly into `<state-dir>/.env` in their terminal. The user reports only
 "saved"; the token never enters the conversation.
 
 Before showing that instruction, call `automation-gate` with gate
-`token_direct_entry`, status `human_required`, operation
-`model-blind-token-receipt`, and the non-secret reason the model-blind route is
-unavailable. This named exception protects the secret; it is not permission to
-skip the clipboard attempt when a supported path exists.
+`token_direct_entry`, status `failed`, surface `secret`, flow `discord-token`,
+provider `model-blind-clipboard`, operation `model-blind-token-receipt`,
+terminal `tool_failed`, and reason code `model_blind_channel_unavailable`.
+The bridge must have observed the failed clipboard command in this turn. This
+gate protects the secret; it is not permission to skip the clipboard attempt.
 
 Do not place a real token in a command literal, test fixture, log, screenshot,
 git diff, or generated report.
@@ -284,8 +289,8 @@ human gates, two required intents, two scopes, eleven permissions, private
 channel membership, and secret-safe `.env` storage. Do not weaken the
 verification checklist merely because the clicks were manual.
 
-For every browser run, keep Playwright, claude-in-chrome, or the discovered
-equivalent connected browser capability in use from the first navigation until
+For every browser run, keep the selected `playwright` or `claude-in-chrome`
+provider in use from the first navigation until
 one terminal state: completed, a policy-declared human security gate, or a
 recorded tool/provider failure. Starting a provider and silently switching to
 instructions is forbidden. Every browser terminal reason must be present in

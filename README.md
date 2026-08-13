@@ -148,11 +148,15 @@ must not auto-run a non-interactive install or report "copied = installed".
 
 Automatic mode is enforced by `install/automation-policy.yaml`, consumed by the
 installer's strict YAML subset reader. Before an AI agent displays a manual
-fallback, it must call `thiscodex automation-gate`: an unlisted gate requires a
-real attempted operation and result, while named credential, CAPTCHA, consent,
-and ownership boundaries require explicit `human_required` evidence. Results are
-secret-redacted in `~/.config/thiscodex/automation-attempts.jsonl` (mode `0600`).
-For browser work, Playwright, claude-in-chrome, or the discovered equivalent
+fallback, it must call `thiscodex automation-gate`. Unlisted gates fail closed;
+attempt-required gates consume a completion envelope independently written by
+the app-server bridge for the current turn, while named credential, CAPTCHA,
+consent, and ownership boundaries require `human_required`. The returned
+short-lived receipt is required by both the Discord PreToolUse hook and the
+bridge fallback relay. Audits contain policy labels and evidence coordinates,
+never tool arguments/results, page text, URLs, or raw errors, and live at
+`~/.config/thiscodex/automation-attempts.jsonl` (mode `0600`).
+For browser work, the selected policy-listed `playwright` or `claude-in-chrome`
 provider stays attached until completion, a policy-declared human security gate,
 or a logged provider/tool failure. Starting a tool and switching to instructions
 is not completion.
@@ -322,11 +326,15 @@ The shipped hook helpers only take effect once they are both **wired** into
   `/hooks` approval after adding/removing/reordering hook entries (trust keys
   are index-based).
 - **PreToolUse soft→hard gates** → `hooks/automation-no-interactive.sh` and
-  `hooks/verify-before-push.sh`: these deny risky tool calls with
+  `hooks/verify-before-push.sh`, plus `hooks/automation-handoff-gate.py` for
+  Discord reply/edit calls: these deny risky tool calls with
   `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",...}}`
   and `exit 0`. This JSON deny shape is covered by the shipped tests for the
   Codex 0.130+ hook contract. `verify-before-push.sh` defaults to observe mode
   unless `A1_ENFORCE=1` or `hooks/.a1-enforce` is present.
+  In automatic install mode the handoff gate requires the current-turn receipt
+  from `thiscodex automation-gate`; `thiscodex doctor` fails until that hook is
+  both wired and trusted.
 - **Meeting liveness** → `hooks/meeting-liveness.py`: a standalone dry-run by
   default that detects active meeting participants whose `02-progress.md` row
   is stale and, when explicitly run with `--send`, posts a per-bot nudge.

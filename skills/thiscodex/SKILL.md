@@ -29,11 +29,14 @@ decision, it prints an interactive-recovery hint — relay that to the user and
 let them choose; never self-answer to push past it.
 
 In automatic mode, a manual handoff is allowed only after the shipped
-`thiscodex automation-gate` records either one real failed attempt or a named
-human-security boundary from `install/automation-policy.yaml`. For browser
-work, keep Playwright/claude-in-chrome or the discovered equivalent provider in
-use until completion or a logged terminal reason; starting a tool and falling
-back to instructions is not completion.
+`thiscodex automation-gate` consumes a current-turn completion envelope written
+by the app-server bridge or records a named human-security boundary from
+`install/automation-policy.yaml`. Put the returned `receipt_marker` plus
+`<!-- thiscodex-manual-handoff -->` in the handoff message; the PreToolUse hook
+and bridge fallback reject missing, stale, cross-turn, and reused receipts. For
+browser work, keep the first observed Playwright/claude-in-chrome provider bound
+to the flow until completion or a logged terminal reason; starting a tool and
+falling back to instructions is not completion.
 
 Invocable skill. Install paths:
 - **user-tier**: copy this folder to `~/.agents/skills/thiscodex/` (codex 4-layer scan picks it up; deep docs are referenced by URL below so a loose copy still works).

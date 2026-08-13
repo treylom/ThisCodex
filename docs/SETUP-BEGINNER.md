@@ -39,7 +39,7 @@ git pull
 ## 3. Create A Discord Bot (one-time, with the browser skill)
 
 Ask Codex to **run the `create-bot` skill**. In Automatic mode it keeps one
-connected Playwright/claude-in-chrome-equivalent provider active, creates the
+policy-listed Playwright or claude-in-chrome provider active, creates the
 application, turns on the required intents, prepares the invite, and records a
 failure before it shows any manual fallback.
 

@@ -44,16 +44,19 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 
 말로 안 풀리면 화면을 직접 열어 같이 해결한다. **codex 의 도구 사정을 정직하게**:
 
-1. **가능한 경로 = 연결된 브라우저 자동화 MCP** — 서버·도구 이름을 하드코딩하지 말고 이동·snapshot/DOM 확인·클릭·입력·대기 능력이 모두 호출 가능한지 탐지한다. 갖춰졌으면 `/create-bot`으로 Discord 포털 흐름을 완주하고, Slack 웹 관문은 해당 스킬 계약에 따라 진행한다.
-2. **없으면 설치 제안**: "브라우저를 같이 볼 수 있는 도구를 붙일 수 있어요. 붙일까요?" → 승인 시 `codex mcp add playwright -- npx -y @playwright/mcp@latest` 또는 동등한 config.toml 등록 안내 → Codex 재시작 → 능력 재탐지. `playwright`는 예시 등록 이름일 뿐 탐지 키가 아니다.
+1. **가능한 경로 = 연결된 `playwright` 또는 `claude-in-chrome` MCP** — 정책에 등록된 이 두 provider 중 하나를 고르고, 이동·snapshot/DOM 확인·클릭·입력·대기 능력이 모두 호출 가능한지 탐지한다. 갖춰졌으면 `/create-bot`으로 Discord 포털 흐름을 완주하고, Slack 웹 관문은 해당 스킬 계약에 따라 진행한다.
+2. **없으면 설치 제안**: "브라우저를 같이 볼 수 있는 도구를 붙일 수 있어요. 붙일까요?" → 승인 시 `codex mcp add playwright -- npx -y @playwright/mcp@latest` 또는 `claude-in-chrome` 등록 안내 → Codex 재시작 → 능력 재탐지.
 3. **computer_use / browser_use 는 제안하지 마라** — codex CLI 에선 기능 플래그만 있고 **호출 가능한 도구가 아니다**(공식 명령 부재·데스크톱 앱 번들 MCP 전용, openai/codex#20851 — README §1 기능 표의 ⏸️ 보류 행·§6 과 동일 표기). 있는 척 ❌, 우회 시도 ❌.
 4. **최종 폴백**: 화면 단계별 텍스트 안내 ("왼쪽 위 New Application 파란 버튼을 눌러주세요" 수준).
 
 **자동 모드 코드 게이트 (hard)**: 최종 폴백을 말로 판단해 바로 띄우지
-않는다. 먼저 연결된 Playwright/claude-in-chrome 또는 동등한 브라우저 도구로
-해결을 실제 시도하고, `thiscodex automation-gate`에 `--attempted`, provider,
-operation, 실패 사유, browser terminal reason을 기록한다. 출력이
+않는다. 먼저 연결된 Playwright/claude-in-chrome 중 한 provider로
+해결을 실제 시도하고, `thiscodex automation-gate`에 정책의 gate·surface·flow·
+provider·operation·terminal·reason-code를 그대로 넣는다. bridge가 현재 턴의
+실제 MCP 완료 이벤트를 쓴 경우에만 게이트가 이를 소비한다. 출력이
 `handoff_allowed: true`일 때만 그 실패 사유와 함께 단계별 안내를 보여준다.
+그 안내에는 `<!-- thiscodex-manual-handoff -->`와 반환된 `receipt_marker`를
+그대로 넣는다. receipt 없는 안내는 PreToolUse와 bridge fallback 양쪽에서 막힌다.
 브라우저 작업을 재개할 수 있으면 처음 선택한 같은 provider를 끝까지 사용한다.
 로그인·MFA·hCaptcha 같은 선언된 보안 관문도 stable gate name과
 `human_required` 결과를 먼저 기록한다. 수동 모드는 게이트가 수동 선택을

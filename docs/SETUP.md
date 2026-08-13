@@ -41,8 +41,11 @@ one question at a time. Do not report "copied = installed"; skill placement and
 guided onboarding are different steps.
 
 `install/automation-policy.yaml` is consumed by code. In Automatic mode, a
-manual fallback is blocked until `thiscodex automation-gate` records either one
-real failed attempt or a named human-only boundary. The redacted audit lives at
+manual fallback is blocked until `thiscodex automation-gate` consumes a
+current-turn completion envelope written by the bridge or records a named
+human-only boundary. The returned receipt must accompany the handoff and is
+checked by both the Discord PreToolUse hook and bridge fallback. The audit
+stores only policy labels and evidence coordinates at
 `~/.config/thiscodex/automation-attempts.jsonl` with file mode `0600`.
 
 ## 3. Discord Bot Creation With Browser Automation
@@ -53,9 +56,9 @@ opens the Discord Developer Portal, creates the application, enables Message
 Content Intent and Server Members Intent, receives the token through a
 secret-safe handoff, and creates the server invitation.
 
-The skill discovers interactive browser tools by their capabilities, not by a
-fixed MCP or tool name. If no callable provider can navigate, inspect a page,
-click, type, and wait, it asks before registering Playwright MCP:
+The skill accepts the policy-listed `playwright` or `claude-in-chrome` provider
+and discovers its callable tool names by capability. If neither can navigate,
+inspect a page, click, type, and wait, it asks before registering Playwright MCP:
 
 ```bash
 codex mcp add playwright -- npx -y @playwright/mcp@latest
@@ -70,8 +73,8 @@ args = ["-y", "@playwright/mcp@latest"]
 ```
 
 Restart Codex after registration, then run the `create-bot` skill again so it
-can re-detect the callable tools. The label `playwright` is only an example;
-the skill does not depend on that name. `web.run` can fetch pages but cannot
+can re-detect the callable tools. The app-server completion envelope must name
+one of the two policy providers. `web.run` can fetch pages but cannot
 replace interactive portal control.
 
 Keep the selected browser provider in use through one terminal state:
