@@ -79,6 +79,32 @@ test('auto mode requires exact policy metadata and independently observed eviden
   assert.equal(failed.handoffAllowed, true);
 });
 
+test('browser_tools_required changes automatic browser handoff behavior and fails closed when disabled', () => {
+  const yaml = readFileSync(POLICY, 'utf8');
+  const required = parseAutomationPolicyYaml(yaml);
+  const disabled = parseAutomationPolicyYaml(yaml.replace(
+    'browser_tools_required: true',
+    'browser_tools_required: false',
+  ));
+  const gate = required.gates.get('discord_hcaptcha');
+  const request = requestFor(gate);
+
+  assert.equal(decideManualHandoff({
+    gate: gate.name, mode: 'auto', policy: required, request,
+  }).code, 'observed_evidence_required');
+  assert.equal(decideManualHandoff({
+    gate: gate.name, mode: 'auto', policy: disabled, request,
+  }).code, 'browser_tools_disabled_by_policy');
+  assert.equal(decideManualHandoff({
+    gate: gate.name, mode: 'manual', policy: disabled, request,
+  }).code, 'manual_mode');
+
+  const commandGate = disabled.gates.get('token_direct_entry');
+  assert.equal(decideManualHandoff({
+    gate: commandGate.name, mode: 'auto', policy: disabled, request: requestFor(commandGate),
+  }).code, 'observed_evidence_required');
+});
+
 test('successful observed attempts continue automatically instead of handing off', () => {
   const policy = loadAutomationPolicy(POLICY);
   const gate = policy.gates.get('slack_browser_auth');

@@ -109,6 +109,9 @@ export function startAutomationAttempt({ dir, policy, gate, now = new Date() }) 
   const gatePolicy = policy.gates.get(gate);
   if (!gatePolicy) return { ok: false, code: 'unknown_gate' };
   if (gatePolicy.evidence === 'none') return { ok: false, code: 'attempt_not_required' };
+  if (gatePolicy.surface === 'browser' && !policy.browserToolsRequired) {
+    return { ok: false, code: 'browser_tools_disabled_by_policy' };
+  }
   const active = readActiveAutomationTurn(dir, now);
   if (!active) return { ok: false, code: 'bridge_evidence_unavailable' };
   const flow = readActiveAutomationFlow(dir, now);

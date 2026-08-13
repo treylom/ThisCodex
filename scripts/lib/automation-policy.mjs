@@ -183,6 +183,15 @@ export function decideManualHandoff({ gate, mode, policy, request = {}, evidence
   if (mode === 'manual') {
     return { ok: true, handoffAllowed: true, code: 'manual_mode', gatePolicy, audit: { ...base, decision: 'handoff_allowed' } };
   }
+  if (gatePolicy.surface === 'browser' && !policy.browserToolsRequired) {
+    return {
+      ok: false,
+      handoffAllowed: false,
+      code: 'browser_tools_disabled_by_policy',
+      gatePolicy,
+      audit: { ...base, decision: 'blocked' },
+    };
+  }
   for (const key of ['surface', 'flow', 'operation', 'terminal', 'reasonCode']) {
     const policyKey = key === 'reasonCode' ? 'reason_code' : key;
     if (request[key] !== gatePolicy[policyKey]) {

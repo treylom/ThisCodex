@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -11,7 +11,7 @@ import {
   startAutomationAttempt,
   startAutomationFlow,
 } from '../../scripts/lib/automation-evidence.mjs';
-import { loadAutomationPolicy } from '../../scripts/lib/automation-policy.mjs';
+import { loadAutomationPolicy, parseAutomationPolicyYaml } from '../../scripts/lib/automation-policy.mjs';
 
 const NOW = new Date('2026-08-13T08:00:00.000Z');
 
@@ -186,6 +186,38 @@ test('an attempt binds one policy gate and operation before evidence can be cons
   assert.equal(prepared.attempt.operation, 'inspect-discord-hcaptcha');
   assert.equal(prepared.attempt.evidence_tool, 'browser_inspect');
   assert.equal(startAutomationAttempt({ dir, policy, gate: 'github_auth_login', now: NOW }).code, 'attempt_not_required');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('browser_tools_required prevents a browser attempt record when policy disables the tools', () => {
+  const yaml = readFileSync('install/automation-policy.yaml', 'utf8');
+  const required = parseAutomationPolicyYaml(yaml);
+  const disabled = parseAutomationPolicyYaml(yaml.replace(
+    'browser_tools_required: true',
+    'browser_tools_required: false',
+  ));
+  const dir = mkdtempSync(join(tmpdir(), 'tcx-browser-policy-'));
+  const paths = automationEvidencePaths(dir);
+  writeFileSync(paths.activeTurn, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1',
+    started_at: '2026-08-13T07:59:00.000Z',
+  }));
+  writeFileSync(paths.activeFlow, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', flow: 'discord-portal', provider: 'playwright',
+    started_at: '2026-08-13T07:58:00.000Z', updated_at: '2026-08-13T07:59:00.000Z',
+  }));
+
+  const blocked = startAutomationAttempt({
+    dir, policy: disabled, gate: 'discord_hcaptcha', now: NOW,
+  });
+  assert.equal(blocked.code, 'browser_tools_disabled_by_policy');
+  assert.equal(existsSync(paths.activeAttempt), false);
+
+  const started = startAutomationAttempt({
+    dir, policy: required, gate: 'discord_hcaptcha', now: NOW,
+  });
+  assert.equal(started.code, 'attempt_started');
+  assert.equal(existsSync(paths.activeAttempt), true);
   rmSync(dir, { recursive: true, force: true });
 });
 
