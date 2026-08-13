@@ -80,6 +80,8 @@ test('automatic handoff hook flow state denies unmarked prose and atomically con
     env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto' },
   });
   const denied = run(input);
+  assert.doesNotMatch(denied.stdout, /[^\x00-\x7F\r\n]/u,
+    'hook JSON must remain writable on Windows code pages');
   assert.equal(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision, 'deny');
   for (const text of [
     'Please enter your GitHub login credentials to continue.',

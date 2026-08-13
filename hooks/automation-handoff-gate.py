@@ -44,7 +44,7 @@ def _decision(allow: bool, reason: str = "") -> None:
         "hookEventName": "PreToolUse",
         "permissionDecision": value,
         **({"permissionDecisionReason": reason} if reason else {}),
-    }}, ensure_ascii=False))
+    }}))
 
 
 def _state_dir() -> Path:
