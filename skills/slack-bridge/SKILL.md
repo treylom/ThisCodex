@@ -94,11 +94,13 @@ slack login --no-prompt
 ```
 
 1. 위 `/slackauthticket …` 한 줄을 **Slack 아무 채널·DM 에 붙여넣고 전송** → 권한 모달에서 **Confirm** → 챌린지 코드 표시됨.
-   - 자동화: 첫 브라우저 호출 전에 `thiscodex automation-flow --start --flow slack-auth`를 실행한 뒤, 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기.
+   - 자동화: 첫 브라우저 호출 전에 `thiscodex automation-flow --start --flow slack-auth`를 실행한다. Confirm 자동 시도 직전 `thiscodex automation-attempt --gate slack_browser_auth`로 operation을 묶은 뒤, 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기를 끝까지 수행한다.
    - Claude Code 환경 = `claude-in-chrome`으로 완전 자동 실측 성공(2026-08-05). **Codex 환경 = 정책에 등록된 `playwright` 또는 `claude-in-chrome`으로 같은 3동작(입력→Confirm→코드 회수)을 수행**한다. navigate/snapshot/click/fill/wait 능력을 확인하고 첫 completion envelope에 기록된 provider를 끝까지 유지한다.
    - 자동 모드에서는 도구 부재를 곧바로 사람 관문으로 바꾸지 않는다. Playwright MCP 등록·재시작·능력 재탐지를 실제로 시도한다. 실패한 경우에만 `thiscodex automation-gate --gate slack_browser_auth --status failed --surface browser --flow slack-auth --provider <provider> --operation login-ticket-confirm-challenge --terminal tool_failed --reason-code browser_tool_failed`를 실행한다. bridge가 현재 턴의 실제 완료 이벤트를 기록하지 않았거나 다른 provider를 썼으면 게이트는 실패한다. `handoff_allowed: true`일 때만 `<!-- thiscodex-manual-handoff -->`와 반환된 `receipt_marker`를 포함해 수동 행동을 보여준다. Slack 로그인 화면이면 아래 게이트를 실행하고, 로그인 뒤 **같은 provider로 재개**한다. 도구를 시작만 하고 안내로 전환하는 경로는 금지한다.
 
    ```bash
+   thiscodex automation-attempt --gate slack_browser_login
+   # 로그인 화면을 같은 provider로 다시 inspect한다.
    thiscodex automation-gate --gate slack_browser_login \
      --status human_required --surface browser --flow slack-auth \
      --provider <bound-provider> --operation inspect-slack-login \
@@ -114,6 +116,8 @@ slack auth list   # 워크스페이스·User ID 나오면 성공 (~/.slack/crede
 같은 provider로 로그인 완료 화면을 inspect한 뒤 flow를 닫는다:
 
 ```bash
+thiscodex automation-attempt --gate slack_browser_auth_complete
+# 완료 화면을 같은 provider로 inspect한다.
 thiscodex automation-gate --gate slack_browser_auth_complete \
   --status succeeded --surface browser --flow slack-auth \
   --provider <bound-provider> --operation verify-slack-auth-complete \

@@ -54,7 +54,9 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 않는다. 먼저 연결된 Playwright/claude-in-chrome 중 한 provider로
 해결을 실제 시도하고, `thiscodex automation-gate`에 정책의 gate·surface·flow·
 provider·operation·terminal·reason-code를 그대로 넣는다. bridge가 현재 턴의
-실제 MCP 완료 이벤트를 쓴 경우에만 게이트가 이를 소비한다. 출력이
+실제 MCP 완료 이벤트를 쓴 경우에만 게이트가 이를 소비한다. 실제 tool call
+직전에는 소유 스킬의 `thiscodex automation-attempt --gate <stable-gate-name>`로
+그 gate·operation을 먼저 묶어야 하며, help가 임의 operation을 만들면 안 된다. 출력이
 `handoff_allowed: true`일 때만 그 실패 사유와 함께 단계별 안내를 보여준다.
 그 안내에는 `<!-- thiscodex-manual-handoff -->`와 반환된 `receipt_marker`를
 그대로 넣는다. receipt 없는 안내는 PreToolUse와 bridge fallback 양쪽에서 막힌다.

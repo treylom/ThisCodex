@@ -8,6 +8,7 @@ import {
   clearAutomationFlow,
   issueHandoffReceipt,
   observeCurrentTurnEvidence,
+  startAutomationAttempt,
   startAutomationFlow,
 } from '../../scripts/lib/automation-evidence.mjs';
 import { loadAutomationPolicy } from '../../scripts/lib/automation-policy.mjs';
@@ -26,9 +27,19 @@ function fixture(provider = 'playwright', status = 'failed') {
     schema_version: 1, thread_id: 'thread-1', flow, provider,
     started_at: '2026-08-13T07:58:00.000Z', updated_at: '2026-08-13T07:59:00.000Z',
   }));
+  const gate = status === 'failed' ? 'slack_browser_auth' : 'discord_portal_complete';
+  const operation = status === 'failed' ? 'login-ticket-confirm-challenge' : 'verify-discord-portal-complete';
+  const evidenceTool = status === 'failed' ? 'browser_action' : 'browser_inspect';
+  writeFileSync(paths.activeAttempt, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', attempt_id: 'attempt-1',
+    gate, flow, operation, evidence_tool: evidenceTool,
+    started_at: '2026-08-13T07:59:10.000Z',
+  }));
   writeFileSync(paths.evidence, `${JSON.stringify({
-    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
-    flow, provider, tool: 'browser_click', tool_class: 'browser_action', status,
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
+    attempt_id: 'attempt-1', gate, flow, operation,
+    provider, tool: status === 'failed' ? 'browser_click' : 'browser_snapshot',
+    tool_class: evidenceTool, status,
     error_class: status === 'failed' ? 'tool_error' : 'none',
     observed_at: '2026-08-13T07:59:30.000Z',
   })}\n`);
@@ -47,7 +58,7 @@ test('current-turn evidence is consumed once and binds a flow to one provider', 
   const second = observeCurrentTurnEvidence({
     dir, policy, gatePolicy, flow: 'slack-auth', provider: 'playwright', status: 'failed', now: NOW,
   });
-  assert.equal(second.code, 'matching_evidence_missing');
+  assert.equal(second.code, 'active_attempt_required');
   assert.equal(statSync(paths.consumed).mode & 0o777, 0o600);
   rmSync(dir, { recursive: true, force: true });
 });
@@ -60,9 +71,15 @@ test('stale, foreign-turn, and caller-claimed providers fail closed', () => {
     schema_version: 1, thread_id: 'thread-1', flow: 'discord-portal', provider: 'playwright',
     started_at: '2026-08-13T07:58:00.000Z', updated_at: '2026-08-13T07:59:00.000Z',
   }));
+  writeFileSync(paths.activeAttempt, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', attempt_id: 'attempt-hcaptcha',
+    gate: 'discord_hcaptcha', flow: 'discord-portal', operation: 'inspect-discord-hcaptcha',
+    evidence_tool: 'browser_inspect', started_at: '2026-08-13T07:59:10.000Z',
+  }));
   writeFileSync(paths.evidence, `${JSON.stringify({
-    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
-    flow: 'discord-portal', provider: 'playwright', tool: 'browser_snapshot',
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
+    attempt_id: 'attempt-hcaptcha', gate: 'discord_hcaptcha', flow: 'discord-portal',
+    operation: 'inspect-discord-hcaptcha', provider: 'playwright', tool: 'browser_snapshot',
     tool_class: 'browser_inspect', status: 'completed', error_class: 'none',
     observed_at: '2026-08-13T07:59:30.000Z',
   })}\n`);
@@ -83,8 +100,9 @@ test('an active browser flow rejects a different allowed provider', () => {
   const gatePolicy = policy.gates.get('discord_portal_complete');
   const { dir, paths } = fixture('playwright', 'completed');
   writeFileSync(paths.evidence, `${JSON.stringify({
-    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-other',
-    flow: 'discord-portal', provider: 'claude-in-chrome', tool: 'browser_snapshot',
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-other',
+    attempt_id: 'attempt-1', gate: 'discord_portal_complete', flow: 'discord-portal',
+    operation: 'verify-discord-portal-complete', provider: 'claude-in-chrome', tool: 'browser_snapshot',
     tool_class: 'browser_inspect', status: 'completed', error_class: 'none',
     observed_at: '2026-08-13T07:59:30.000Z',
   })}\n`);
@@ -130,9 +148,15 @@ test('model-blind clipboard evidence is auxiliary to the bound Discord browser f
   const policy = loadAutomationPolicy();
   const gatePolicy = policy.gates.get('token_direct_entry');
   const { dir, paths } = fixture('playwright', 'completed');
+  writeFileSync(paths.activeAttempt, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', attempt_id: 'attempt-clip',
+    gate: 'token_direct_entry', flow: 'discord-portal', operation: 'model-blind-token-receipt',
+    evidence_tool: 'clipboard', started_at: '2026-08-13T07:59:10.000Z',
+  }));
   writeFileSync(paths.evidence, `${JSON.stringify({
-    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'clip-1',
-    flow: 'discord-portal', provider: 'model-blind-clipboard', tool: 'clipboard-receipt-command',
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'clip-1',
+    attempt_id: 'attempt-clip', gate: 'token_direct_entry', flow: 'discord-portal',
+    operation: 'model-blind-token-receipt', provider: 'model-blind-clipboard', tool: 'clipboard-receipt-command',
     tool_class: 'clipboard', status: 'failed', error_class: 'tool_error',
     observed_at: '2026-08-13T07:59:30.000Z',
   })}\n`);
@@ -143,5 +167,49 @@ test('model-blind clipboard evidence is auxiliary to the bound Discord browser f
   assert.equal(result.ok, true);
   assert.equal(result.evidence.item_id, 'clip-1');
   assert.equal(JSON.parse(readFileSync(paths.activeFlow, 'utf8')).provider, 'playwright');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('an attempt binds one policy gate and operation before evidence can be consumed', () => {
+  const policy = loadAutomationPolicy();
+  const { dir, paths } = fixture('playwright', 'completed');
+  writeFileSync(paths.activeTurn, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-2',
+    started_at: '2026-08-13T07:59:00.000Z',
+  }));
+  writeFileSync(paths.activeFlow, JSON.stringify({
+    schema_version: 1, thread_id: 'thread-1', flow: 'discord-portal', provider: 'playwright',
+    started_at: '2026-08-13T07:58:00.000Z', updated_at: '2026-08-13T07:59:00.000Z',
+  }));
+  const prepared = startAutomationAttempt({ dir, policy, gate: 'discord_hcaptcha', now: NOW });
+  assert.equal(prepared.ok, true);
+  assert.equal(prepared.attempt.operation, 'inspect-discord-hcaptcha');
+  assert.equal(prepared.attempt.evidence_tool, 'browser_inspect');
+  assert.equal(startAutomationAttempt({ dir, policy, gate: 'github_auth_login', now: NOW }).code, 'attempt_not_required');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('same-flow evidence for another gate or operation cannot satisfy the claimed attempt', () => {
+  const policy = loadAutomationPolicy();
+  const gatePolicy = policy.gates.get('slack_browser_auth');
+  const { dir, paths } = fixture();
+  const base = {
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-wrong',
+    attempt_id: 'attempt-1', flow: 'slack-auth', provider: 'playwright',
+    tool: 'browser_click', tool_class: 'browser_action', status: 'failed',
+    error_class: 'tool_error', observed_at: '2026-08-13T07:59:30.000Z',
+  };
+  writeFileSync(paths.evidence, `${JSON.stringify({
+    ...base, gate: 'slack_browser_login', operation: 'inspect-slack-login',
+  })}\n`);
+  assert.equal(observeCurrentTurnEvidence({
+    dir, policy, gatePolicy, flow: 'slack-auth', provider: 'playwright', status: 'failed', now: NOW,
+  }).code, 'matching_evidence_missing');
+  writeFileSync(paths.evidence, `${JSON.stringify({
+    ...base, item_id: 'item-wrong-operation', gate: 'slack_browser_auth', operation: 'unrelated-click',
+  })}\n`);
+  assert.equal(observeCurrentTurnEvidence({
+    dir, policy, gatePolicy, flow: 'slack-auth', provider: 'playwright', status: 'failed', now: NOW,
+  }).code, 'matching_evidence_missing');
   rmSync(dir, { recursive: true, force: true });
 });

@@ -52,7 +52,10 @@ thiscodex automation-gate --gate <stable-gate-name> \
 
 In auto mode an unlisted gate is blocked. For attempt-required gates the CLI
 accepts only a completion envelope independently written by the app-server
-bridge for the current turn; flags or prose cannot claim an attempt. The first
+bridge for the current turn; flags or prose cannot claim an attempt. Immediately
+before the relevant tool call, bind its policy gate and operation with
+`thiscodex automation-attempt --gate <stable-gate-name>`. Evidence without that
+pre-attempt coordinate cannot satisfy another operation in the same flow. The first
 provider observed for a flow is bound to that flow. The gate writes only
 policy labels plus evidence coordinates (never arguments, page text, URL,
 result, or raw error) to
@@ -102,6 +105,8 @@ prose, proves which allowed provider actually ran.
    provider-discovery flow:
 
    ```bash
+   thiscodex automation-attempt --gate browser_provider_ready
+   # Call one real inspect/snapshot with the selected provider now.
    thiscodex automation-gate --gate browser_provider_ready \
      --status succeeded --surface browser --flow browser-provider \
      --provider <playwright-or-claude-in-chrome> \
@@ -121,6 +126,7 @@ In manual mode, ask before changing Codex configuration or running a package:
 In automatic mode, or on manual-mode approval, run:
 
 ```bash
+thiscodex automation-attempt --gate browser_provider_setup
 codex mcp add playwright -- npx -y @playwright/mcp@latest
 ```
 
@@ -184,17 +190,24 @@ user-owned action.
 
 Invoke the exact gate matching the observed page; each command consumes a
 current-turn `browser_inspect` event from the already active `discord-portal`
-flow:
+flow. After the initial page detection, prepare the matching gate and inspect
+that same page once more before consuming its evidence:
 
 ```bash
+thiscodex automation-attempt --gate discord_portal_login
+# Re-inspect the detected Discord login page with the bound provider.
 thiscodex automation-gate --gate discord_portal_login \
   --status human_required --surface browser --flow discord-portal \
   --provider <bound-provider> --operation inspect-discord-login \
   --terminal human_security_gate --reason-code account_credentials_required
+thiscodex automation-attempt --gate discord_hcaptcha
+# Re-inspect the detected hCaptcha boundary with the bound provider.
 thiscodex automation-gate --gate discord_hcaptcha \
   --status human_required --surface browser --flow discord-portal \
   --provider <bound-provider> --operation inspect-discord-hcaptcha \
   --terminal human_security_gate --reason-code captcha_required
+thiscodex automation-attempt --gate discord_reset_token_modal
+# Re-inspect the detected reset-token confirmation with the bound provider.
 thiscodex automation-gate --gate discord_reset_token_modal \
   --status human_required --surface browser --flow discord-portal \
   --provider <bound-provider> --operation inspect-discord-token-modal \
@@ -246,10 +259,12 @@ thiscodex automation-flow --start --flow discord-portal
    The corresponding reference value is `permissions=395137117248`.
 9. Navigate to the generated authorization URL, select the confirmed server,
    and approve. If Discord forces a desktop-app approval window that the
-   connected browser cannot operate, first attempt the approval with the same
+   connected browser cannot operate, bind and attempt the approval with the same
    provider, then run:
 
    ```bash
+   thiscodex automation-attempt --gate discord_desktop_approval
+   # Attempt the desktop approval with the bound provider now.
    thiscodex automation-gate --gate discord_desktop_approval \
      --status failed --surface browser --flow discord-portal \
      --provider <bound-provider> --operation approve-discord-desktop-window \
@@ -264,6 +279,8 @@ thiscodex automation-flow --start --flow discord-portal
     close the browser flow. A failure may not use this completion-only gate:
 
     ```bash
+    thiscodex automation-attempt --gate discord_portal_complete
+    # Inspect the completed portal state with the bound provider now.
     thiscodex automation-gate --gate discord_portal_complete \
       --status succeeded --surface browser --flow discord-portal \
       --provider <bound-provider> --operation verify-discord-portal-complete \
@@ -292,6 +309,8 @@ The clipboard command is an auxiliary evidence provider inside the active
 success, record it without ending the portal flow:
 
 ```bash
+thiscodex automation-attempt --gate token_direct_entry
+# Run the model-blind clipboard receipt command now.
 thiscodex automation-gate --gate token_direct_entry \
   --status succeeded --surface secret --flow discord-portal \
   --provider model-blind-clipboard --operation model-blind-token-receipt \

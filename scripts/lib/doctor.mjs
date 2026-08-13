@@ -55,7 +55,17 @@ export function automationHandoffHookReady(home, env = process.env) {
   let hookPath = '';
   for (const [groupIndex, group] of groups.entries()) {
     const matcher = String(group?.matcher || '');
-    if (!matcher.includes('mcp__discord__reply') || !matcher.includes('mcp__discord__edit_message')) continue;
+    let matchesDiscordTools = false;
+    try {
+      const exact = new RegExp(`^(?:${matcher})$`);
+      matchesDiscordTools = exact.test('mcp__discord__reply')
+        && exact.test('mcp__discord__edit_message')
+        && !exact.test('mcp__discord__replyx')
+        && !exact.test('mcp__discord__edit_messagex');
+    } catch {
+      matchesDiscordTools = false;
+    }
+    if (!matchesDiscordTools) continue;
     for (const [hookIndex, hook] of (group?.hooks || []).entries()) {
       const command = String(hook?.command || '');
       const pathMatch = command.match(/(?:^|\s)([^\s"']*automation-handoff-gate\.py)(?:\s|$)/);

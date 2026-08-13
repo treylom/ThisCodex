@@ -40,6 +40,14 @@ test('shipped gate inventory and YAML policy are bidirectionally exhaustive', ()
       && call.includes(`--reason-code ${gate.reason_code}`)
     )), `${name} consumer metadata drifts from policy`);
   }
+  const prepared = new Set(
+    [...consumers.matchAll(/thiscodex automation-attempt --gate ([A-Za-z0-9_.-]+)/g)]
+      .map(match => match[1]),
+  );
+  const evidenceGates = new Set(
+    [...policy.gates.values()].filter(gate => gate.evidence !== 'none').map(gate => gate.name),
+  );
+  assert.deepEqual(prepared, evidenceGates, 'observed gate lacks a pre-attempt binding');
 });
 
 test('browser consumers require observed evidence, same-provider continuation, and receipt-bound output', () => {
@@ -48,6 +56,7 @@ test('browser consumers require observed evidence, same-provider continuation, a
   assert.match(bodies, /current-turn|현재 턴/i);
   assert.match(bodies, /same provider|같은 provider|first observed.*provider|처음.*provider/is);
   assert.match(bodies, /receipt_marker/);
+  assert.match(bodies, /automation-attempt --gate/);
   assert.match(bodies, /thiscodex-manual-handoff/);
   const createBot = read('skills/create-bot/SKILL.md');
   const slack = read('skills/slack-bridge/SKILL.md');
@@ -65,6 +74,9 @@ test('runtime bridge observes MCP completions and fallback cannot bypass the rec
   const bridge = read('examples/bot.py');
   assert.match(bridge, /item\/completed/);
   assert.match(bridge, /observe_automation_item/);
+  assert.match(bridge, /_automation_attempt_for_flow/);
+  assert.match(bridge, /"attempt_id"/);
+  assert.match(bridge, /"operation"/);
   assert.match(bridge, /automation_fallback_handoff_allowed/);
   assert.match(bridge, /blocked manual handoff without current-turn receipt/);
   assert.doesNotMatch(

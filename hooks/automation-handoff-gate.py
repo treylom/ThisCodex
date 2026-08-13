@@ -19,7 +19,12 @@ FLOW_TTL_SECONDS = 2 * 60 * 60
 
 HANDOFF_RE = re.compile(
     r"thiscodex-manual-handoff|직접\s*(?:해|입력|설치|승인|로그인)|"
-    r"수동으로\s*(?:진행|해|입력)|please\s+(?:do|complete|enter|install|approve).{0,40}manually|"
+    r"수동으로\s*(?:진행|해|입력)|"
+    r"(?:로그인|인증|계정|비밀번호|토큰|캡차|승인|입력|설치|설정|클릭|열기|완료)"
+    r".{0,24}(?:해\s*주세요|해주세요|주셔야|해야\s*합니다|필요합니다)|"
+    r"(?:please|you\s+(?:need|must|have)\s+to|operator\s+must|user\s+must)"
+    r".{0,96}(?:sign\s*in|log\s*in|authenticate|enter|provide|approve|install|configure|click|complete)|"
+    r"please\s+(?:do|complete|enter|install|approve).{0,40}manually|"
     r"manual\s+handoff",
     re.I | re.S,
 )

@@ -30,6 +30,7 @@ import {
   clearAutomationFlow,
   issueHandoffReceipt,
   observeCurrentTurnEvidence,
+  startAutomationAttempt,
   startAutomationFlow,
 } from '../scripts/lib/automation-evidence.mjs';
 import {
@@ -39,7 +40,7 @@ import {
 } from '../scripts/lib/discord-thread.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke', 'discord-thread', 'automation-flow', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'discord-thread', 'automation-flow', 'automation-attempt', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -84,6 +85,24 @@ if (command === 'automation-flow') {
     if (!flow.ok) exitCode = 2;
   } catch (error) {
     output = { ok: false, code: 'automation_flow_error', message: error.message };
+    exitCode = 2;
+  }
+  console.log(JSON.stringify(output, null, 2));
+  process.exit(exitCode);
+}
+
+if (command === 'automation-attempt') {
+  let output;
+  let exitCode = 0;
+  try {
+    output = startAutomationAttempt({
+      dir: automationEvidenceDir(process.env),
+      policy: getAutomationPolicy(),
+      gate: arg('--gate'),
+    });
+    if (!output.ok) exitCode = 2;
+  } catch (error) {
+    output = { ok: false, code: 'automation_attempt_error', message: error.message };
     exitCode = 2;
   }
   console.log(JSON.stringify(output, null, 2));

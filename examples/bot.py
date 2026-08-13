@@ -92,6 +92,7 @@ AUTOMATION_DIR = Path(os.environ.get(
 ))
 AUTOMATION_ACTIVE_TURN_PATH = AUTOMATION_DIR / "active-turn.json"
 AUTOMATION_ACTIVE_FLOW_PATH = AUTOMATION_DIR / "active-flow.json"
+AUTOMATION_ACTIVE_ATTEMPT_PATH = AUTOMATION_DIR / "active-attempt.json"
 AUTOMATION_EVIDENCE_PATH = AUTOMATION_DIR / "browser-evidence.jsonl"
 _BROWSER_PROVIDER_SERVERS = {
     value.strip()
@@ -103,7 +104,12 @@ _BROWSER_PROVIDER_SERVERS = {
 _automation_seen_items: set[tuple[str, str]] = set()
 _AUTOMATION_HANDOFF_RE = re.compile(
     r"thiscodex-manual-handoff|직접\s*(?:해|입력|설치|승인|로그인)|"
-    r"수동으로\s*(?:진행|해|입력)|please\s+(?:do|complete|enter|install|approve).{0,40}manually|"
+    r"수동으로\s*(?:진행|해|입력)|"
+    r"(?:로그인|인증|계정|비밀번호|토큰|캡차|승인|입력|설치|설정|클릭|열기|완료)"
+    r".{0,24}(?:해\s*주세요|해주세요|주셔야|해야\s*합니다|필요합니다)|"
+    r"(?:please|you\s+(?:need|must|have)\s+to|operator\s+must|user\s+must)"
+    r".{0,96}(?:sign\s*in|log\s*in|authenticate|enter|provide|approve|install|configure|click|complete)|"
+    r"please\s+(?:do|complete|enter|install|approve).{0,40}manually|"
     r"manual\s+handoff", re.I | re.S,
 )
 _AUTOMATION_RECEIPT_RE = re.compile(
@@ -187,6 +193,40 @@ def _automation_flow_for_thread(thread_id: str) -> dict | None:
         return None
 
 
+def _automation_attempt_for_flow(thread_id: str, turn_id: str, flow_name: str) -> dict | None:
+    try:
+        attempt = json.loads(AUTOMATION_ACTIVE_ATTEMPT_PATH.read_text())
+        started = datetime.fromisoformat(str(attempt.get("started_at")).replace("Z", "+00:00"))
+        fresh = (datetime.now(timezone.utc) - started).total_seconds() <= 15 * 60
+        valid = (
+            fresh
+            and attempt.get("thread_id") == thread_id
+            and attempt.get("turn_id") == turn_id
+            and attempt.get("flow") == flow_name
+            and attempt.get("attempt_id")
+            and attempt.get("gate")
+            and attempt.get("operation")
+            and attempt.get("evidence_tool")
+            and not attempt.get("observed_item_id")
+        )
+        return attempt if valid else None
+    except Exception:
+        return None
+
+
+def _automation_mark_attempt_observed(attempt: dict, item_id: str) -> None:
+    value = {
+        **attempt,
+        "observed_item_id": item_id,
+        "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    temp = AUTOMATION_ACTIVE_ATTEMPT_PATH.with_suffix(f".{os.getpid()}.tmp")
+    temp.write_text(json.dumps(value, ensure_ascii=True))
+    temp.chmod(0o600)
+    temp.replace(AUTOMATION_ACTIVE_ATTEMPT_PATH)
+    AUTOMATION_ACTIVE_ATTEMPT_PATH.chmod(0o600)
+
+
 def _automation_bind_flow_provider(flow: dict, provider: str) -> bool:
     """Bind the first observed provider; app-server notifications are serial."""
     if flow.get("provider") and flow.get("provider") != provider:
@@ -224,21 +264,28 @@ def observe_automation_item(item: dict, thread_id: str, turn_id: str) -> None:
     try:
         _automation_private_dir()
         flow = _automation_flow_for_thread(str(thread_id))
+        attempt = _automation_attempt_for_flow(str(thread_id), str(turn_id), str(flow.get("flow") if flow else ""))
+        if not attempt or record["tool_class"] != attempt["evidence_tool"]:
+            return
         auxiliary_provider = record["provider"] == "model-blind-clipboard"
         if not flow or (not auxiliary_provider and not _automation_bind_flow_provider(flow, record["provider"])):
             return
         row = {
-            "schema_version": 1,
+            "schema_version": 2,
             "thread_id": str(thread_id)[:96],
             "turn_id": str(turn_id)[:96],
             "item_id": item_id[:96],
+            "attempt_id": str(attempt["attempt_id"])[:96],
+            "gate": str(attempt["gate"])[:96],
             "flow": str(flow["flow"])[:96],
+            "operation": str(attempt["operation"])[:96],
             **record,
             "observed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
         with AUTOMATION_EVIDENCE_PATH.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=True) + "\n")
         AUTOMATION_EVIDENCE_PATH.chmod(0o600)
+        _automation_mark_attempt_observed(attempt, item_id)
         _automation_seen_items.add(key)
     except Exception as e:
         print(f"[AUTOMATION] evidence write failed: {type(e).__name__}: {e}")

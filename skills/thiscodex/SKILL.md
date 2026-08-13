@@ -35,7 +35,9 @@ by the app-server bridge or records a named human-security boundary from
 `<!-- thiscodex-manual-handoff -->` in the handoff message; the PreToolUse hook
 and bridge fallback reject missing, stale, cross-turn, and reused receipts. For
 browser work, keep the first observed Playwright/claude-in-chrome provider bound
-to the flow until completion or a logged terminal reason; starting a tool and
+to the flow until completion or a logged terminal reason. Immediately before an
+attempt-required call, run `thiscodex automation-attempt --gate <stable-gate-name>`;
+evidence is bound to that gate and policy operation. Starting a tool and
 falling back to instructions is not completion.
 
 The setup-only security boundaries below are executable gates, not prose

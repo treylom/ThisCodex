@@ -9,7 +9,7 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 const ASCII_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/;
 const EVIDENCE_TTL_MS = 15 * 60 * 1000;
@@ -55,6 +55,27 @@ function writePrivateJson(path, value) {
   chmodSync(path, 0o600);
 }
 
+function claimEvidenceOnce(dir, evidence, now) {
+  const digest = createHash('sha256')
+    .update(`${evidence.turn_id}:${evidence.item_id}`)
+    .digest('hex');
+  const marker = join(dir, `evidence-${digest}.used`);
+  ensurePrivateDir(dir);
+  try {
+    writeFileSync(marker, `${JSON.stringify({
+      schema_version: 1,
+      turn_id: evidence.turn_id,
+      item_id: evidence.item_id,
+      claimed_at: now.toISOString(),
+    })}\n`, { flag: 'wx', mode: 0o600 });
+    chmodSync(marker, 0o600);
+    return true;
+  } catch (error) {
+    if (error?.code === 'EEXIST') return false;
+    throw error;
+  }
+}
+
 export function automationEvidenceDir(env = process.env) {
   if (env.THISCODEX_AUTOMATION_EVIDENCE_DIR) return resolve(env.THISCODEX_AUTOMATION_EVIDENCE_DIR);
   if (env.DISCORD_STATE_DIR) return join(resolve(env.DISCORD_STATE_DIR), '.thiscodex-automation');
@@ -65,11 +86,48 @@ export function automationEvidencePaths(dir) {
   return {
     activeTurn: join(dir, 'active-turn.json'),
     activeFlow: join(dir, 'active-flow.json'),
+    activeAttempt: join(dir, 'active-attempt.json'),
     evidence: join(dir, 'browser-evidence.jsonl'),
     consumed: join(dir, 'consumed-evidence.jsonl'),
     receipts: join(dir, 'handoff-receipts.jsonl'),
     usedReceipts: join(dir, 'used-handoff-receipts.jsonl'),
   };
+}
+
+export function readActiveAutomationAttempt(dir, now = new Date()) {
+  const attempt = readJson(automationEvidencePaths(dir).activeAttempt);
+  if (!attempt?.thread_id || !attempt?.turn_id || !attempt?.attempt_id
+      || !attempt?.gate || !attempt?.flow || !attempt?.operation
+      || !attempt?.evidence_tool || !attempt?.started_at) return null;
+  const startedAt = Date.parse(attempt.started_at);
+  if (!Number.isFinite(startedAt) || now.getTime() - startedAt > EVIDENCE_TTL_MS) return null;
+  return attempt;
+}
+
+export function startAutomationAttempt({ dir, policy, gate, now = new Date() }) {
+  validateId('gate', gate);
+  const gatePolicy = policy.gates.get(gate);
+  if (!gatePolicy) return { ok: false, code: 'unknown_gate' };
+  if (gatePolicy.evidence === 'none') return { ok: false, code: 'attempt_not_required' };
+  const active = readActiveAutomationTurn(dir, now);
+  if (!active) return { ok: false, code: 'bridge_evidence_unavailable' };
+  const flow = readActiveAutomationFlow(dir, now);
+  if (!flow || flow.thread_id !== active.thread_id || flow.flow !== gatePolicy.flow) {
+    return { ok: false, code: 'active_flow_required' };
+  }
+  const row = {
+    schema_version: 1,
+    thread_id: active.thread_id,
+    turn_id: active.turn_id,
+    attempt_id: randomBytes(16).toString('hex'),
+    gate: gatePolicy.name,
+    flow: gatePolicy.flow,
+    operation: gatePolicy.operation,
+    evidence_tool: gatePolicy.evidence_tool,
+    started_at: now.toISOString(),
+  };
+  writePrivateJson(automationEvidencePaths(dir).activeAttempt, row);
+  return { ok: true, code: 'attempt_started', attempt: row };
 }
 
 export function readActiveAutomationFlow(dir, now = new Date()) {
@@ -120,11 +178,14 @@ export function clearAutomationFlow({ dir, flow, threadId = '', now = new Date()
 
 function validEvidence(row) {
   return row
-    && row.schema_version === 1
+    && row.schema_version === 2
     && ASCII_ID.test(String(row.thread_id || ''))
     && ASCII_ID.test(String(row.turn_id || ''))
     && ASCII_ID.test(String(row.item_id || ''))
+    && ASCII_ID.test(String(row.attempt_id || ''))
+    && ASCII_ID.test(String(row.gate || ''))
     && ASCII_ID.test(String(row.flow || ''))
+    && ASCII_ID.test(String(row.operation || ''))
     && ASCII_ID.test(String(row.provider || ''))
     && ASCII_ID.test(String(row.tool || ''))
     && ['browser_inspect', 'browser_action', 'provider_setup', 'clipboard'].includes(row.tool_class)
@@ -179,6 +240,16 @@ export function observeCurrentTurnEvidence({
   if (activeFlow.provider && activeFlow.provider !== provider && !auxiliaryProvider) {
     return { ok: false, code: 'provider_mismatch' };
   }
+  const activeAttempt = readActiveAutomationAttempt(dir, now);
+  if (!activeAttempt
+      || activeAttempt.thread_id !== active.thread_id
+      || activeAttempt.turn_id !== active.turn_id
+      || activeAttempt.gate !== gatePolicy.name
+      || activeAttempt.flow !== flow
+      || activeAttempt.operation !== gatePolicy.operation
+      || activeAttempt.evidence_tool !== gatePolicy.evidence_tool) {
+    return { ok: false, code: 'active_attempt_required' };
+  }
   const activeStarted = Date.parse(active.started_at);
   const nowMs = now.getTime();
   if (!Number.isFinite(activeStarted) || nowMs - activeStarted > EVIDENCE_TTL_MS) {
@@ -189,7 +260,10 @@ export function observeCurrentTurnEvidence({
   const candidates = readJsonl(paths.evidence)
     .filter(validEvidence)
     .filter(row => row.thread_id === active.thread_id && row.turn_id === active.turn_id)
+    .filter(row => row.attempt_id === activeAttempt.attempt_id)
+    .filter(row => row.gate === gatePolicy.name)
     .filter(row => row.flow === flow)
+    .filter(row => row.operation === gatePolicy.operation)
     .filter(row => row.provider === provider)
     .filter(row => row.tool_class === gatePolicy.evidence_tool)
     .filter(row => Date.parse(row.observed_at) >= activeStarted)
@@ -198,7 +272,9 @@ export function observeCurrentTurnEvidence({
     .sort((a, b) => Date.parse(b.observed_at) - Date.parse(a.observed_at));
 
   const expectedStatus = status === 'failed' ? 'failed' : 'completed';
-  const evidence = candidates.find(row => row.status === expectedStatus);
+  const evidence = candidates
+    .filter(row => row.status === expectedStatus)
+    .find(row => claimEvidenceOnce(dir, row, now));
   if (!evidence) return { ok: false, code: 'matching_evidence_missing' };
 
   appendPrivateJsonl(paths.consumed, {
@@ -206,10 +282,18 @@ export function observeCurrentTurnEvidence({
     thread_id: active.thread_id,
     turn_id: active.turn_id,
     item_id: evidence.item_id,
+    attempt_id: evidence.attempt_id,
+    gate: gatePolicy.name,
     flow,
+    operation: gatePolicy.operation,
     provider,
     consumed_at: now.toISOString(),
   });
+  try {
+    unlinkSync(paths.activeAttempt);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
   return {
     ok: true,
     code: 'observed_current_turn_evidence',
@@ -217,6 +301,9 @@ export function observeCurrentTurnEvidence({
       thread_id: evidence.thread_id,
       turn_id: evidence.turn_id,
       item_id: evidence.item_id,
+      attempt_id: evidence.attempt_id,
+      gate: evidence.gate,
+      operation: evidence.operation,
       provider: evidence.provider,
       tool: evidence.tool,
       tool_class: evidence.tool_class,

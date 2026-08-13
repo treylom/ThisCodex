@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -66,6 +66,11 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
     encoding: 'utf8', env: cliEnv,
   });
   assert.equal(started.status, 0, started.stdout + started.stderr);
+  const prepared = spawnSync(process.execPath, [BIN, 'automation-attempt', '--gate', 'browser_provider_setup'], {
+    encoding: 'utf8', env: cliEnv,
+  });
+  assert.equal(prepared.status, 0, prepared.stdout + prepared.stderr);
+  const attempt = JSON.parse(prepared.stdout).attempt;
   const blocked = spawnSync(process.execPath, [BIN, 'automation-gate',
     ...common,
   ], {
@@ -76,8 +81,9 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
   assert.equal(JSON.parse(blocked.stdout).code, 'matching_evidence_missing');
 
   writeFileSync(join(evidenceDir, 'browser-evidence.jsonl'), `${JSON.stringify({
-    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
-    flow: 'browser-provider', provider: 'playwright', tool: 'provider-setup-command',
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-1', item_id: 'item-1',
+    attempt_id: attempt.attempt_id, gate: 'browser_provider_setup', flow: 'browser-provider',
+    operation: 'register-restart-redetect-provider', provider: 'playwright', tool: 'provider-setup-command',
     tool_class: 'provider_setup', status: 'failed', error_class: 'tool_error',
     observed_at: new Date().toISOString(),
   })}\n`);
@@ -96,13 +102,22 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
   const rows = readFileSync(audit, 'utf8').trim().split('\n').map(JSON.parse);
   assert.deepEqual(rows.map(row => row.decision), ['blocked', 'handoff_allowed']);
   assert.equal(rows[1].evidence_item_id, 'item-1');
+  assert.equal(rows[1].evidence_attempt_id, attempt.attempt_id);
+  assert.equal(rows[1].evidence_gate, 'browser_provider_setup');
+  assert.equal(rows[1].evidence_operation, 'register-restart-redetect-provider');
 
   writeFileSync(join(evidenceDir, 'active-turn.json'), JSON.stringify({
     schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-2', started_at: new Date(Date.now() - 1000).toISOString(),
   }));
+  const completionPrepared = spawnSync(process.execPath, [BIN, 'automation-attempt', '--gate', 'browser_provider_ready'], {
+    encoding: 'utf8', env: cliEnv,
+  });
+  assert.equal(completionPrepared.status, 0, completionPrepared.stdout + completionPrepared.stderr);
+  const completionAttempt = JSON.parse(completionPrepared.stdout).attempt;
   writeFileSync(join(evidenceDir, 'browser-evidence.jsonl'), `${JSON.stringify({
-    schema_version: 1, thread_id: 'thread-1', turn_id: 'turn-2', item_id: 'item-2',
-    flow: 'browser-provider', provider: 'playwright', tool: 'browser_snapshot',
+    schema_version: 2, thread_id: 'thread-1', turn_id: 'turn-2', item_id: 'item-2',
+    attempt_id: completionAttempt.attempt_id, gate: 'browser_provider_ready', flow: 'browser-provider',
+    operation: 'verify-browser-provider-callable', provider: 'playwright', tool: 'browser_snapshot',
     tool_class: 'browser_inspect', status: 'completed', error_class: 'none',
     observed_at: new Date().toISOString(),
   })}\n`, { flag: 'a' });
@@ -119,6 +134,56 @@ test('automation gate consumes bridge-observed evidence and emits a current-turn
   assert.equal(completion.code, 'attempt_succeeded_continue');
   assert.equal(completion.flow_result, 'flow_cleared');
   assert.equal(existsSync(join(evidenceDir, 'active-flow.json')), false);
+  rmSync(home, { recursive: true, force: true });
+});
+
+test('concurrent automation gates can consume one observed attempt only once', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const evidenceDir = join(home, 'evidence');
+  mkdirSync(evidenceDir, { recursive: true });
+  const startedAt = new Date(Date.now() - 1000).toISOString();
+  writeFileSync(join(evidenceDir, 'active-turn.json'), JSON.stringify({
+    schema_version: 1, thread_id: 'thread-race', turn_id: 'turn-race', started_at: startedAt,
+  }));
+  writeFileSync(join(evidenceDir, 'active-flow.json'), JSON.stringify({
+    schema_version: 1, thread_id: 'thread-race', flow: 'slack-auth', provider: 'playwright',
+    started_at: startedAt, updated_at: startedAt,
+  }));
+  writeFileSync(join(evidenceDir, 'active-attempt.json'), JSON.stringify({
+    schema_version: 1, thread_id: 'thread-race', turn_id: 'turn-race',
+    attempt_id: 'attempt-race', gate: 'slack_browser_auth', flow: 'slack-auth',
+    operation: 'login-ticket-confirm-challenge', evidence_tool: 'browser_action', started_at: startedAt,
+  }));
+  writeFileSync(join(evidenceDir, 'browser-evidence.jsonl'), `${JSON.stringify({
+    schema_version: 2, thread_id: 'thread-race', turn_id: 'turn-race', item_id: 'item-race',
+    attempt_id: 'attempt-race', gate: 'slack_browser_auth', flow: 'slack-auth',
+    operation: 'login-ticket-confirm-challenge', provider: 'playwright', tool: 'browser_click',
+    tool_class: 'browser_action', status: 'failed', error_class: 'tool_error',
+    observed_at: new Date().toISOString(),
+  })}\n`);
+  const args = [BIN, 'automation-gate',
+    '--gate', 'slack_browser_auth', '--automation-mode', 'auto',
+    '--status', 'failed', '--provider', 'playwright', '--surface', 'browser',
+    '--flow', 'slack-auth', '--operation', 'login-ticket-confirm-challenge',
+    '--terminal', 'tool_failed', '--reason-code', 'browser_tool_failed',
+    '--audit-file', join(home, 'attempts.jsonl'),
+  ];
+  const env = { ...process.env, THISCODEX_REPO_ROOT: process.cwd(), HOME: home,
+    THISCODEX_AUTOMATION_EVIDENCE_DIR: evidenceDir };
+  const invoke = () => new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, args, { env });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', status => resolve({ status, stdout, stderr }));
+  });
+  const results = await Promise.all([invoke(), invoke(), invoke(), invoke()]);
+  assert.equal(results.filter(result => result.status === 0).length, 1, JSON.stringify(results));
+  assert.equal(results.filter(result => JSON.parse(result.stdout).code === 'verified_handoff_allowed').length, 1);
+  const receipts = readFileSync(join(evidenceDir, 'handoff-receipts.jsonl'), 'utf8').trim().split('\n');
+  assert.equal(receipts.length, 1);
   rmSync(home, { recursive: true, force: true });
 });
 

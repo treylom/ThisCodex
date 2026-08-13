@@ -26,6 +26,11 @@ test('automatic handoff hook readiness requires exact wiring and matching trust 
   writeFileSync(join(codex, 'config.toml'), '[hooks.state."hooks.json:pre_tool_use:0:0"]\nenabled = true\ntrusted_hash = "sha256:abc"\n');
   assert.equal(automationHandoffHookReady(home).ok, true);
   writeFileSync(join(codex, 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
+    matcher: 'mcp__discord__replyx|mcp__discord__edit_messagex',
+    hooks: [{ type: 'command', command: `python3 ${hook}` }],
+  }] } }));
+  assert.equal(automationHandoffHookReady(home).ok, false);
+  writeFileSync(join(codex, 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
     matcher: 'Bash', hooks: [{ type: 'command', command: `python3 ${hook}` }],
   }] } }));
   assert.equal(automationHandoffHookReady(home).ok, false);

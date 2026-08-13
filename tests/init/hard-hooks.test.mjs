@@ -81,6 +81,13 @@ test('automatic handoff hook flow state denies unmarked prose and atomically con
   });
   const denied = run(input);
   assert.equal(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision, 'deny');
+  for (const text of [
+    'Please enter your GitHub login credentials to continue.',
+    'GitHub 계정으로 로그인해 주세요.',
+  ]) {
+    const natural = run({ ...input, tool_input: { text } });
+    assert.equal(JSON.parse(natural.stdout).hookSpecificOutput.permissionDecision, 'deny');
+  }
 
   const token = 'a'.repeat(48);
   writeFileSync(join(dir, 'active-turn.json'), JSON.stringify({
