@@ -45,6 +45,7 @@ description: Use when the user is stuck, confused, or asks what ThisCodex can do
 말로 안 풀리면 화면을 직접 열어 같이 해결한다. **codex 의 도구 사정을 정직하게**:
 
 1. **가능한 경로 = 연결된 `playwright` 또는 `claude-in-chrome` MCP** — 정책에 등록된 이 두 provider 중 하나를 고르고, 이동·snapshot/DOM 확인·클릭·입력·대기 능력이 모두 호출 가능한지 탐지한다. 갖춰졌으면 `/create-bot`으로 Discord 포털 흐름을 완주하고, Slack 웹 관문은 해당 스킬 계약에 따라 진행한다.
+   첫 provider 호출 전에는 해당 소유 스킬의 `thiscodex automation-flow --start --flow <flow>`를 먼저 실행한다. `/create-bot`은 `browser-provider` 탐지 후 `discord-portal`, `/slack-bridge`는 provider 탐지 후 `slack-auth`를 사용한다. help가 별도 flow 이름을 만들거나 browser call을 먼저 실행하면 안 된다.
 2. **없으면 설치 제안**: "브라우저를 같이 볼 수 있는 도구를 붙일 수 있어요. 붙일까요?" → 승인 시 `codex mcp add playwright -- npx -y @playwright/mcp@latest` 또는 `claude-in-chrome` 등록 안내 → Codex 재시작 → 능력 재탐지.
 3. **computer_use / browser_use 는 제안하지 마라** — codex CLI 에선 기능 플래그만 있고 **호출 가능한 도구가 아니다**(공식 명령 부재·데스크톱 앱 번들 MCP 전용, openai/codex#20851 — README §1 기능 표의 ⏸️ 보류 행·§6 과 동일 표기). 있는 척 ❌, 우회 시도 ❌.
 4. **최종 폴백**: 화면 단계별 텍스트 안내 ("왼쪽 위 New Application 파란 버튼을 눌러주세요" 수준).

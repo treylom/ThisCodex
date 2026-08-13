@@ -11,7 +11,7 @@ Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Clau
 
 ## 전제
 
-- Slack CLI v4.6+ — **직접 설치하지 않는다. 아래 0단계가 자동 확보한다**(없으면 설치·PATH 보정·확인까지 — 2026-08-08 재경님 결정 "slack cli 는 알아서 설치하도록 동봉"). Windows 네이티브(WSL 아님)만 예외: https://tools.slack.dev/slack-cli 의 공식 Windows 안내 사용
+- Slack CLI v4.6+ — 사용자에게 설치 명령을 떠넘기지 않는다. 아래 0단계가 탐지하고, 없으면 host 변경 동의 뒤 엔진이 설치·현재 셸 PATH 보정·확인까지 수행한다. Windows 네이티브(WSL 아님)만 예외: https://tools.slack.dev/slack-cli 의 공식 Windows 안내 사용
 - Slack 워크스페이스 = **본인이 앱을 설치할 권한이 있는 곳**이어야 한다 — 수강생 실습은 본인 무료 워크스페이스 신설로 충분(생성자 = 관리자). ⚠️ 회사 워크스페이스는 관리자 승인 정책에 걸릴 수 있다.
 - 로컬에 `claude`(Claude Code) 또는 `codex`(Codex CLI) 중 최소 1개 설치·로그인 상태 — **엔진 1개만으로도 전 과정 재현 가능**: codex 미설치 상태에서 `codex:` 접두사 메시지는 스레드에 오류 답변으로 돌아올 뿐, claude 만으로 왕복 검증(5단계)·스레드 연속 대화(6단계) 모두 재현된다.
 - Slack 워크스페이스에 로그인된 브라우저 (자동화 시: 브라우저 조작 도구)
@@ -19,14 +19,32 @@ Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Clau
 > **포털(api.slack.com)에서 앱을 만들지 마세요** — 이 공정은 Slack CLI 가 앱 생성·설치·토큰 발급을 전부 처리합니다(`slack create`→`slack run`). 웹에 흔한 '봇 토큰 복사' 방식 튜토리얼과 다른 공식 경로라, 토큰을 직접 다룰 일이 없습니다.
 
 회사 워크스페이스의 관리자 승인이 필요하면 바로 안내하지 말고
-`slack_workspace_admin_approval`을 `human_required`, operation
-`review-workspace-app-install`로 기록한다. 새 OAuth scope를 승인하는 재설치
-직전에는 `slack_app_reinstall_approval`, operation `review-oauth-scope-grant`를
-같은 방식으로 기록한다. 두 이름은 자동화 불편이 아니라 소유권 경계다.
+아래 게이트를 먼저 실행한다. 새 OAuth scope를 승인하는 재설치 직전에도
+두 번째 게이트를 실행한다. 두 이름은 자동화 불편이 아니라 소유권 경계다.
 
-## 0단계 — Slack CLI 확보 [자동 — 엔진이 알아서 설치]
+```bash
+thiscodex automation-gate --gate slack_workspace_admin_approval \
+  --status human_required --surface consent --flow slack-app \
+  --operation review-slack-workspace-admin --terminal human_security_gate \
+  --reason-code admin_approval_required
+thiscodex automation-gate --gate slack_app_reinstall_approval \
+  --status human_required --surface consent --flow slack-scope \
+  --operation review-oauth-scope-grant --terminal human_security_gate \
+  --reason-code admin_approval_required
+```
 
-사용자가 설치 명령을 칠 필요가 없다 — 이 스킬을 실행하는 엔진이 아래 블록을 그대로 수행한다. 이미 설치돼 있으면 아무것도 바꾸지 않는다(멱등).
+## 0단계 — Slack CLI 확보 [자동 탐지·승인 후 설치]
+
+사용자가 설치 명령을 칠 필요가 없다. 엔진은 PATH와 실파일을 먼저 탐지한다.
+이미 설치돼 있으면 아무것도 바꾸지 않는다. 없으면 host 변경 직전에 아래
+게이트로 동의를 받은 뒤 공식 설치기를 직접 실행한다:
+
+```bash
+thiscodex automation-gate --gate slack_native_host_install_consent \
+  --status human_required --surface host --flow slack-cli \
+  --operation review-slack-native-install --terminal human_security_gate \
+  --reason-code host_permission_required
+```
 
 ```bash
 # 존재 판정은 두 자로: PATH + 실파일 — 비대화형 셸은 PATH 만으로 「미설치」 오판 → 불필요 재다운로드 (2026-08-08 WSL E2E 실측)
@@ -36,23 +54,18 @@ if ! command -v slack >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/slack" ]; then
   # 설치기는 $HOME/.slack 에 내려받고 $HOME/.local/bin 에 링크만 걸며, PATH 등록은 사람 몫으로 남긴다(Required manual setup).
 fi
 export PATH="$HOME/.local/bin:$PATH"   # 현재 셸 보정 — 설치 여부와 무관(중복 무해)
-if command -v slack >/dev/null 2>&1; then
-  # 새 셸에서도 잡히게 영구 등록(중복 추가 없음)
-  persisted=0
-  for profile in "$HOME/.bashrc" "$HOME/.zshrc"; do
-    [ -f "$profile" ] || continue
-    grep -qs 'HOME/.local/bin' "$profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$profile"
-    persisted=1
-  done
-  if [ "$persisted" != 1 ]; then
-    # 프로필 전무 환경: .profile(로그인 셸용)만 만들면 대화형 비로그인 셸(bash -ic)이 못 읽는다(실측 exit 127 —
-    # 이때 우분투 command-not-found 가 «sudo snap install slack»[데스크톱 앱, CLI 아님]을 오권유) → 둘 다 기록
-    for profile in "$HOME/.bashrc" "$HOME/.profile"; do
-      grep -qs 'HOME/.local/bin' "$profile" || printf '\n# Slack CLI PATH (ThisCodex slack-bridge 0단계)\nexport PATH="$HOME/.local/bin:$PATH"\n' >> "$profile"
-    done
-  fi
-fi
 slack version   # 버전이 출력되면 완료 (실측 기준 v4.6.0)
+```
+
+현재 셸에서 검증한 뒤, 새 셸에도 PATH를 영구 등록하려면 먼저 수정 대상과
+추가될 블록을 보여주고 다음 게이트를 통과한다. 승인 뒤에만 `.bashrc`·`.zshrc`·
+`.profile` 중 실제 사용 파일에 멱등 추가한다:
+
+```bash
+thiscodex automation-gate --gate shell_profile_persistence \
+  --status human_required --surface consent --flow setup \
+  --operation review-shell-profile-edit --terminal human_security_gate \
+  --reason-code security_boundary_review
 ```
 
 - 🔴 **패키지 매니저(apt/dnf 등 sudo 동반) 경유로 짜지 않는다** — 대상 환경이 무-sudo 일 수 있다(WSL 실측). 공식 설치기는 sudo 를 요구하지 않고 전부 홈 디렉토리 아래에 설치한다.
@@ -64,20 +77,47 @@ slack version   # 버전이 출력되면 완료 (실측 기준 v4.6.0)
 
 ## 1단계 — Slack CLI 인증 (사람 관문 1곳, 브라우저 자동화로 0곳 가능)
 
+정책 provider가 현재 턴에 callable하지 않으면 `/create-bot` §1과 같은
+`browser-provider` bootstrap(실제 등록→재시작→inspect→
+`browser_provider_ready` 성공 게이트)을 먼저 완주한다. 등록 실패는
+`browser_provider_setup` 실패 게이트로만 넘긴다. provider flow가 닫힌 뒤에만
+아래 `slack-auth` flow를 시작한다.
+
+```bash
+thiscodex automation-flow --start --flow browser-provider
+# 등록/재시작 뒤 같은 provider의 inspect와 browser_provider_ready 성공 게이트
+```
+
 ```bash
 slack login --no-prompt
 # 출력: /slackauthticket <티켓문자열>
 ```
 
 1. 위 `/slackauthticket …` 한 줄을 **Slack 아무 채널·DM 에 붙여넣고 전송** → 권한 모달에서 **Confirm** → 챌린지 코드 표시됨.
-   - 자동화: 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기.
+   - 자동화: 첫 브라우저 호출 전에 `thiscodex automation-flow --start --flow slack-auth`를 실행한 뒤, 브라우저 도구로 Slack 웹 열기 → 메시지 입력창에 명령 입력·전송 → Confirm 클릭 → 코드 읽기.
    - Claude Code 환경 = `claude-in-chrome`으로 완전 자동 실측 성공(2026-08-05). **Codex 환경 = 정책에 등록된 `playwright` 또는 `claude-in-chrome`으로 같은 3동작(입력→Confirm→코드 회수)을 수행**한다. navigate/snapshot/click/fill/wait 능력을 확인하고 첫 completion envelope에 기록된 provider를 끝까지 유지한다.
-   - 자동 모드에서는 도구 부재를 곧바로 사람 관문으로 바꾸지 않는다. 설치 동의를 받은 뒤 Playwright MCP 등록·재시작·능력 재탐지를 실제로 시도한다. 실패한 경우에만 `thiscodex automation-gate --gate slack_browser_auth --status failed --surface browser --flow slack-auth --provider <provider> --operation login-ticket-confirm-challenge --terminal tool_failed --reason-code browser_tool_failed`를 실행한다. bridge가 현재 턴의 실제 완료 이벤트를 기록하지 않았거나 다른 provider를 썼으면 게이트는 실패한다. `handoff_allowed: true`일 때만 `<!-- thiscodex-manual-handoff -->`와 반환된 `receipt_marker`를 포함해 수동 행동을 보여준다. Slack 로그인 화면이면 선언된 `slack_browser_login`을 `human_required`로 기록하고 로그인 뒤 **같은 provider로 재개**한다. 도구를 시작만 하고 안내로 전환하는 경로는 금지한다.
+   - 자동 모드에서는 도구 부재를 곧바로 사람 관문으로 바꾸지 않는다. Playwright MCP 등록·재시작·능력 재탐지를 실제로 시도한다. 실패한 경우에만 `thiscodex automation-gate --gate slack_browser_auth --status failed --surface browser --flow slack-auth --provider <provider> --operation login-ticket-confirm-challenge --terminal tool_failed --reason-code browser_tool_failed`를 실행한다. bridge가 현재 턴의 실제 완료 이벤트를 기록하지 않았거나 다른 provider를 썼으면 게이트는 실패한다. `handoff_allowed: true`일 때만 `<!-- thiscodex-manual-handoff -->`와 반환된 `receipt_marker`를 포함해 수동 행동을 보여준다. Slack 로그인 화면이면 아래 게이트를 실행하고, 로그인 뒤 **같은 provider로 재개**한다. 도구를 시작만 하고 안내로 전환하는 경로는 금지한다.
+
+   ```bash
+   thiscodex automation-gate --gate slack_browser_login \
+     --status human_required --surface browser --flow slack-auth \
+     --provider <bound-provider> --operation inspect-slack-login \
+     --terminal human_security_gate --reason-code account_credentials_required
+   ```
 2. 코드로 인증 완료:
 
 ```bash
 slack login --no-prompt --ticket <티켓> --challenge <코드>
 slack auth list   # 워크스페이스·User ID 나오면 성공 (~/.slack/credentials.json)
+```
+
+같은 provider로 로그인 완료 화면을 inspect한 뒤 flow를 닫는다:
+
+```bash
+thiscodex automation-gate --gate slack_browser_auth_complete \
+  --status succeeded --surface browser --flow slack-auth \
+  --provider <bound-provider> --operation verify-slack-auth-complete \
+  --terminal flow_completed --reason-code automatic_flow_completed
 ```
 
 ## 2단계 — 앱 생성

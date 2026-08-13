@@ -37,13 +37,16 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
 | <!-- thiscodex-handoff-gate:codex_discord_mcp_config_consent --> `codex_discord_mcp_config_consent` | inspect current MCP config | config edit consent |
 | <!-- thiscodex-handoff-gate:browser_provider_install_declined --> `browser_provider_install_declined` | offer provider registration | explicit operator decline |
 | <!-- thiscodex-handoff-gate:browser_provider_setup --> `browser_provider_setup` | register, restart, and re-detect | observed provider failure |
+| <!-- thiscodex-handoff-gate:browser_provider_ready --> `browser_provider_ready` | inspect a callable browser tool | successful provider-flow terminal |
 | <!-- thiscodex-handoff-gate:discord_portal_login --> `discord_portal_login` | inspect with the bound provider | credentials/MFA |
 | <!-- thiscodex-handoff-gate:discord_hcaptcha --> `discord_hcaptcha` | inspect with the bound provider | CAPTCHA |
 | <!-- thiscodex-handoff-gate:discord_reset_token_modal --> `discord_reset_token_modal` | inspect with the bound provider | password/MFA modal |
 | <!-- thiscodex-handoff-gate:discord_desktop_approval --> `discord_desktop_approval` | attempt with the bound provider | observed uncontrollable-window failure |
+| <!-- thiscodex-handoff-gate:discord_portal_complete --> `discord_portal_complete` | inspect the final portal state | successful portal-flow terminal |
 | <!-- thiscodex-handoff-gate:token_direct_entry --> `token_direct_entry` | attempt model-blind clipboard receipt | observed clipboard failure, then user-only secret entry |
 | <!-- thiscodex-handoff-gate:slack_browser_login --> `slack_browser_login` | inspect with the bound provider | credentials/MFA |
 | <!-- thiscodex-handoff-gate:slack_browser_auth --> `slack_browser_auth` | ticket → confirm → challenge with the bound provider | observed browser failure |
+| <!-- thiscodex-handoff-gate:slack_browser_auth_complete --> `slack_browser_auth_complete` | inspect signed-in Slack state | successful auth-flow terminal |
 | <!-- thiscodex-handoff-gate:slack_workspace_admin_approval --> `slack_workspace_admin_approval` | inspect workspace requirement | admin approval |
 | <!-- thiscodex-handoff-gate:slack_app_reinstall_approval --> `slack_app_reinstall_approval` | inspect requested scopes | OAuth reinstall approval |
 | <!-- thiscodex-handoff-gate:slack_native_host_install_consent --> `slack_native_host_install_consent` | detect native-host path | native install consent |
@@ -58,6 +61,19 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
    gates fail closed. Attempt-required gates consume a current-turn completion
    envelope written by the bridge; named security boundaries use
    `human_required`. Missing/blocked output means the handoff must not be shown.
+   When WSL or tmux is missing, inspect first and invoke the matching consent
+   gate immediately before asking to change the host:
+
+   ```bash
+   thiscodex automation-gate --gate host_wsl_install_consent \
+     --status human_required --surface host --flow init \
+     --operation review-wsl-install --terminal human_security_gate \
+     --reason-code host_permission_required
+   thiscodex automation-gate --gate host_tmux_install_consent \
+     --status human_required --surface host --flow init \
+     --operation review-tmux-install --terminal human_security_gate \
+     --reason-code host_permission_required
+   ```
 2. Confirm repo root, workspace, BOT_WD, and Discord state dir before generating
    aliases. Then create `SOUL.md` (persona) + `AGENTS.md` (rules pointer) in
    BOT_WD — **REQUIRED, never skip silently** (2026-08-12 regression fix: real
@@ -74,8 +90,14 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
 3. Use tmux for the daemon/TUI split. Do not use cmux for this flow.
 4. Present safe mode first. Offer YOLO only as an explicit opt-in using the
    bridge contract and operator-controlled sentinel. Before asking the operator
-   to approve the privilege change, record `codex_privilege_config_consent` as
-   `human_required` with operation `review-codex-privilege-boundary`.
+   to approve the privilege change, run:
+
+   ```bash
+   thiscodex automation-gate --gate codex_privilege_config_consent \
+     --status human_required --surface consent --flow setup \
+     --operation review-codex-privilege-boundary --terminal human_security_gate \
+     --reason-code security_boundary_review
+   ```
 5. Ask `progress_report_cadence`: `per_task`, `1m`, `3m`, `5m`, `off`, or
    `custom`. `per_task` means a meaningful subtask or milestone completion,
    not every raw model turn boundary.
@@ -99,8 +121,14 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
    `mcp__discord__reply|mcp__discord__edit_message`. Run `/hooks`, approve that
    exact hook, and rerun `thiscodex doctor`; doctor fails until both wiring and
    its matching `pre_tool_use:<group>:<hook>` `trusted_hash` are present.
-   Immediately before the trust prompt, record `codex_hook_trust_approval` as
-   `human_required` with operation `review-codex-hook-trust`.
+   Immediately before the trust prompt, run:
+
+   ```bash
+   thiscodex automation-gate --gate codex_hook_trust_approval \
+     --status human_required --surface consent --flow setup \
+     --operation review-codex-hook-trust --terminal human_security_gate \
+     --reason-code security_boundary_review
+   ```
    For multi-bot workspaces, additionally wire the dispatch-room gate
    (`hooks/dispatch-room-gate.py`, PreToolUse, matcher
    `mcp__discord__reply|mcp__discord__edit_message`), write
@@ -122,9 +150,14 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
    explicitly declined, and the decline must be recorded in the completion
    contract below). Then tell the user to `source` the generated alias
    script/block; only add it to a shell rc file if they explicitly want it
-   permanent. Before asking for that persistent edit, record
-   `shell_profile_persistence` as `human_required` with operation
-   `review-shell-profile-edit`.
+   permanent. Before asking for that persistent edit, run:
+
+   ```bash
+   thiscodex automation-gate --gate shell_profile_persistence \
+     --status human_required --surface consent --flow setup \
+     --operation review-shell-profile-edit --terminal human_security_gate \
+     --reason-code security_boundary_review
+   ```
 9. Finish with `thiscodex doctor`, and echo the completion contract below in
    the final report.
 10. Offer the **optional, non-blocking** Slack onboarding handoff. If the

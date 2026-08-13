@@ -38,6 +38,28 @@ browser work, keep the first observed Playwright/claude-in-chrome provider bound
 to the flow until completion or a logged terminal reason; starting a tool and
 falling back to instructions is not completion.
 
+The setup-only security boundaries below are executable gates, not prose
+labels. Run each one immediately before its matching user-owned action:
+
+```bash
+thiscodex automation-gate --gate github_auth_login \
+  --status human_required --surface secret --flow init \
+  --operation complete-github-login --terminal human_security_gate \
+  --reason-code account_credentials_required
+thiscodex automation-gate --gate codex_discord_mcp_config_consent \
+  --status human_required --surface consent --flow setup \
+  --operation review-discord-mcp-config --terminal human_security_gate \
+  --reason-code security_boundary_review
+thiscodex automation-gate --gate daemon_start_consent \
+  --status human_required --surface consent --flow init \
+  --operation review-daemon-start --terminal human_security_gate \
+  --reason-code security_boundary_review
+thiscodex automation-gate --gate superpowers_install_consent \
+  --status human_required --surface consent --flow init \
+  --operation review-superpowers-install --terminal human_security_gate \
+  --reason-code host_permission_required
+```
+
 Invocable skill. Install paths:
 - **user-tier**: copy this folder to `~/.agents/skills/thiscodex/` (codex 4-layer scan picks it up; deep docs are referenced by URL below so a loose copy still works).
 - **marketplace/plugin** — ⚠️ **incomplete on codex 0.130, not a usable install today; do not use as the entry path** (verified code-review-bot, 2026-05-18, raw): the repo ships `.codex-plugin/plugin.json`, but `codex plugin marketplace add treylom/ThisCodex` **fails** — `marketplace root does not contain a supported manifest`; codex requires a `.agents/plugins/marketplace.json` the repo does not yet ship. There is **no `codex plugin install`** subcommand (only `marketplace add/upgrade/remove`); cwd auto-load of `.codex-plugin/plugin.json` does not work; `tool_search thiscodex` = 0. The Codex App `/plugins` GUI auto-recognition is unverified from CLI (separate GUI check needed). **Until future `.agents/plugins/marketplace.json` packaging lands, use the user-tier loose-skill copy above or `thiscodex init` (guided) — not the plugin path.**

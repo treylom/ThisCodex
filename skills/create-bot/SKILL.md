@@ -69,6 +69,17 @@ The only no-attempt exceptions are stable names declared with reasons in
 `install/automation-policy.yaml`. A new gate is attempt-required by default.
 Never add an exception merely because automation is inconvenient.
 
+Before the first provider command or browser call, start the exact policy flow:
+
+```bash
+thiscodex automation-flow --start --flow browser-provider
+```
+
+The bridge binds the first observed browser provider to that active flow. A
+browser human-security receipt pauses rather than clears the flow; after the
+user-owned action, resume with that provider. Only a successful completion gate
+clears it.
+
 ## 1. Discover browser automation by capability
 
 Accept only the policy-listed providers `playwright` and `claude-in-chrome`,
@@ -87,15 +98,27 @@ prose, proves which allowed provider actually ran.
 4. Use the discovered tool names for the rest of the run. Do not use
    `web.run`, shell HTTP requests, or guessed coordinates as a substitute for
    an interactive browser.
+5. After one real inspect/snapshot proves the provider callable, close the
+   provider-discovery flow:
+
+   ```bash
+   thiscodex automation-gate --gate browser_provider_ready \
+     --status succeeded --surface browser --flow browser-provider \
+     --provider <playwright-or-claude-in-chrome> \
+     --operation verify-browser-provider-callable --terminal flow_completed \
+     --reason-code automatic_flow_completed
+   ```
 
 ### If the capability set is missing
 
-Ask before changing Codex configuration or running a package:
+In automatic mode, the operator's initial `auto` choice authorizes the required
+provider registration attempt; run it instead of asking another mode question.
+In manual mode, ask before changing Codex configuration or running a package:
 
 > I can attach a browser-control tool in about a minute. Shall I register the
 > Playwright MCP for Codex?
 
-On approval, run:
+In automatic mode, or on manual-mode approval, run:
 
 ```bash
 codex mcp add playwright -- npx -y @playwright/mcp@latest
@@ -126,7 +149,7 @@ thiscodex automation-gate --gate browser_provider_install_declined \
   --terminal human_security_gate --reason-code operator_declined
 ```
 
-If registration was approved, **run it**, restart/re-detect, and keep using the
+If registration is allowed, **run it**, restart/re-detect, and keep using the
 same browser provider through the terminal page state. If registration or
 re-detection fails, record that actual attempt before offering a manual path:
 
@@ -159,10 +182,35 @@ the exact flow/operation/terminal/reason-code fields from the policy. These name
 exceptions; the browser remains attached and must resume immediately after the
 user-owned action.
 
+Invoke the exact gate matching the observed page; each command consumes a
+current-turn `browser_inspect` event from the already active `discord-portal`
+flow:
+
+```bash
+thiscodex automation-gate --gate discord_portal_login \
+  --status human_required --surface browser --flow discord-portal \
+  --provider <bound-provider> --operation inspect-discord-login \
+  --terminal human_security_gate --reason-code account_credentials_required
+thiscodex automation-gate --gate discord_hcaptcha \
+  --status human_required --surface browser --flow discord-portal \
+  --provider <bound-provider> --operation inspect-discord-hcaptcha \
+  --terminal human_security_gate --reason-code captcha_required
+thiscodex automation-gate --gate discord_reset_token_modal \
+  --status human_required --surface browser --flow discord-portal \
+  --provider <bound-provider> --operation inspect-discord-token-modal \
+  --terminal human_security_gate --reason-code account_credentials_required
+```
+
 ## 3. Automated portal flow
 
 Narrate each operation in one short present-tense sentence. Do not turn the
 automated path into imperative instructions for the user.
+
+Immediately before the first Discord portal browser call, start its flow:
+
+```bash
+thiscodex automation-flow --start --flow discord-portal
+```
 
 1. Navigate to `https://discord.com/developers/applications`.
    - If the login page appears, pause at human gate 1.
@@ -199,14 +247,28 @@ automated path into imperative instructions for the user.
 9. Navigate to the generated authorization URL, select the confirmed server,
    and approve. If Discord forces a desktop-app approval window that the
    connected browser cannot operate, first attempt the approval with the same
-   provider, then call `automation-gate` with gate
-   `discord_desktop_approval`, `--status failed --surface browser --flow
-   discord-portal`, the provider, operation `approve-discord-desktop-window`,
-   terminal `tool_failed`, and reason code `provider_cannot_control_window`. Hand
-   off only that approval click, and only when the gate returns
+   provider, then run:
+
+   ```bash
+   thiscodex automation-gate --gate discord_desktop_approval \
+     --status failed --surface browser --flow discord-portal \
+     --provider <bound-provider> --operation approve-discord-desktop-window \
+     --terminal tool_failed --reason-code provider_cannot_control_window
+   ```
+
+   Hand off only that approval click, and only when the gate returns
    `handoff_allowed: true`.
 10. For a private channel, add the bot as a channel member. Server invitation
     alone does not grant private-channel access.
+11. Inspect the final application/invitation state with the bound provider, then
+    close the browser flow. A failure may not use this completion-only gate:
+
+    ```bash
+    thiscodex automation-gate --gate discord_portal_complete \
+      --status succeeded --surface browser --flow discord-portal \
+      --provider <bound-provider> --operation verify-discord-portal-complete \
+      --terminal flow_completed --reason-code automatic_flow_completed
+    ```
 
 ## 4. Token receipt without model exposure
 
@@ -224,6 +286,17 @@ support a physical click on Discord's **Copy** button:
    length, and destination — never the value.
 4. If the clipboard is still the sentinel or validation fails, stop without
    changing `.env`.
+
+The clipboard command is an auxiliary evidence provider inside the active
+`discord-portal` flow; it does not replace the bound browser provider. On
+success, record it without ending the portal flow:
+
+```bash
+thiscodex automation-gate --gate token_direct_entry \
+  --status succeeded --surface secret --flow discord-portal \
+  --provider model-blind-clipboard --operation model-blind-token-receipt \
+  --terminal tool_failed --reason-code model_blind_channel_unavailable
+```
 
 On macOS, after the state directory is confirmed, use this shape. Run the
 first line before the browser click and the remaining block after it. The
@@ -255,10 +328,15 @@ If a model-blind clipboard path is unavailable, ask the user to copy the token
 directly into `<state-dir>/.env` in their terminal. The user reports only
 "saved"; the token never enters the conversation.
 
-Before showing that instruction, call `automation-gate` with gate
-`token_direct_entry`, status `failed`, surface `secret`, flow `discord-token`,
-provider `model-blind-clipboard`, operation `model-blind-token-receipt`,
-terminal `tool_failed`, and reason code `model_blind_channel_unavailable`.
+Before showing that instruction, run:
+
+```bash
+thiscodex automation-gate --gate token_direct_entry \
+  --status failed --surface secret --flow discord-portal \
+  --provider model-blind-clipboard --operation model-blind-token-receipt \
+  --terminal tool_failed --reason-code model_blind_channel_unavailable
+```
+
 The bridge must have observed the failed clipboard command in this turn. This
 gate protects the secret; it is not permission to skip the clipboard attempt.
 
