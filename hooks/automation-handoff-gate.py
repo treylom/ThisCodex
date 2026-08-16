@@ -40,11 +40,13 @@ def _payload() -> dict:
 
 def _decision(allow: bool, reason: str = "") -> None:
     value = "allow" if allow else "deny"
+    # Emit ASCII-only JSON so Windows runners with a legacy console encoding
+    # cannot truncate Korean denial reasons before the hook host parses them.
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": value,
         **({"permissionDecisionReason": reason} if reason else {}),
-    }}, ensure_ascii=False))
+    }}, ensure_ascii=True))
 
 
 def _state_dir() -> Path:

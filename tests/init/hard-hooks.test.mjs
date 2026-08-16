@@ -75,11 +75,16 @@ test('automatic handoff hook flow state denies unmarked prose and atomically con
     tool_name: 'mcp__discord__reply',
     tool_input: { text: '<!-- thiscodex-manual-handoff --> 직접 로그인해 주세요.' },
   };
-  const run = value => spawnSync('python3', ['hooks/automation-handoff-gate.py'], {
+  const run = (value, extraEnv = {}) => spawnSync('python3', ['hooks/automation-handoff-gate.py'], {
     cwd: process.cwd(), encoding: 'utf8', input: JSON.stringify(value),
-    env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto' },
+    env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto', ...extraEnv },
   });
-  const denied = run(input);
+  // Reproduce the legacy Windows console encoding that used to truncate the
+  // Korean denial reason and leave the hook host with incomplete JSON.
+  const denied = run(
+    { ...input, tool_input: { text: '<!-- thiscodex-manual-handoff --> Please log in to continue.' } },
+    { PYTHONIOENCODING: 'cp1252' },
+  );
   assert.equal(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision, 'deny');
   for (const text of [
     'Please enter your GitHub login credentials to continue.',

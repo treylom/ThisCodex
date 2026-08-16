@@ -59,7 +59,13 @@ test('current-turn evidence is consumed once and binds a flow to one provider', 
     dir, policy, gatePolicy, flow: 'slack-auth', provider: 'playwright', status: 'failed', now: NOW,
   });
   assert.equal(second.code, 'active_attempt_required');
-  assert.equal(statSync(paths.consumed).mode & 0o777, 0o600);
+  // Windows does not expose meaningful POSIX permission bits through stat;
+  // the chmod contract is asserted on platforms that implement those bits.
+  if (process.platform !== 'win32') {
+    assert.equal(statSync(paths.consumed).mode & 0o777, 0o600);
+  } else {
+    assert.equal(existsSync(paths.consumed), true);
+  }
   rmSync(dir, { recursive: true, force: true });
 });
 
