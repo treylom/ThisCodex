@@ -152,16 +152,22 @@ export function startAutomationFlow({ dir, policy, flow, now = new Date() }) {
   if (prior && (prior.thread_id !== active.thread_id || prior.flow !== flow)) {
     return { ok: false, code: 'different_flow_already_active' };
   }
+  if (prior) {
+    // This command is idempotent for the already-active matching flow.  A
+    // rewrite adds no state (FLOW_TTL uses started_at) and makes concurrent
+    // Windows callers contend on rename-over-existing semantics.
+    return { ok: true, code: 'flow_already_active', flow: prior };
+  }
   const row = {
     schema_version: 1,
     thread_id: active.thread_id,
     flow,
-    provider: prior?.provider || '',
-    started_at: prior?.started_at || now.toISOString(),
+    provider: '',
+    started_at: now.toISOString(),
     updated_at: now.toISOString(),
   };
   writePrivateJson(automationEvidencePaths(dir).activeFlow, row);
-  return { ok: true, code: prior ? 'flow_already_active' : 'flow_started', flow: row };
+  return { ok: true, code: 'flow_started', flow: row };
 }
 
 export function clearAutomationFlow({ dir, flow, threadId = '', now = new Date() }) {

@@ -150,6 +150,19 @@ test('a terminal success clears one active flow and a new flow may bind another 
   rmSync(dir, { recursive: true, force: true });
 });
 
+test('starting the matching active flow is read-only and idempotent', () => {
+  const policy = loadAutomationPolicy();
+  const { dir, paths } = fixture();
+  const before = readFileSync(paths.activeFlow, 'utf8');
+  const result = startAutomationFlow({
+    dir, policy, flow: 'slack-auth', now: NOW,
+  });
+  assert.equal(result.code, 'flow_already_active');
+  assert.deepEqual(result.flow, JSON.parse(before));
+  assert.equal(readFileSync(paths.activeFlow, 'utf8'), before);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test('model-blind clipboard evidence is auxiliary to the bound Discord browser flow', () => {
   const policy = loadAutomationPolicy();
   const gatePolicy = policy.gates.get('token_direct_entry');
