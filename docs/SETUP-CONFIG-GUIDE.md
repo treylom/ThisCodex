@@ -601,11 +601,13 @@ SOUL v2는 별도 `SOUL.md` 파일명이 아니라 정본 AGENTS.md 안 내용 �
 `<!-- SOUL-CAPSULE-START -->` / `<!-- SOUL-CAPSULE-END -->` 사이에 유지한다.
 
 **신규 설치**는 `AGENTS.md`와 `SOUL.md`가 **모두 없을 때만** `thiscodex init
---apply`가 정본 AGENTS.md를 copy-once로 만든다. `SOUL.md`만 있으면 기존 설치다:
-`thiscodex migrate-identity --preview`로 먼저 확인하고, `--apply`는 legacy
-SOUL.md를 active로 보존한 채 `AGENTS.md.v2`+receipt와
-`SOUL.md.thiscodex.pre-v2.bak`만 만든다. 검토 뒤 manual cutover하며,
-`--rollback --apply`는 unchanged candidate+receipt만 제거한다.
+--apply`가 정본 AGENTS.md를 copy-once로 만든다. `AGENTS.md`나 `SOUL.md` 중
+하나라도 있으면 기존 설치다. `thiscodex migrate-identity --preview`로 먼저
+확인하고, `--apply`는 active 파일을 보존한 채 `AGENTS.md.v2`+receipt를 만든다.
+legacy SOUL.md는 `SOUL.md.thiscodex.pre-v2.bak`에, 기존 AGENTS.md는
+`AGENTS.md.thiscodex.pre-v2.bak`에 백업한다. 검토 뒤 manual cutover하며,
+`--rollback --apply`는 unchanged candidate+receipt만 제거한다. receipt 기록 뒤
+candidate가 바뀌었으면 rollback을 거부해 수동 편집을 덮어쓰지 않는다.
 
 ### §3 rules/
 정본 = [rules-system.md](rules-system.md)(본 레포, 중복 금지). "Applying to a

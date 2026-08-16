@@ -127,3 +127,12 @@ test('active setup docs expose one canonical AGENTS file and only a legacy SOUL 
   assert.doesNotMatch(docs, /drafts? `AGENTS\.md`, `soul\.md`/i);
   assert.doesNotMatch(docs, /SOUL\.md\s*\/\s*AGENTS\.md|SOUL\+AGENTS/i);
 });
+
+test('Korean setup guidance preserves both existing-install backups and changed-candidate rollback refusal', () => {
+  const guide = readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8');
+  const korean = guide.slice(guide.indexOf('### §2 SOUL v2 capsule'));
+  assert.match(korean, /SOUL\.md\.thiscodex\.pre-v2\.bak/);
+  assert.match(korean, /AGENTS\.md\.thiscodex\.pre-v2\.bak/);
+  assert.match(korean, /candidate가 바뀌었으면 rollback을 거부/);
+  assert.match(korean, /수동 편집을 덮어쓰지 않는다/);
+});
