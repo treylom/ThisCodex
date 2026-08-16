@@ -42,7 +42,10 @@ export function applySkillInstall(repoRoot, home, layer = 'user') {
 export function patchCodexConfig(home, dryRun = true, opts = {}) {
   const dir = join(home, '.codex');
   const cfg = join(dir, 'config.toml');
-  const lines = ['project_doc_fallback_filenames = ["SOUL.md", "AGENTS.md"]'];
+  // AGENTS.md is Codex's canonical instruction filename and is discovered
+  // before fallbacks. Keep SOUL.md only as a legacy fallback for working
+  // directories that have not migrated to the canonical AGENTS.md surface.
+  const lines = ['project_doc_fallback_filenames = ["SOUL.md"]'];
   if (opts.yoloCeiling) {
     lines.push('sandbox_mode = "danger-full-access"');
     lines.push('approval_policy = "never"');

@@ -79,7 +79,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 |---|---|---|
 | Codex CLI as a persistent Discord bot | ✅ working | `codex app-server` (headless) + Python bridge daemon (`bot.py`) + discord.py |
 | Multi-client same-thread (watch/steer the bot's conversation from a TUI) | ✅ working | `codex resume <thread-id> --remote ws://…` against the same app-server |
-| Persona / vault rules auto-loaded | ✅ working | `~/.codex/config.toml` → `project_doc_fallback_filenames = ["SOUL.md","AGENTS.md"]` |
+| Persona / vault rules auto-loaded | ✅ working | canonical `BOT_WD/AGENTS.md`; `SOUL.md` is configured only as a legacy fallback when `AGENTS.md` is absent |
 | Cross-bot addressing + meeting discipline | ✅ working | `bot-roster.yaml` SoT injected at SessionStart |
 | YOLO (full-access) execution | ✅ working | `thread/start` **and** `thread/resume` both send `sandbox:"danger-full-access"`, `approvalPolicy:"never"` |
 | Image generation | ✅ working | codex built-in `image_gen.imagegen` tool |
@@ -228,7 +228,8 @@ zero-config default.
 
 ### 3.2 `~/.codex/config.toml`
 ```toml
-project_doc_fallback_filenames = ["SOUL.md", "AGENTS.md"]
+# AGENTS.md is Codex's canonical filename; SOUL.md is legacy fallback only.
+project_doc_fallback_filenames = ["SOUL.md"]
 project_doc_max_bytes = 65536
 
 [mcp_servers.discord]
@@ -239,7 +240,12 @@ DISCORD_STATE_DIR = "~/.claude/channels/discord-<botname>"
 ```
 
 ### 3.3 Bot working directory
-Put `SOUL.md` (persona) and `AGENTS.md` (rules — including the static Discord-reply rule, see §4) in the bot WD. They are auto-loaded every thread; **do not** re-inject persona text per turn.
+Put one canonical `AGENTS.md` in the bot WD. It contains the SOUL v2 persona
+capsule and the static Discord-reply rule (see §4), and points to the rules
+router. Codex selects one instruction file per directory; a same-directory
+`SOUL.md` is not loaded alongside `AGENTS.md`. `SOUL.md` remains a legacy
+fallback only when `AGENTS.md` is absent. **Do not** re-inject static persona
+text per turn.
 
 ### 3.4 Run it (the bridge is what grants access)
 A 2-window tmux launcher (`scripts/launch.sh`): window `infra` runs your
@@ -387,7 +393,7 @@ These are the rules that make Claude Code + Codex agents coexist. They live in `
 - **Direct channels are exempt** from the mention rule (`require_mention: false`).
 - **Meetings = dedicated threads**: any task with ≥2 bots, ≥10 min, or an agenda (2-of-3) gets its own thread; the main channel only gets a redirect. One-shot relays/ACKs stay inline.
 - **SessionStart injection**: a single renderer (`roster-inject.py`) feeds the same coordinates + rules into both Claude Code bots (via the session-init hook) and Codex bots (via `~/.codex/hooks.json`).
-- **Discord-reply rule (static, in AGENTS.md — not per turn)**: each turn arrives as `<channel chat_id="…" message_id="…" …>`; reply with `mcp__discord__reply(chat_id, reply_to=message_id)`. Persona/vault discipline is always on because `SOUL.md`/`AGENTS.md` are project-doc auto-loaded.
+- **Discord-reply rule (static, in AGENTS.md — not per turn)**: each turn arrives as `<channel chat_id="…" message_id="…" …>`; reply with `mcp__discord__reply(chat_id, reply_to=message_id)`. Persona/vault discipline is always on because the canonical `AGENTS.md` is auto-loaded.
 
 ---
 
@@ -397,7 +403,7 @@ Bringing a Claude Code agent's behavior to Codex (and back):
 
 | Concern | Claude Code | Codex equivalent |
 |---|---|---|
-| Persona/rules load | `CLAUDE.md` + SessionStart hook | `AGENTS.md`/`SOUL.md` via `project_doc_fallback_filenames` |
+| Persona/rules load | `CLAUDE.md` + SessionStart hook | canonical `AGENTS.md`; `SOUL.md` only as a legacy fallback when `AGENTS.md` is absent |
 | Inbound Discord event | built into `claude --channels` | `bot.py` bridge → `turn/start` |
 | Outbound | `mcp__discord__reply` tool | identical (discord plugin as codex MCP) |
 | Tool approvals | permission modes | `approvalPolicy` + bridge auto-accept elicitation |
@@ -433,6 +439,6 @@ When upstream exposes `computer_use` to the CLI, **do not** pipe untrusted Disco
 - ✅ Progressive-disclosure **rules system** (no context bloat — situational rule routing) — convention shipped, see [docs/rules-system.md](docs/rules-system.md).
 - ✅ **Reversible memory archival** (`scripts/memory_dreaming.py`) — *move-not-delete* cleanup to out-of-WD cold storage, one-command checksum-verified restore; one tier-agnostic rubric across all tiers **incl. the Codex memory tier** (`~/.codex/memories`, env-configurable cold subdir); conservative (auto-archive gated, ambiguous → human review), criteria self-correct from restores; weekly-enforced. Plain-language: [docs/memory-dreaming.md](docs/memory-dreaming.md).
 - ✅ **Meeting watchdog** (`scripts/meeting_watchdog.py`) — **recommended on every meeting (invite one watchdog bot per meeting, start before the first dispatch)**. On meeting-thread creation, YAML-enforced ~5-min progress check (maintainer's vault runs ~3 min); self-terminates only when goal AND all tasks complete (models Claude Code `/goal`); fail-closed = never falsely terminate a live meeting. Pairs with [docs/05-meeting-thread-protocol.md](docs/05-meeting-thread-protocol.md) §2.3 + [rules/meeting-protocol.md](rules/meeting-protocol.md) §5.
-- ⚙️ **Config guide** (AGENTS.md · soul.md · rules · Skills 2.0 checklist) — [docs/SETUP-CONFIG-GUIDE.md](docs/SETUP-CONFIG-GUIDE.md).
+- ⚙️ **Config guide** (canonical AGENTS.md + SOUL v2 capsule · rules · Skills 2.0 checklist) — [docs/SETUP-CONFIG-GUIDE.md](docs/SETUP-CONFIG-GUIDE.md).
 
 License: see repo. Use on machines you control, with trusted private Discord servers only.

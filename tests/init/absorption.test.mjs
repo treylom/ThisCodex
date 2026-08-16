@@ -106,3 +106,24 @@ test('docs require superpowers availability or a clear next command', () => {
   assert.match(docs, /superpowers.*Next command|superpowers.*next command|superpowers.*다음 명령/i);
   assert.match(docs, /\/using-superpowers/i);
 });
+
+test('active setup docs expose one canonical AGENTS file and only a legacy SOUL fallback', () => {
+  const docs = [
+    readFileSync('README.md', 'utf8'),
+    readFileSync('README.ko.md', 'utf8'),
+    readFileSync('docs/SETUP-CONFIG-GUIDE.md', 'utf8'),
+    readFileSync('docs/SETUP.md', 'utf8'),
+    readFileSync('docs/skill-portability.md', 'utf8'),
+    readFileSync('docs/guided-installer-requirements.md', 'utf8'),
+    readFileSync('docs/guided-installer-design.md', 'utf8'),
+    readFileSync('docs/yolo-bridge-contract.md', 'utf8'),
+    readFileSync('examples/bot.py', 'utf8'),
+  ].join('\n');
+  assert.match(docs, /one canonical `AGENTS\.md`|정본 `AGENTS\.md` 하나/i);
+  assert.match(docs, /legacy fallback|구형 fallback/i);
+  assert.doesNotMatch(docs, /Put `SOUL\.md`[^\n]+and `AGENTS\.md`[^\n]+auto-loaded/i);
+  assert.doesNotMatch(docs, /`SOUL\.md`\(페르소나\)와 `AGENTS\.md`[^\n]+자동 로드/i);
+  assert.doesNotMatch(docs, /project_doc_fallback_filenames\s*=\s*\["SOUL\.md"\s*,\s*"AGENTS\.md"\]/i);
+  assert.doesNotMatch(docs, /drafts? `AGENTS\.md`, `soul\.md`/i);
+  assert.doesNotMatch(docs, /SOUL\.md\s*\/\s*AGENTS\.md|SOUL\+AGENTS/i);
+});

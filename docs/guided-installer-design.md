@@ -140,14 +140,15 @@ before prompt authoring.
 
 The installer routes the bundled prompt flow to draft:
 
-- `AGENTS.md`
-- `soul.md`
+- one canonical `AGENTS.md` with the SOUL v2 identity slots
 - `rules/`
 
 Then it runs or directs the `/using-superpowers` interview. The interview is a
-required gate for full guided onboarding because it shapes `AGENTS.md`,
-`soul.md`, and `rules/`. If the interview cannot run or cannot be routed, the
-guided flow stops before file generation and prints the next command.
+required gate for full guided onboarding because it shapes `AGENTS.md` and
+`rules/`. A pre-existing `SOUL.md` is handled only as a legacy migration
+source; the installer does not generate it beside `AGENTS.md`. If the interview
+cannot run or cannot be routed, the guided flow stops before file generation
+and prints the next command.
 
 The output must be stored as part of the install log so the user can inspect
 what changed. Non-interactive mode never runs the interview; it only verifies

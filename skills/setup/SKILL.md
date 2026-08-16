@@ -75,18 +75,28 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
      --reason-code host_permission_required
    ```
 2. Confirm repo root, workspace, BOT_WD, and Discord state dir before generating
-   aliases. Then create `SOUL.md` (persona) + `AGENTS.md` (rules pointer) in
-   BOT_WD — **REQUIRED, never skip silently** (2026-08-12 regression fix: real
-   setups were observed ending without them). `AGENTS.md` carries the static
-   reply rule and points only at `rules/INDEX.md` (see `/thiscodex` §3).
-   Explicit user decline only, recorded in the completion contract below.
+   aliases. If both `AGENTS.md` and `SOUL.md` are absent, create one canonical
+   `AGENTS.md` in BOT_WD — **REQUIRED, never skip silently** (2026-08-12
+   regression fix: real setups were observed ending without it). It contains
+   the SOUL v2 capsule, static reply rule, and `rules/INDEX.md` pointer (see
+   `/thiscodex` §3). Do not create a same-level
+   `SOUL.md`: it is only a legacy fallback when `AGENTS.md` is absent, or an
+   external bridge-capsule source. Explicit user decline only, recorded in the
+   completion contract below.
+   A `SOUL.md`-only BOT_WD is an existing install, not an empty directory: use
+   `thiscodex migrate-identity --preview` before any change. Its `--apply`
+   stages `AGENTS.md.v2`, leaves legacy SOUL.md active, and saves
+   `SOUL.md.thiscodex.pre-v2.bak` plus a receipt. The operator performs manual
+   cutover; `--rollback --apply` removes only an unchanged candidate and its
+   receipt.
    During the persona interview, ask for the **exact operator address** (for
-   example, `고객님`) and write it as a hard rule in `SOUL.md`: **Always address
-   the operator as `<exact address>`; do not reconfirm it or offer alternatives
-   unless the operator explicitly changes it.** A descriptive sentence such as
-   “the bot calls the operator X” is not strong enough. Before declaring setup
-   complete, run the behavior probe `너는 나를 뭐라고 불러야 해?`; the bot must
-   answer with the exact address without a follow-up question.
+   example, `고객님`) and write it as a hard rule in the `AGENTS.md` SOUL v2
+   capsule: **Always address the operator as `<exact address>`; do not reconfirm
+   it or offer alternatives unless the operator explicitly changes
+   it.** A descriptive sentence such as “the bot calls the operator X” is not
+   strong enough. Before declaring setup complete, run the behavior probe
+   `너는 나를 뭐라고 불러야 해?`; the bot must answer with the exact address
+   without a follow-up question.
 3. Use tmux for the daemon/TUI split. Do not use cmux for this flow.
 4. Present safe mode first. Offer YOLO only as an explicit opt-in using the
    bridge contract and operator-controlled sentinel. Before asking the operator
@@ -173,8 +183,8 @@ never be empty or omitted — a silent skip reads as an incomplete setup:
 ```yaml
 setup_completion:
   aliases: generated | declined(<reason>)   # step 8 — REQUIRED
-  wd_docs: created | declined(<reason>)     # step 2 — SOUL.md + AGENTS.md in BOT_WD (REQUIRED)
-  operator_address: <exact address>         # step 2 — exact SOUL rule + behavior probe
+  wd_docs: created | declined(<reason>)     # step 2 — canonical AGENTS.md with SOUL v2 capsule (REQUIRED)
+  operator_address: <exact address>         # step 2 — exact capsule rule + behavior probe
   hooks_trusted: true                       # step 6 — trusted_hash present
   dispatch_gate: probe 6/6 | skipped(<reason>)  # step 6 — multi-bot gate probe
   doctor: pass                              # step 9
