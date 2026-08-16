@@ -16,7 +16,7 @@ import {
 } from '../scripts/lib/state.mjs';
 import { verifyStep } from '../scripts/lib/doctor.mjs';
 import { applySkillInstall, marketplaceHint, patchCodexConfig } from '../scripts/lib/apply.mjs';
-import { aliasBlock, materializeBotFiles } from '../scripts/lib/materialize.mjs';
+import { aliasBlock, materializeBotFiles, migrateIdentity } from '../scripts/lib/materialize.mjs';
 import { promptForStep } from '../scripts/lib/prompts.mjs';
 import {
   appendAutomationAudit,
@@ -45,7 +45,7 @@ import {
 } from '../scripts/lib/browser-tools.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke', 'discord-thread', 'browser-e2e', 'automation-flow', 'automation-attempt', 'automation-gate'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'discord-thread', 'browser-e2e', 'automation-flow', 'automation-attempt', 'automation-gate', 'migrate-identity'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -246,6 +246,34 @@ if (command === 'discord-thread') {
     });
   } catch (error) {
     output = cliErrorResult(error);
+  }
+  console.log(JSON.stringify(output, null, 2));
+  process.exit(output.ok ? 0 : 2);
+}
+
+if (command === 'migrate-identity') {
+  let output;
+  try {
+    if (has('--preview') && has('--apply')) throw new Error('migrate-identity accepts either --preview (the default) or --apply, not both');
+    const installState = loadInstallState();
+    const bot = arg('--bot-wd') || installState.confirmed_bot_wd;
+    if (!bot) throw new Error('migrate-identity requires --bot-wd <path> or a confirmed guided-install BOT_WD');
+    const rollback = has('--rollback');
+    output = migrateIdentity({
+      repo: resolve(arg('--repo-root') || repoRoot),
+      bot: resolve(bot),
+      apply: has('--apply'),
+      rollback,
+    });
+    output.next_command = output.ok && output.mode === 'preview'
+      ? rollback
+        ? 'Review the exact candidate path, then rerun with --rollback --apply to remove only the unchanged staged candidate.'
+        : 'Review the exact source, current, target, backup, and candidate paths, then rerun with --apply to stage without overwriting the active identity file.'
+      : output.ok && output.action === 'backed_up_then_staged_v2_candidate_no_overwrite'
+        ? `Review AGENTS.md.v2 against ${output.current_kind === 'legacy_soul' ? 'SOUL.md' : 'AGENTS.md'}; the original remains active and the backup/receipt are the rollback point.`
+        : '';
+  } catch (error) {
+    output = { ok: false, code: 'identity_migration_error', action: 'none', message: error.message };
   }
   console.log(JSON.stringify(output, null, 2));
   process.exit(output.ok ? 0 : 2);

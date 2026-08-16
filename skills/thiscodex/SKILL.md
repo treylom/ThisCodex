@@ -76,9 +76,10 @@ Deep reference lives in the repo (load only when a step needs it — progressive
 ## Setup procedure (in order)
 
 1. **Prereqs**: `codex` CLI, `tmux`, Python 3 + `websockets`, the Claude Code Discord plugin (reused as a codex MCP server), `gh auth login`. Platforms: macOS / Linux / WSL2.
-2. **`~/.codex/config.toml`** — auto-load persona/rules + wire the Discord MCP:
+2. **`~/.codex/config.toml`** — use the canonical AGENTS instruction document
+   and wire the Discord MCP:
    ```toml
-   project_doc_fallback_filenames = ["SOUL.md", "AGENTS.md"]
+   project_doc_fallback_filenames = ["SOUL.md"]
    project_doc_max_bytes = 65536
    [mcp_servers.discord]
    command = "bun"
@@ -86,7 +87,17 @@ Deep reference lives in the repo (load only when a step needs it — progressive
    [mcp_servers.discord.env]
    DISCORD_STATE_DIR = "~/.claude/channels/discord-<botname>"
    ```
-3. **Bot working directory**: put `SOUL.md` (persona) + `AGENTS.md` (rules) there. `AGENTS.md` carries the static Discord-reply rule and points at `rules/INDEX.md` only (not inline rules).
+3. **Bot working directory**: if both `AGENTS.md` and `SOUL.md` are absent,
+   create one canonical `AGENTS.md`, with its SOUL v2 capsule, static
+   Discord-reply rule, and `rules/INDEX.md` pointer (not inline rules). Do not
+   put a same-directory `SOUL.md` beside it and expect
+   both files to load. A `SOUL.md` is only a legacy fallback when `AGENTS.md`
+   is absent, or an external bridge-capsule source — not a second Codex project
+   document. A `SOUL.md`-only BOT_WD is an existing install: run
+   `thiscodex migrate-identity --preview`, then `--apply` only after review.
+   It stages `AGENTS.md.v2`, preserves the active SOUL.md, saves
+   `SOUL.md.thiscodex.pre-v2.bak` plus a receipt, and leaves cutover to the
+   operator. Rollback removes only an unchanged candidate and receipt.
 4. **Bridge + launcher**: use the shipped **`../../scripts/launch.sh`** (hardened 2-window tmux launcher: `infra` runs app-server + `bot.py` bridge; `codex` resumes the SAME bridge thread). It enforces the invariants — command-as-window-process (never `send-keys` into a bare shell), and the codex window **always `codex resume <bridge-thread-id> --remote`, never a bare fresh `codex --remote`**. Set `BOT_WD`, `SESSION`, `LAUNCH_CMD`. Do not hand-roll this (see Troubleshooting for why).
 5. **YOLO**: `bot.py` sends `sandbox:"danger-full-access"` + `approvalPolicy:"never"` on **both** `thread/start` AND `thread/resume` (resume silently degrades otherwise — the nastiest bug).
 6. **Skills/rules portability**: your own skills → `~/.agents/skills/<name>/SKILL.md`. Plugin/framework skills (e.g. superpowers) → install via the framework's own codex path, never hand-symlink.

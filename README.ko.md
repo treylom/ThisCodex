@@ -62,7 +62,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 |---|---|---|
 | Codex CLI를 상시 디스코드 봇으로 | ✅ 작동 | `codex app-server`(화면 없는 백그라운드 실행) + 파이썬 bridge(다리) 데몬 `bot.py` + discord.py |
 | 멀티 클라이언트 동일 스레드(봇 대화를 터미널 화면으로 관전·개입) | ✅ 작동 | 같은 app-server에 `codex resume <스레드ID> --remote ws://…` |
-| 페르소나·볼트 규칙 자동 로드 | ✅ 작동 | `~/.codex/config.toml`의 `project_doc_fallback_filenames = ["SOUL.md","AGENTS.md"]` |
+| 페르소나·볼트 규칙 자동 로드 | ✅ 작동 | 정본 `BOT_WD/AGENTS.md`; `SOUL.md`는 `AGENTS.md`가 없을 때만 쓰는 구형 fallback |
 | 봇끼리 호출 + 회의 규율 | ✅ 작동 | `bot-roster.yaml`(단일 기준 파일)을 세션 시작 시 주입 |
 | 안전 기본 / YOLO(전체 권한) opt-in | ✅ 작동 | 기본 `workspace-write`, `THISCODEX_YOLO=1` 시에만 `thread/start`·`thread/resume` 둘 다 `danger-full-access`·`never` 전송 ([계약](docs/yolo-bridge-contract.md)) |
 | 이미지 생성 | ✅ 작동 | codex 내장 `image_gen.imagegen` 도구 |
@@ -205,7 +205,8 @@ zsh가 없어도 실행되게 합니다.
 
 ### 3.2 `~/.codex/config.toml`
 ```toml
-project_doc_fallback_filenames = ["SOUL.md", "AGENTS.md"]
+# AGENTS.md가 Codex 정본 파일명이며 SOUL.md는 구형 fallback 전용.
+project_doc_fallback_filenames = ["SOUL.md"]
 project_doc_max_bytes = 65536
 
 [mcp_servers.discord]
@@ -216,7 +217,12 @@ DISCORD_STATE_DIR = "~/.claude/channels/discord-<봇이름>"
 ```
 
 ### 3.3 봇 작업 디렉토리
-`SOUL.md`(페르소나)와 `AGENTS.md`(규칙 — 정적 디스코드 답장 규칙 포함, §4)를 봇 작업 폴더에 둠. 매 스레드 자동 로드되므로 **매 턴 페르소나 텍스트 재주입 금지**.
+봇 작업 폴더에는 정본 `AGENTS.md` 하나를 둔다. 이 파일 안에 SOUL v2
+페르소나 capsule과 정적 디스코드 답장 규칙(§4)을 넣고 rules 라우터를
+가리킨다. Codex는 디렉터리마다 지시 파일 하나만 선택하므로 같은 폴더의
+`SOUL.md`를 `AGENTS.md`와 함께 로드하지 않는다. `SOUL.md`는 `AGENTS.md`가
+없는 구형 설치의 fallback으로만 남긴다. **매 턴 정적 페르소나 텍스트를
+재주입하지 않는다.**
 
 ### 3.4 실행 (접근 권한을 주는 건 bridge)
 2-윈도우 tmux 런처(`scripts/launch.sh`): `infra` 윈도우는 `LAUNCH_CMD`(codex app-server + bridge 데몬), `codex` 윈도우는 같은 app-server에 터미널 화면(TUI)을 붙여 실시간 관전·개입.
@@ -276,7 +282,7 @@ Claude Code + Codex 에이전트가 공존하게 하는 규칙. `bot-roster.yaml
 - **직통 채널은 멘션 규칙 면제**(`require_mention: false`).
 - **회의 = 전용 스레드**: 봇 2개↑·10분↑·안건 있음 중 2개 충족 시 전용 스레드 신설, 본 채널엔 안내만. 단발 relay/ACK는 본문 유지.
 - **세션 시작 주입**: 단일 렌더러(`roster-inject.py`)가 같은 좌표·규칙을 Claude Code 봇(세션 init 훅)과 Codex 봇(`~/.codex/hooks.json`) 양쪽에 주입.
-- **디스코드 답장 규칙(정적, AGENTS.md — 매 턴 아님)**: 각 턴은 `<channel chat_id="…" message_id="…">`로 들어옴 → `mcp__discord__reply(chat_id, reply_to=message_id)`로 답장. 페르소나·볼트 규율은 `SOUL.md`/`AGENTS.md`가 자동 로드되므로 항상 적용.
+- **디스코드 답장 규칙(정적, AGENTS.md — 매 턴 아님)**: 각 턴은 `<channel chat_id="…" message_id="…">`로 들어옴 → `mcp__discord__reply(chat_id, reply_to=message_id)`로 답장. 페르소나·볼트 규율은 정본 `AGENTS.md`가 자동 로드되므로 항상 적용.
 
 ---
 
@@ -284,7 +290,7 @@ Claude Code + Codex 에이전트가 공존하게 하는 규칙. `bot-roster.yaml
 
 | 항목 | Claude Code | Codex 대응 |
 |---|---|---|
-| 페르소나·규칙 로드 | `CLAUDE.md` + 세션 시작 훅 | `project_doc_fallback_filenames`로 `AGENTS.md`/`SOUL.md` |
+| 페르소나·규칙 로드 | `CLAUDE.md` + 세션 시작 훅 | 정본 `AGENTS.md`; `SOUL.md`는 `AGENTS.md`가 없을 때만 구형 fallback |
 | 들어오는 디스코드 이벤트 | `claude --channels` 내장 | `bot.py` bridge → `turn/start` |
 | 나가는 응답 | `mcp__discord__reply` 도구 | 동일(discord 플러그인=codex MCP) |
 | 도구 승인 | 권한 모드 | `approvalPolicy` + bridge 자동수락 |
@@ -320,6 +326,6 @@ Claude Code + Codex 에이전트가 공존하게 하는 규칙. `bot-roster.yaml
 - ✅ Progressive-disclosure **rules 시스템**(규칙을 다 넣지 않고 상황별 참조 — context bloat 방지) — 컨벤션 동봉, [docs/rules-system.md](docs/rules-system.md).
 - ✅ **가역 메모리 정리(지우지 않고 옮김)** (`scripts/memory_dreaming.py`) — 안 쓰는 메모리를 작업공간 밖 보관소로 옮기고 명령 한 줄로 체크섬 검증 복원. 9칸 전부 같은 기준표 **Codex 메모리 칸 포함**(`~/.codex/memories`, cold subdir env 설정), 보수적(자동이동 게이트·애매하면 사람검토)·기준 자기보정·주1회 강제. 쉬운 설명: [docs/memory-dreaming.md](docs/memory-dreaming.md).
 - ✅ **회의 watchdog** (`scripts/meeting_watchdog.py`) — **회의마다 권장 (감시 봇 1개 초대, 첫 dispatch 전에 가동)**. 회의 스레드 신설 시 YAML 강제 ~5분 진행 점검(메인테이너 vault 는 ~3분 운영), 목표+전체 작업 완료 시에만 자동 종료(Claude `/goal` 응용), fail-closed = 살아있는 회의 절대 잘못 종료 안 함. [docs/05-meeting-thread-protocol.md](docs/05-meeting-thread-protocol.md) §2.3 + [rules/meeting-protocol.md](rules/meeting-protocol.md) §5 와 짝.
-- ⚙️ **설정 가이드**(AGENTS.md · soul.md · rules · Skills 2.0 체크리스트) — [docs/SETUP-CONFIG-GUIDE.md](docs/SETUP-CONFIG-GUIDE.md).
+- ⚙️ **설정 가이드**(정본 AGENTS.md + SOUL v2 capsule · rules · Skills 2.0 체크리스트) — [docs/SETUP-CONFIG-GUIDE.md](docs/SETUP-CONFIG-GUIDE.md).
 
 라이선스: 레포 참조. 본인이 통제하는 머신 + 신뢰 가능한 비공개 디스코드 서버에서만 사용.

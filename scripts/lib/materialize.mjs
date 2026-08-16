@@ -1,4 +1,5 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, constants, copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { rejectProvisionalPath } from './state.mjs';
 import { progressConfigForState, progressEnvForState } from './progress.mjs';
@@ -13,6 +14,152 @@ function runtimeName(state) {
     throw new Error('session must use 1-64 ASCII letters, numbers, dash, or underscore');
   }
   return value;
+}
+
+const IDENTITY_SOURCE_REL = ['examples', 'AGENTS.md'];
+const IDENTITY_TARGET = 'AGENTS.md';
+const IDENTITY_LEGACY_TARGET = 'SOUL.md';
+const IDENTITY_CANDIDATE = 'AGENTS.md.v2';
+const IDENTITY_BACKUP = 'AGENTS.md.thiscodex.pre-v2.bak';
+const IDENTITY_LEGACY_BACKUP = 'SOUL.md.thiscodex.pre-v2.bak';
+const IDENTITY_RECEIPT = 'AGENTS.md.thiscodex.migration.json';
+
+function sha256(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function copyNew(source, target) {
+  copyFileSync(source, target, constants.COPYFILE_EXCL);
+}
+
+// Codex discovers only one project instruction file at a directory level.
+// AGENTS.md is therefore the single v2 identity source for a newly created
+// ThisCodex bot. An existing AGENTS.md is never replaced: the explicit
+// migration path stages a separately named candidate for operator review.
+export function planIdentityMigration({ repo, bot }) {
+  const source = join(repo, ...IDENTITY_SOURCE_REL);
+  const target = join(bot, IDENTITY_TARGET);
+  const legacy = join(bot, IDENTITY_LEGACY_TARGET);
+  const candidate = join(bot, IDENTITY_CANDIDATE);
+  const receipt = join(bot, IDENTITY_RECEIPT);
+  const targetExists = existsSync(target);
+  const legacyExists = existsSync(legacy);
+  const current = targetExists ? target : legacyExists ? legacy : null;
+  const currentKind = targetExists ? 'agents' : legacyExists ? 'legacy_soul' : 'none';
+  const backup = join(bot, currentKind === 'legacy_soul' ? IDENTITY_LEGACY_BACKUP : IDENTITY_BACKUP);
+  return {
+    source,
+    target,
+    legacy,
+    current,
+    current_kind: currentKind,
+    candidate,
+    backup,
+    receipt,
+    source_exists: existsSync(source),
+    target_exists: targetExists,
+    legacy_exists: legacyExists,
+    current_exists: current !== null,
+    candidate_exists: existsSync(candidate),
+    backup_exists: existsSync(backup),
+    receipt_exists: existsSync(receipt),
+  };
+}
+
+export function migrateIdentity({ repo, bot, apply = false, rollback = false }) {
+  const cleanRepo = rejectProvisionalPath(repo);
+  const cleanBot = rejectProvisionalPath(bot);
+  const plan = planIdentityMigration({
+    repo: cleanRepo,
+    bot: cleanBot,
+  });
+  if (rollback) {
+    if (!plan.receipt_exists) {
+      return { ok: false, code: 'identity_rollback_receipt_missing', action: 'none', ...plan };
+    }
+    let receipt;
+    try {
+      receipt = JSON.parse(readFileSync(plan.receipt, 'utf8'));
+    } catch {
+      return { ok: false, code: 'identity_rollback_receipt_invalid', action: 'none', ...plan };
+    }
+    if (!plan.candidate_exists || receipt.candidate !== plan.candidate || receipt.candidate_sha256 !== sha256(plan.candidate)) {
+      return { ok: false, code: 'identity_rollback_refused_candidate_changed', action: 'none', ...plan };
+    }
+    if (!apply) {
+      return { ok: true, mode: 'preview', action: 'would_remove_unchanged_candidate', ...plan };
+    }
+    // The original AGENTS.md was never touched. Removing only the receipt-bound
+    // candidate is the rollback; preserve the original backup for audit/retry.
+    unlinkSync(plan.candidate);
+    unlinkSync(plan.receipt);
+    return {
+      ok: true,
+      mode: 'apply',
+      action: 'removed_unchanged_candidate',
+      ...planIdentityMigration({ repo: cleanRepo, bot: cleanBot }),
+    };
+  }
+
+  if (!plan.source_exists) {
+    return { ok: false, code: 'identity_source_missing', action: 'none', ...plan };
+  }
+
+  if (!plan.current_exists) {
+    if (!apply) return { ok: true, mode: 'preview', action: 'would_seed_canonical_identity', ...plan };
+    mkdirSync(cleanBot, { recursive: true });
+    const current = planIdentityMigration({ repo: cleanRepo, bot: cleanBot });
+    if (current.current_exists) return { ok: false, code: 'identity_target_appeared', action: 'none', ...current };
+    copyNew(plan.source, plan.target);
+    return { ok: true, mode: 'apply', action: 'seeded_canonical_identity', ...planIdentityMigration({ repo: cleanRepo, bot: cleanBot }) };
+  }
+
+  if (plan.candidate_exists) {
+    return { ok: false, code: 'identity_candidate_exists_no_overwrite', action: 'none', ...plan };
+  }
+  if (plan.receipt_exists) {
+    return { ok: false, code: 'identity_receipt_exists_no_overwrite', action: 'none', ...plan };
+  }
+  if (plan.backup_exists && sha256(plan.backup) !== sha256(plan.current)) {
+    return { ok: false, code: 'identity_backup_conflicts_no_overwrite', action: 'none', ...plan };
+  }
+  if (!apply) {
+    return {
+      ok: true,
+      mode: 'preview',
+      action: plan.backup_exists
+        ? 'would_stage_v2_candidate_with_existing_backup'
+        : plan.current_kind === 'legacy_soul'
+          ? 'would_backup_legacy_soul_then_stage_v2_candidate'
+          : 'would_backup_then_stage_v2_candidate',
+      ...plan,
+    };
+  }
+
+  mkdirSync(cleanBot, { recursive: true });
+  // Re-plan at the write boundary: none of the three files may be overwritten.
+  const current = planIdentityMigration({ repo: cleanRepo, bot: cleanBot });
+  if (current.current !== plan.current || current.candidate_exists || current.receipt_exists
+      || (current.backup_exists && sha256(current.backup) !== sha256(current.current))) {
+    return { ok: false, code: 'identity_migration_target_changed_no_overwrite', action: 'none', ...current };
+  }
+  if (!current.backup_exists) copyNew(current.current, current.backup);
+  try {
+    copyNew(current.source, current.candidate);
+    writeFileSync(current.receipt, JSON.stringify({
+      schema_version: 1,
+      source: current.source,
+      source_sha256: sha256(current.source),
+      original: current.current,
+      backup: current.backup,
+      backup_sha256: sha256(current.backup),
+      candidate: current.candidate,
+      candidate_sha256: sha256(current.candidate),
+    }, null, 2) + '\n', { flag: 'wx' });
+  } catch (error) {
+    return { ok: false, code: 'identity_migration_write_failed', action: 'backup_preserved_candidate_may_require_review', error: error.message, ...planIdentityMigration({ repo: cleanRepo, bot: cleanBot }) };
+  }
+  return { ok: true, mode: 'apply', action: 'backed_up_then_staged_v2_candidate_no_overwrite', ...planIdentityMigration({ repo: cleanRepo, bot: cleanBot }) };
 }
 
 export function planBotFiles(state) {
@@ -218,14 +365,15 @@ export function materializeBotFiles(state) {
   chmodSync(plan.run, 0o755);
   chmodSync(plan.infra, 0o755);
   // 막힘 20 (2026-08-09 WSL, root-cause confirmed by timing: 0 reply-tool calls
-  // before an instruction file existed, 7 after): config points codex at
-  // SOUL.md/AGENTS.md as project docs, but nothing ever CREATED one — so the
-  // model never learns that its text does not reach Discord. Materialize the
-  // reference AGENTS.md into the bot WD; never overwrite an existing one.
+  // before an instruction file existed, 7 after): materialize the canonical
+  // v2 identity AGENTS.md into the bot WD. Codex discovers at most one
+  // project-document filename in this directory, so this is intentionally not
+  // paired with a same-level SOUL.md. Preserve the copy-once contract.
   const agentsDoc = join(plan.bot, 'AGENTS.md');
+  const legacySoulDoc = join(plan.bot, 'SOUL.md');
   const agentsSrc = join(plan.repo, 'examples', 'AGENTS.md');
-  if (!existsSync(agentsDoc) && existsSync(agentsSrc)) {
-    copyFileSync(agentsSrc, agentsDoc);
+  if (!existsSync(agentsDoc) && !existsSync(legacySoulDoc) && existsSync(agentsSrc)) {
+    copyNew(agentsSrc, agentsDoc);
   }
   // B3 (2026-08-09/10 night batch, PRD success criteria 3-5): copy-once rules
   // seed — DM reply-thread echo policy + wiki save policy. Same never-overwrite

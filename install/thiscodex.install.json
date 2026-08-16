@@ -68,7 +68,7 @@
       "order": 40,
       "when": "always",
       "action": "prompt",
-      "reason": "ThisCodex needs one stable bot working directory for AGENTS.md, SOUL.md, thread id, and runner files.",
+      "reason": "ThisCodex needs one stable bot working directory for the canonical AGENTS.md (including its SOUL v2 capsule), thread id, and runner files.",
       "safety": "user-confirmed-path",
       "verify": { "type": "path-writable", "state_key": "confirmed_bot_wd" },
       "on_fail": { "next_command": "thiscodex init --apply --bot-wd <path>" }

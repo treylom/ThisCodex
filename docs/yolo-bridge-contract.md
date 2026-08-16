@@ -85,7 +85,7 @@ A long model turn must not be a silent gap. Two layers, both required
 (defense-in-depth — one is a model instruction that can be forgotten, the
 other is code that cannot):
 
-- **Model layer**: the bot's `SOUL.md`/`AGENTS.md` carries a hard rule to
+- **Model layer**: the bot's canonical `AGENTS.md` carries a hard rule to
   proactively post a new message on completion / partial-artifact /
   awaiting-permission / external-handoff / blocked > ~10–15 min — without
   waiting to be pinged. (See the deployed soul templates + rules-system.)
@@ -244,7 +244,7 @@ YOLO bridge = 신뢰 불가 Discord 텍스트를 호스트 무제한 권한 모�
 ### progress heartbeat 계약 (B-fix — 침묵 갭 방지)
 긴 턴이 침묵 갭이면 안 됨. 2계층 병행 필수(defense-in-depth — 하나는 잊힐 수
 있는 모델 지시, 하나는 못 잊는 코드):
-- **모델 계층**: 봇 `SOUL.md`/`AGENTS.md` 의 hard rule — 완료 / 부분산출 /
+- **모델 계층**: 봇 정본 `AGENTS.md` 의 hard rule — 완료 / 부분산출 /
   권한대기 / 외부핸드오프 / blocked 10~15분+ 시 ping 없이 새 메시지 능동 보고.
 - **bridge 계층**: `examples/bot.py` 가 기존 bridge Discord reply/send 경로로
   턴 진행 중 heartbeat 를 보내고, 턴 종료 즉시 취소. 간격은

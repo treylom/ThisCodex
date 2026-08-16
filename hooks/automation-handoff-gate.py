@@ -33,18 +33,23 @@ RECEIPT_RE = re.compile(r"<!--\s*thiscodex-automation-receipt:([a-f0-9]{48})\s*-
 
 def _payload() -> dict:
     try:
-        return json.load(sys.stdin)
+        # Hook hosts send JSON as UTF-8 bytes.  Decode the byte stream
+        # explicitly so a legacy Windows console code page cannot mojibake
+        # Korean handoff text before policy matching.
+        return json.loads(sys.stdin.buffer.read().decode("utf-8"))
     except Exception:
         return {}
 
 
 def _decision(allow: bool, reason: str = "") -> None:
     value = "allow" if allow else "deny"
+    # Emit ASCII-only JSON so Windows runners with a legacy console encoding
+    # cannot truncate Korean denial reasons before the hook host parses them.
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": value,
         **({"permissionDecisionReason": reason} if reason else {}),
-    }}, ensure_ascii=False))
+    }}, ensure_ascii=True))
 
 
 def _state_dir() -> Path:

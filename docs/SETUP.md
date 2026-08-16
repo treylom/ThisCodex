@@ -104,7 +104,8 @@ thiscodex doctor
 ## 5. Next Docs
 
 - [SETUP-BEGINNER.md](SETUP-BEGINNER.md) — same flow in simpler words.
-- [SETUP-CONFIG-GUIDE.md](SETUP-CONFIG-GUIDE.md) — author `AGENTS.md`,
-  `soul.md`, and rules with the bundled `/prompt` skill.
+- [SETUP-CONFIG-GUIDE.md](SETUP-CONFIG-GUIDE.md) — author the canonical
+  `AGENTS.md` (including its SOUL v2 capsule) and rules with the bundled
+  `/prompt` skill.
 - [RECENT-CHANGES.md](RECENT-CHANGES.md) — newest behavior changes an installed
   bot must reflect.

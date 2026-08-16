@@ -24,7 +24,7 @@ const PROMPTS = {
     defaultKey: 'workspace_root',
   },
   confirm_bot_wd: {
-    question: 'Confirm the bot working directory for AGENTS.md, SOUL.md, thread id, and runner files',
+    question: 'Confirm the bot working directory for the canonical AGENTS.md (including its SOUL v2 capsule), thread id, and runner files',
     defaultKey: 'cwd',
   },
   confirm_runtime_name: {

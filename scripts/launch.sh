@@ -22,7 +22,7 @@
 #   BOT_WD=/path/to/bot SESSION=mybot LAUNCH_CMD="./infra-launch.sh" ./scripts/launch.sh
 #
 # Env:
-#   BOT_WD      (required) bot working dir (holds SOUL.md/AGENTS.md, .codex-thread-id)
+#   BOT_WD      (required) bot working dir (holds canonical AGENTS.md, .codex-thread-id)
 #   SESSION     (default: thiscodex) tmux session name
 #   WS          (default: ws://127.0.0.1:4222) app-server listen URL
 #   TID_FILE    (default: $BOT_WD/.codex-thread-id) bridge writes the thread id here

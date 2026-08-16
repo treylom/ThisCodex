@@ -64,7 +64,8 @@ except ImportError as e:
     sys.exit(1)
 
 # The bridge's working dir is the BOT working dir (holds .codex-thread-id,
-# dedup.json, bot-info.json, and the auto-loaded SOUL.md/AGENTS.md) — NOT this
+# dedup.json, bot-info.json, and the canonical auto-loaded AGENTS.md; a SOUL.md
+# may remain only as the legacy fallback during migration) — NOT this
 # examples/ folder. launch.sh starts the infra with cwd=$BOT_WD and exports
 # BOT_WD; honor that. Never use __file__'s parent (that would scope state to
 # ThisCodex/examples/ and mis-wire persona auto-load).
@@ -1268,7 +1269,7 @@ async def on_ready():
 async def _heartbeat(channel, started: float, stop: asyncio.Event) -> None:
     """B-fix: while a turn runs, emit a progress note every interval so a long
     or blocked task is never a silent gap (defense-in-depth alongside the
-    model's proactive-report rule in SOUL.md/AGENTS.md)."""
+    model's proactive-report rule in canonical AGENTS.md)."""
     if HEARTBEAT_INTERVAL_SEC <= 0 or channel is None:
         return
     while not stop.is_set():
