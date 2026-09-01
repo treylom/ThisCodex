@@ -59,9 +59,12 @@ test('current-turn evidence is consumed once and binds a flow to one provider', 
     dir, policy, gatePolicy, flow: 'slack-auth', provider: 'playwright', status: 'failed', now: NOW,
   });
   assert.equal(second.code, 'active_attempt_required');
-  assert.equal(existsSync(paths.consumed), true);
+  // Windows does not expose meaningful POSIX permission bits through stat;
+  // the chmod contract is asserted on platforms that implement those bits.
   if (process.platform !== 'win32') {
     assert.equal(statSync(paths.consumed).mode & 0o777, 0o600);
+  } else {
+    assert.equal(existsSync(paths.consumed), true);
   }
   rmSync(dir, { recursive: true, force: true });
 });
@@ -144,6 +147,19 @@ test('a terminal success clears one active flow and a new flow may bind another 
   }).code, 'flow_started');
   const active = JSON.parse(readFileSync(paths.activeFlow, 'utf8'));
   assert.equal(active.provider, '');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('starting the matching active flow is read-only and idempotent', () => {
+  const policy = loadAutomationPolicy();
+  const { dir, paths } = fixture();
+  const before = readFileSync(paths.activeFlow, 'utf8');
+  const result = startAutomationFlow({
+    dir, policy, flow: 'slack-auth', now: NOW,
+  });
+  assert.equal(result.code, 'flow_already_active');
+  assert.deepEqual(result.flow, JSON.parse(before));
+  assert.equal(readFileSync(paths.activeFlow, 'utf8'), before);
   rmSync(dir, { recursive: true, force: true });
 });
 

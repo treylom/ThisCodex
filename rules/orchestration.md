@@ -1,7 +1,8 @@
 # Rule: multi-agent orchestration
 
 Trigger: delegating to / waiting on another bot, convening a meeting,
-asserting another bot's identity or health, or coordinating multiple agents.
+asserting another bot's identity or health, coordinating multiple agents, or
+starting work that may require delegation, a Workflow, or repository research.
 
 ## 1. Bot identity = verify, never assume
 - A bot's identity SoT is the persona injected at session start for **its own**
@@ -52,11 +53,6 @@ your independent-review + second-track reviewers; your maintainer sign-off path.
   ① independent reproduction/diagnosis on a different hypothesis axis
   ② cross-review of the proposed fix ③ parallel repair on an isolated
   branch/worktree. State the shape explicitly in the dispatch (HOW-complete).
-- **Precision qualifiers in every dispatch (2026-09-01)**: quantities, scope and
-  match criteria need explicit qualifiers — "all of", "only this file",
-  "at least N", "exact match only". A missing qualifier gets filled by the
-  receiver's default, and the default is whatever is most common — literal-minded
-  engines especially will let scope drift without it.
 - Mind machine boundaries: a peer on another machine joins local-only repro
   work as the diagnosis/review axis; if the repo is on a shared remote, it can
   reproduce directly.
@@ -153,18 +149,63 @@ in-flight tracks; your maintainer-confirmation channel.
 - Usage: discover peers fresh each time (names are auto-generated per session — never hard-code addresses); **reply by copying the inbound `from` address verbatim**; fall back to the external channel when the peer isn't listed. Scope test = the live peer listing itself (sessions started before harness support join only after a restart).
 - Wake-ladder placement (canonical ladder = discord-comms §5 R3, revised there): external-channel re-send → **direct ping in parallel (if peer-listed)** → still silent → bridge classification → maintainer escalation.
 
-## 9. Delegation & parallelism defaults (the five rules)
+## 11. Delegation and parallel-work defaults (R1–R5)
 
-- **R1 — 3+ planned document outputs = distribute**: when a single directive/track has ≥3 planned write outputs (doc/file-level deliverables — not meeting-ledger append lines, memory writes, or state files), do not edit them solo in sequence; distribute across write-capable workers (workflow-engine workers, Agent Teams members, specialist bots). Read-only subagents cannot take document-writing delegation (they are read-only by design). Declare the distribution — who gets what — in the track's spec/log **before the first write**. Zero write-capable layer available = report blocked, don't sweep it alone.
-- **R2 — 3+ heterogeneous stages = manage via workflow engine (two-part trigger — stage count ≠ parallel-unit count)**: ⓐ 3+ heterogeneous stages (e.g. collect → transform → verify) = plan and checkpoint them through a workflow engine. ⓑ Spawn parallel workers only when independent fan-out units number ≥2 — zero independent units means sequential execution inside the same workflow (no spawn). State stage count + independent-unit count in one line at kickoff. This clause is a standing opt-in for workflow-engine use where your setup requires explicit opt-in.
-- **R3 — specialty match = delegate by default (decision table)**: when inbound work matches another bot's specialty, delegate instead of doing it yourself. Priority: ① an explicit exact designation from the requester wins > ② a single domain match against the bot roster's `domains:` field = delegate > ③ multiple matches = the orchestrator bot decides > ④ no match / unreachable target = do it yourself or report blocked (don't silently drop it). A router's suggested match is a recommendation only — actual dispatch is a separate explicit step: check reachability first, then record the dispatch (order id, target, HOW) in the track's spec/log. A fully-specified HOW in the dispatch message and the cross-review gate (§5) still apply — this is automated *matching*, not automated *firing*.
-- **R4 — orchestrator with 3+ active tasks hands at least one to the designated general-purpose worker bot**: trigger = active tasks (in-progress + pending, excluding pending items stalled 7+ days) ≥3 AND that worker's active/accepted task count == 0, counted against a delegation ledger (task id → owner/delegated_to → dispatch id → accepted/active state). Without a ledger, the same re-delegation repeats every wake cycle. Only transfer ownership of your own tasks — never seize another bot's.
-- **R5 — repository search discipline (two axes)**: R5a (deployed generation flows — the original intent) = bot-scaffolding/document-generation flows (e.g. create-bot templates) must embed "search the existing repo first" as a built-in step before generating new content. R5b (knowledge base) = search before writing, then register/link the output back into the knowledge index afterward.
-- **Enforcement honesty**: R1 = a pre-tool counter hook (warn-and-observe first, promote later only after repeated confirmed misses) · R3 = roster `domains:` field + router suggestion line · R4 = the delegation ledger · R2 and R5 are procedural gates only — don't label them "mechanically enforced" when nothing counts them.
-- **Who records what, when, where** (per rule): the acting bot itself records — R1: before the first write, in the track's spec/log · R2: before spinning up the workflow · R3: before dispatch, in the track's spec/log · R4: at wakeup self-check, in the delegation ledger · R5b: right after the output is done, linking it into the knowledge index.
-- Case-based (operator directive, 2026-08-16); re-judge per situation; the maintainer's call wins.
+These are defaults for new work, not permission to bypass an explicit user
+instruction, an ownership boundary, or a safer existing process. Record the
+applicable declaration before the relevant action in the work item's plan or
+progress log; a project may provide a more specific location.
 
-▶ Fill in: your write-capable worker roster (workflow engine / Agent Teams / specialist bots); your workflow-engine's opt-in mechanism; your bot roster's `domains:` field location; your designated general-purpose worker bot's identity; your delegation-ledger path; your knowledge-index registration step.
+- **R1 — three or more planned deliverable documents: distribute the work.**
+  When one request has three or more planned created or changed deliverable
+  documents, do not edit them serially by yourself. Before the first write,
+  record the work split and assign independent writable units to workers with
+  write authority. Meeting ledgers, status files, and incidental notes do not
+  count as deliverables. If no writable delegation path exists, report that
+  constraint instead of silently absorbing all documents yourself.
+- **R2 — three or more distinct stages: use a Workflow.** A task with at
+  least three heterogeneous stages (for example collect → transform → verify)
+  uses a Workflow or equivalent checkpointed plan. Record the stage count and
+  number of independent fan-out units before starting. Spawn parallel workers
+  only when there are at least two genuinely independent units; otherwise run
+  the stages sequentially inside the Workflow. This rule is a procedural gate,
+  not evidence that every three-stage task should create workers.
+- **R3 — specialist domain match: delegate by default.** Use your roster or
+  ownership map as the source of truth. Priority is: an explicit user assignee;
+  one matching specialist; an orchestrator for multiple matches; then local
+  execution or a blocked report when there is no match, the specialist is
+  unavailable, or delivery cannot be reached. A routing suggestion is not an
+  automatic dispatch: check reachability, send a HOW-complete request, and
+  record the request identifier, target, method, and receipt before dispatch.
+- **R4 — orchestrator capacity: hand off owned work early.** If your
+  orchestrator has three or more active owned tracks, hand off at least one of
+  its own eligible tracks to the configured implementation lead. Keep a
+  handoff ledger with task ID, current owner, delegated-to target, dispatch
+  identifier, and accepted/active state so a wake-up does not re-delegate the
+  same task. Do not take over someone else's work merely to satisfy this rule.
+  A project without a durable task ledger treats this as a procedural
+  self-check until it establishes one.
+- **R5 — research the repository before creating bot documentation.** For
+  ThisCode/ThisCodex-style bot-document creation, inspect existing templates,
+  rules, and setup paths before drafting. For a knowledge-base-backed project,
+  also search its existing documentation before writing and link/register the
+  finished artifact through that project's normal knowledge workflow. This is
+  a procedural gate: it prevents duplicate conventions; it does not authorize
+  broad or speculative searching.
+- **Enforcement honesty**: R1 = a pre-tool counter hook (warn-and-observe
+  first, promote later only after repeated confirmed misses) · R3 = roster
+  `domains:` field + router suggestion line · R4 = the delegation ledger ·
+  R2 and R5 are procedural gates only — don't label them "mechanically
+  enforced" when nothing counts them.
+- **Who records what, when, where** (per rule): the acting bot itself
+  records — R1: before the first write, in the track's spec/log · R2: before
+  spinning up the workflow · R3: before dispatch, in the track's spec/log ·
+  R4: at wakeup self-check, in the delegation ledger · R5: right after the
+  output is done, linking it into the knowledge index.
+
+▶ Fill in: your writable delegation layers; Workflow/checkpoint tool; roster
+or ownership-map path and reachability check; orchestrator/implementation lead
+and handoff-ledger path; and repository/knowledge-base search command.
 
 ## Deferred instructions — re-check the ledger at fire time
 

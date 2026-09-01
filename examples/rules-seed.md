@@ -10,6 +10,12 @@
 > line (see `infra-launch.sh`) — that warning never auto-merges or
 > auto-updates your copy. Apply changes only by an explicit operator or bot
 > command.
+>
+> **SOUL v2 note:** `AGENTS.md` is the one canonical Codex instruction file in
+> this directory. This seed is a companion rule file, not a second instruction
+> document; do not create a same-directory `SOUL.md` and expect both it and
+> `AGENTS.md` to load. Existing copies remain untouched until an explicit
+> preview/apply migration is chosen.
 
 ## Rule 1 — No DM (1:1) reply-thread echo
 

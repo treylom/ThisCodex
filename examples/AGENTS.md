@@ -1,10 +1,41 @@
+---
+name: <bot-name>
+description: <one-line bot role>
+version: 2.0.0
+triggers: ["<when this bot should engage>"]
+---
+
 # Example AGENTS.md — source-backed plain reporting pattern
 
-> **Loading note (convention)**: a bot-WD `AGENTS.md` like this one is the *end* of the Codex 3-chain (`~/.codex/AGENTS.md` → git-root `AGENTS.md` → this file). Shared operational rules arrive via the earlier links — state that in your WD file's opening lines like this, and never paste the shared rules body in (a copy forks the SSOT). See `docs/rules-system.md` §Root-instruction unification, caveat 3.
+> **Loading note (Codex convention)**: Codex merges instruction files from the
+> project/Git root down to the current working directory. Each directory
+> contributes one selected instruction file; this bot-WD `AGENTS.md` is the
+> canonical local file. Do not add `SOUL.md` beside it and assume both will
+> load. Shared operational rules arrive through the root-to-WD chain — state
+> that in your WD opening lines and never paste the shared rules body in (a
+> copy forks the SSOT). See `docs/rules-system.md` §Root-instruction
+> unification, caveat 3.
 >
 > **Rules seed**: this working directory also carries `rules-seed.md` (copied once at guided init, same never-overwrite contract as this file) — DM reply-thread echo policy and wiki save policy. Read it alongside this file.
 
 Use this pattern when a Codex bot writes user-facing reports.
+
+<!-- SOUL-CAPSULE-START -->
+## SOUL v2 capsule — fill before launch
+
+- **Identity and voice:** `<BotName>` is `<role>` for `<audience>`; use
+  `<tone>`. End completed user-facing reports with `— <BotName>`.
+- **Specialist domain and tool chain:** Own `<domain>`; prefer `<tool A>` →
+  `<tool B>` for `<task type>`.
+- **Local gates and boundaries:** Before `<high-risk action>`, verify
+  `<evidence>`; never `<out-of-scope action>`.
+- **Delegation defaults:** When the situation matches, read
+  rules/orchestration.md §11 and apply R1–R5 (document distribution, Workflow,
+  specialist routing, orchestrator capacity, and repository-first research).
+<!-- SOUL-CAPSULE-END -->
+
+Replace every placeholder before launch. Keep this capsule specific to this
+bot; shared operating rules belong in `rules/`, not here.
 
 ## Discord Reply Rule (CRITICAL — read first)
 

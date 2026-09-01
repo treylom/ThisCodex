@@ -37,7 +37,9 @@ test('patchCodexConfig backs up and adds project_doc_fallback_filenames', () => 
   const result = patchCodexConfig(home, false);
   assert.equal(result.changed, true);
   assert.ok(existsSync(`${cfg}.thiscodex.bak`));
-  assert.match(readFileSync(cfg, 'utf8'), /project_doc_fallback_filenames/);
+  const text = readFileSync(cfg, 'utf8');
+  assert.match(text, /project_doc_fallback_filenames = \["SOUL\.md"\]/);
+  assert.doesNotMatch(text, /project_doc_fallback_filenames = \[[^\n]*AGENTS\.md/);
   rmSync(home, { recursive: true, force: true });
 });
 

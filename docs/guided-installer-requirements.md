@@ -47,7 +47,9 @@ The guided sequence is ordered:
 6. On WSL, detect paired Windows profiles and offer Windows-side sync.
 7. Check and optionally patch `~/.codex/config.toml`.
 8. Check the Codex-native superpowers path and record that the check ran.
-9. Route the prompt flow that drafts `AGENTS.md`, `soul.md`, and `rules/`.
+9. Route the prompt flow that drafts one canonical `AGENTS.md` (SOUL v2
+   identity slots included) and `rules/`. A pre-existing `SOUL.md` is a legacy
+   migration source, not a second generated peer.
 10. Run or route the `/using-superpowers` interview. This is required for full
     guided onboarding; if it is unavailable, the installer must stop before
     prompt-file generation and print the next command.
@@ -97,7 +99,7 @@ that drafts bot instructions.
 
 If `/using-superpowers` is not available and cannot be made available in the
 current environment, the installer must stop the guided onboarding flow and
-explain the next command. It must not continue into `AGENTS.md`, `soul.md`, or
+explain the next command. It must not continue into canonical `AGENTS.md` or
 `rules/` generation as if the interview happened.
 
 The interview execution model is explicit:

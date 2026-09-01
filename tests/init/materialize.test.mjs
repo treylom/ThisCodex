@@ -4,7 +4,10 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, existsSync, wr
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { planBotFiles, materializeBotFiles, aliasBlock, runScript, infraScript } from '../../scripts/lib/materialize.mjs';
+import { fileURLToPath } from 'node:url';
+import { planBotFiles, materializeBotFiles, aliasBlock, runScript, infraScript, migrateIdentity } from '../../scripts/lib/materialize.mjs';
+
+const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 // Runs the generated `export <varName>=...` line from a materialize.mjs output
 // through REAL bash and reports what actually landed. Bracketed by MARKER
@@ -135,21 +138,143 @@ test('materializeBotFiles seeds access.json.example into the state dir and never
   rmSync(state, { recursive: true, force: true });
 });
 
-test('materializeBotFiles seeds BOT_WD/AGENTS.md from examples and never overwrites', () => {
+test('materializeBotFiles seeds the canonical soul-v2 AGENTS.md from examples and never overwrites', () => {
   const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
   const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
   const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
   mkdirSync(join(root, 'examples'), { recursive: true });
-  writeFileSync(join(root, 'examples', 'AGENTS.md'), '# ref\nDiscord Reply Rule\n');
+  const v2 = '---\nversion: 2.0.0\n---\n## SOUL v2 capsule\nDiscord Reply Rule\n';
+  writeFileSync(join(root, 'examples', 'AGENTS.md'), v2);
   const s = { confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state };
   materializeBotFiles(s);
-  assert.match(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), /Discord Reply Rule/);
+  assert.equal(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), v2);
   writeFileSync(join(bot, 'AGENTS.md'), '# customized by operator\n');
   materializeBotFiles(s);
   assert.match(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), /customized by operator/);
   rmSync(root, { recursive: true, force: true });
   rmSync(bot, { recursive: true, force: true });
   rmSync(state, { recursive: true, force: true });
+});
+
+test('production soul-v2 template has every required schema slot and new install lands it as the one canonical instruction file', () => {
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  const expected = readFileSync(join(REPO_ROOT, 'examples', 'AGENTS.md'), 'utf8');
+  try {
+    materializeBotFiles({ confirmed_repo_root: REPO_ROOT, confirmed_bot_wd: bot, confirmed_state_dir: state });
+    assert.match(expected, /^name: <bot-name>$/m);
+    assert.match(expected, /^description: <one-line bot role>$/m);
+    assert.match(expected, /^version: 2\.0\.0$/m);
+    assert.match(expected, /^triggers: \["<when this bot should engage>"\]$/m);
+    assert.match(expected, /<!-- SOUL-CAPSULE-START -->/);
+    assert.match(expected, /^## SOUL v2 capsule/m);
+    assert.match(expected, /<!-- SOUL-CAPSULE-END -->/);
+    assert.match(expected, /— <BotName>/);
+    assert.match(expected, /Specialist domain and tool chain/);
+    assert.match(expected, /Local gates and boundaries/);
+    assert.match(expected, /rules\/orchestration\.md §11 and apply R1–R5/);
+    assert.equal(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), expected);
+    assert.equal(existsSync(join(bot, 'SOUL.md')), false);
+  } finally {
+    rmSync(bot, { recursive: true, force: true });
+    rmSync(state, { recursive: true, force: true });
+  }
+});
+
+test('guided materialization never supersedes a legacy SOUL-only install', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  const state = mkdtempSync(join(tmpdir(), 'tcx-state-'));
+  mkdirSync(join(root, 'examples'), { recursive: true });
+  writeFileSync(join(root, 'examples', 'AGENTS.md'), '---\nversion: 2.0.0\n---\n');
+  writeFileSync(join(bot, 'SOUL.md'), '# legacy operator persona\n');
+  try {
+    materializeBotFiles({ confirmed_repo_root: root, confirmed_bot_wd: bot, confirmed_state_dir: state });
+    assert.equal(readFileSync(join(bot, 'SOUL.md'), 'utf8'), '# legacy operator persona\n');
+    assert.equal(existsSync(join(bot, 'AGENTS.md')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(bot, { recursive: true, force: true });
+    rmSync(state, { recursive: true, force: true });
+  }
+});
+
+test('migrateIdentity previews, stages a v2 candidate without overwrite, and rolls it back only while unchanged', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  mkdirSync(join(root, 'examples'), { recursive: true });
+  const v2 = '---\nversion: 2.0.0\n---\n## SOUL v2 capsule\n';
+  writeFileSync(join(root, 'examples', 'AGENTS.md'), v2);
+  writeFileSync(join(bot, 'AGENTS.md'), '# operator identity\n');
+
+  const preview = migrateIdentity({ repo: root, bot });
+  assert.equal(preview.ok, true);
+  assert.equal(preview.mode, 'preview');
+  assert.equal(preview.action, 'would_backup_then_stage_v2_candidate');
+  assert.equal(existsSync(preview.candidate), false);
+  assert.equal(existsSync(preview.backup), false);
+
+  const applied = migrateIdentity({ repo: root, bot, apply: true });
+  assert.equal(applied.ok, true);
+  assert.equal(applied.action, 'backed_up_then_staged_v2_candidate_no_overwrite');
+  assert.equal(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), '# operator identity\n');
+  assert.equal(readFileSync(join(bot, 'AGENTS.md.v2'), 'utf8'), v2);
+  assert.equal(readFileSync(join(bot, 'AGENTS.md.thiscodex.pre-v2.bak'), 'utf8'), '# operator identity\n');
+
+  const refused = migrateIdentity({ repo: root, bot, apply: true });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.code, 'identity_candidate_exists_no_overwrite');
+
+  writeFileSync(join(bot, 'AGENTS.md.v2'), '# edited after migration\n');
+  const changedCandidate = migrateIdentity({ repo: root, bot, rollback: true, apply: true });
+  assert.equal(changedCandidate.ok, false);
+  assert.equal(changedCandidate.code, 'identity_rollback_refused_candidate_changed');
+  writeFileSync(join(bot, 'AGENTS.md.v2'), v2);
+  const rollbackPreview = migrateIdentity({ repo: root, bot, rollback: true });
+  assert.equal(rollbackPreview.action, 'would_remove_unchanged_candidate');
+  const rolledBack = migrateIdentity({ repo: root, bot, rollback: true, apply: true });
+  assert.equal(rolledBack.action, 'removed_unchanged_candidate');
+  assert.equal(rolledBack.candidate_exists, false);
+  assert.equal(rolledBack.receipt_exists, false);
+  assert.equal(rolledBack.backup_exists, true);
+  assert.equal(existsSync(join(bot, 'AGENTS.md.v2')), false);
+  assert.equal(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), '# operator identity\n');
+  assert.equal(readFileSync(join(bot, 'AGENTS.md.thiscodex.pre-v2.bak'), 'utf8'), '# operator identity\n');
+  rmSync(root, { recursive: true, force: true });
+  rmSync(bot, { recursive: true, force: true });
+});
+
+test('migrateIdentity treats a legacy SOUL-only bot as existing and preserves its active file', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tcx-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
+  mkdirSync(join(root, 'examples'), { recursive: true });
+  const v2 = '---\nversion: 2.0.0\n---\n## SOUL v2 capsule\n';
+  const legacy = '# legacy operator persona\n';
+  writeFileSync(join(root, 'examples', 'AGENTS.md'), v2);
+  writeFileSync(join(bot, 'SOUL.md'), legacy);
+  try {
+    const preview = migrateIdentity({ repo: root, bot });
+    assert.equal(preview.action, 'would_backup_legacy_soul_then_stage_v2_candidate');
+    assert.equal(preview.current_kind, 'legacy_soul');
+    assert.equal(existsSync(join(bot, 'AGENTS.md')), false);
+
+    const applied = migrateIdentity({ repo: root, bot, apply: true });
+    assert.equal(applied.action, 'backed_up_then_staged_v2_candidate_no_overwrite');
+    assert.equal(readFileSync(join(bot, 'SOUL.md'), 'utf8'), legacy);
+    assert.equal(readFileSync(join(bot, 'SOUL.md.thiscodex.pre-v2.bak'), 'utf8'), legacy);
+    assert.equal(readFileSync(join(bot, 'AGENTS.md.v2'), 'utf8'), v2);
+    assert.equal(existsSync(join(bot, 'AGENTS.md')), false);
+
+    const rolledBack = migrateIdentity({ repo: root, bot, rollback: true, apply: true });
+    assert.equal(rolledBack.action, 'removed_unchanged_candidate');
+    assert.equal(rolledBack.current_kind, 'legacy_soul');
+    assert.equal(readFileSync(join(bot, 'SOUL.md'), 'utf8'), legacy);
+    assert.equal(existsSync(join(bot, 'AGENTS.md')), false);
+    assert.equal(existsSync(join(bot, 'AGENTS.md.v2')), false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(bot, { recursive: true, force: true });
+  }
 });
 
 test('aliasBlock launches the materialized runner from confirmed BOT_WD', () => {

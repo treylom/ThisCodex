@@ -48,9 +48,9 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
 
 ## 3. The SDK 0.130 trap & workaround `[source-backed — 루돌프, hard-code 확인 2026-05-15: runner.ts:135 + test/runner.test.ts:149, commit 5e90004]`
 
-`@openai/codex-sdk` 0.130 has **no dedicated system slot**. Persona/rules can't be injected as a true system message. Workaround in production: inject `SOUL + AGENTS + TOOLS` as an inline `[system]\n…\n\n[user]\n…` prefix. The native path (per-persona `AGENTS.md` in `workingDirectory`, codex auto-load) is deferred to a follow-up turn — so first-turn persona is the inline prefix. Hard-code 증거(루돌프, 2026-05-15): `packages/gateway/src/codex/runner.ts:135` 가 `[system]…[user]` 프리픽스를 직접 return, `test/runner.test.ts:149` 가 `lastInput` 에 `[system]` 포함을 assert — 코드+테스트 양측에 박힘 (commit 5e90004).
+`@openai/codex-sdk` 0.130 has **no dedicated system slot**. In the external `codex-bots` runtime measured in May 2026, the bridge worked around that limitation by injecting its static instruction bundle as an inline `[system]\n…\n\n[user]\n…` prefix. Hard-code 증거(루돌프, 2026-05-15): `packages/gateway/src/codex/runner.ts:135` 가 `[system]…[user]` 프리픽스를 직접 return, `test/runner.test.ts:149` 가 `lastInput` 에 `[system]` 포함을 assert — 코드+테스트 양측에 박힘 (commit 5e90004). This is historical evidence for that external bridge, not ThisCodex's current project-document contract.
 
-`[session-verified — Karpathy]` Same symptom on the Mac bridge: codex `app-server` exposes only a generic tool/turn protocol, so `bot.py` injects the dynamic `<channel …>` block per turn while **static** persona/rules ride on `project_doc_fallback_filenames = ["SOUL.md","AGENTS.md"]` auto-load (per-turn re-injection removed — P1.5 trim). Net: identical mitigation, two runtimes.
+`[session-verified — Karpathy]` The Mac bridge injects only the dynamic `<channel …>` block per turn. ThisCodex now keeps static identity and local rules in the canonical `AGENTS.md`, which Codex discovers natively. `project_doc_fallback_filenames = ["SOUL.md"]` exists only for legacy workspaces that have not migrated yet; it is not a second same-directory identity source.
 
 ## 4. Winning pattern — one SKILL.md, dual invoke `[source-backed — 루돌프; openclaw/hermes-agent pattern absorbed]`
 
@@ -60,7 +60,7 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
 |---|---|---|---|
 | Auth | per-channel pairing | reuse `~/.codex/auth.json` | 0 keys issued |
 | Daemon | tmux + alias | systemd template `codex-bot@<n>` | systemd > tmux for stability |
-| Persona | single `soul.md` | SOUL+AGENTS+TOOLS+ROUTES.yaml | split = clean handoff |
+| Persona | external harness-specific file | canonical `AGENTS.md`; legacy `SOUL.md` fallback only | one active project-document source per directory |
 | Skill location | `~/.claude/skills/` | `.agents/skills/` 4-layer | **same SKILL.md invoked by CLI *and* bot** |
 | Memory | per-WD memory | `personas/<bot>/state/` (gitignored) | cross-bot contamination blocked |
 
@@ -72,7 +72,7 @@ Portability rule: place the shared `SKILL.md` at `~/.agents/skills/<name>/SKILL.
 
 1. `~/.agents/skills/<name>/SKILL.md` — `name` + `description` frontmatter (CC-compatible).
 2. MCP deps → `metadata` (auto-installed via stable `skill_mcp_dependency_install`).
-3. Persona/rules → `AGENTS.md`+`SOUL.md` in bot WD + `project_doc_fallback_filenames`; first-turn = inline `[system]` prefix workaround (SDK 0.130).
+3. Persona/rules → one canonical `AGENTS.md` in the bot WD. Keep `project_doc_fallback_filenames = ["SOUL.md"]` only while a legacy SOUL-only workspace is awaiting the explicit `migrate-identity` flow; do not install both as active peers.
 4. Dynamic per-message state → bridge prompt only (`<channel …>`); everything static → `AGENTS.md` (auto-loaded, don't re-inject).
 5. Verify: `codex features list | grep skill_` both targets; `/skills <name>` explicit invoke; implicit description-match.
 

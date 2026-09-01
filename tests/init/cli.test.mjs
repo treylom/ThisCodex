@@ -55,6 +55,89 @@ test('--tone=dev switches output', () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
+test('migrate-identity is preview-first, never overwrites an existing AGENTS.md, and has a receipt-bound rollback', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-identity-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-identity-bot-'));
+  mkdirSync(join(repo, 'examples'), { recursive: true });
+  const v2 = '---\nversion: 2.0.0\n---\n## SOUL v2 capsule\n';
+  writeFileSync(join(repo, 'examples', 'AGENTS.md'), v2);
+  writeFileSync(join(bot, 'AGENTS.md'), '# operator identity\n');
+  const args = ['migrate-identity', '--repo-root', repo, '--bot-wd', bot];
+  const env = { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: repo };
+  try {
+    const preview = spawnSync(process.execPath, [BIN, ...args, '--preview'], { encoding: 'utf8', env });
+    assert.equal(preview.status, 0, preview.stdout + preview.stderr);
+    const previewResult = JSON.parse(preview.stdout);
+    assert.equal(previewResult.mode, 'preview');
+    assert.equal(previewResult.action, 'would_backup_then_stage_v2_candidate');
+    assert.equal(existsSync(join(bot, 'AGENTS.md.v2')), false);
+    assert.equal(existsSync(join(bot, 'AGENTS.md.thiscodex.pre-v2.bak')), false);
+
+    const applied = spawnSync(process.execPath, [BIN, ...args, '--apply'], { encoding: 'utf8', env });
+    assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+    const appliedResult = JSON.parse(applied.stdout);
+    assert.equal(appliedResult.action, 'backed_up_then_staged_v2_candidate_no_overwrite');
+    assert.equal(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), '# operator identity\n');
+    assert.equal(readFileSync(join(bot, 'AGENTS.md.v2'), 'utf8'), v2);
+    assert.equal(readFileSync(join(bot, 'AGENTS.md.thiscodex.pre-v2.bak'), 'utf8'), '# operator identity\n');
+
+    const refused = spawnSync(process.execPath, [BIN, ...args, '--apply'], { encoding: 'utf8', env });
+    assert.equal(refused.status, 2, refused.stdout + refused.stderr);
+    assert.equal(JSON.parse(refused.stdout).code, 'identity_candidate_exists_no_overwrite');
+
+    const rollbackPreview = spawnSync(process.execPath, [BIN, ...args, '--rollback'], { encoding: 'utf8', env });
+    assert.equal(rollbackPreview.status, 0, rollbackPreview.stdout + rollbackPreview.stderr);
+    assert.equal(JSON.parse(rollbackPreview.stdout).action, 'would_remove_unchanged_candidate');
+
+    const rollback = spawnSync(process.execPath, [BIN, ...args, '--rollback', '--apply'], { encoding: 'utf8', env });
+    assert.equal(rollback.status, 0, rollback.stdout + rollback.stderr);
+    const rollbackResult = JSON.parse(rollback.stdout);
+    assert.equal(rollbackResult.action, 'removed_unchanged_candidate');
+    assert.equal(rollbackResult.candidate_exists, false);
+    assert.equal(rollbackResult.receipt_exists, false);
+    assert.equal(rollbackResult.backup_exists, true);
+    assert.equal(existsSync(join(bot, 'AGENTS.md.v2')), false);
+    assert.equal(readFileSync(join(bot, 'AGENTS.md'), 'utf8'), '# operator identity\n');
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(bot, { recursive: true, force: true });
+  }
+});
+
+test('migrate-identity CLI stages beside a legacy SOUL-only install without changing its active file', () => {
+  const repo = mkdtempSync(join(tmpdir(), 'tcx-identity-repo-'));
+  const bot = mkdtempSync(join(tmpdir(), 'tcx-identity-bot-'));
+  mkdirSync(join(repo, 'examples'), { recursive: true });
+  const v2 = '---\nversion: 2.0.0\n---\n## SOUL v2 capsule\n';
+  const legacy = '# legacy operator persona\n';
+  writeFileSync(join(repo, 'examples', 'AGENTS.md'), v2);
+  writeFileSync(join(bot, 'SOUL.md'), legacy);
+  const args = ['migrate-identity', '--repo-root', repo, '--bot-wd', bot];
+  const env = { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: repo };
+  try {
+    const preview = spawnSync(process.execPath, [BIN, ...args, '--preview'], { encoding: 'utf8', env });
+    assert.equal(preview.status, 0, preview.stdout + preview.stderr);
+    assert.equal(JSON.parse(preview.stdout).action, 'would_backup_legacy_soul_then_stage_v2_candidate');
+    assert.equal(existsSync(join(bot, 'AGENTS.md')), false);
+
+    const applied = spawnSync(process.execPath, [BIN, ...args, '--apply'], { encoding: 'utf8', env });
+    assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+    assert.match(JSON.parse(applied.stdout).next_command, /against SOUL\.md/);
+    assert.equal(readFileSync(join(bot, 'SOUL.md'), 'utf8'), legacy);
+    assert.equal(readFileSync(join(bot, 'SOUL.md.thiscodex.pre-v2.bak'), 'utf8'), legacy);
+    assert.equal(readFileSync(join(bot, 'AGENTS.md.v2'), 'utf8'), v2);
+    assert.equal(existsSync(join(bot, 'AGENTS.md')), false);
+
+    const rollback = spawnSync(process.execPath, [BIN, ...args, '--rollback', '--apply'], { encoding: 'utf8', env });
+    assert.equal(rollback.status, 0, rollback.stdout + rollback.stderr);
+    assert.equal(existsSync(join(bot, 'AGENTS.md.v2')), false);
+    assert.equal(readFileSync(join(bot, 'SOUL.md'), 'utf8'), legacy);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(bot, { recursive: true, force: true });
+  }
+});
+
 test('automation gate consumes bridge-observed evidence and emits a current-turn receipt', () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   const audit = join(home, 'attempts.jsonl');

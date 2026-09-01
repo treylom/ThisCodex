@@ -27,15 +27,6 @@ function runHook(hook, input, env = {}) {
   });
 }
 
-function runPythonHook(hook, input, env = {}) {
-  return spawnSync('python3', [hook], {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    input: JSON.stringify(input),
-    env: { ...process.env, ...env },
-  });
-}
-
 function writeTranscript(lines) {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-hook-'));
   const file = join(dir, 'transcript.jsonl');
@@ -77,101 +68,6 @@ test('PreToolUse automation guard denies with permissionDecision JSON', () => {
   assert.match(payload.hookSpecificOutput.permissionDecisionReason, /AskUserQuestion|무인 자동화/);
 });
 
-test('packaged Python hook decisions stay ASCII JSON on strict console encodings', () => {
-  const env = {
-    PYTHONIOENCODING: 'ascii:strict',
-    FABLE_GATE_OFF: '0',
-    FABLE_GATE_PILOT: '',
-    FABLE_SESSION_NAME: '',
-  };
-
-  const continuationDir = mkdtempSync(join(tmpdir(), 'tcx-continuation-'));
-  const continuationTranscript = join(continuationDir, 'transcript.jsonl');
-  writeFileSync(continuationTranscript, `${JSON.stringify({
-    type: 'assistant',
-    message: { content: [{ type: 'text', text: "I'll finish this tomorrow" }] },
-  })}\n`);
-  const continuation = runPythonHook('hooks/tofable/continuation-gate.py', {
-    session_id: 'strict-console-continuation',
-    cwd: '/workspace/example-project',
-    transcript_path: continuationTranscript,
-    stop_hook_active: false,
-  }, { ...env, FABLE_STATE_DIR: continuationDir });
-  assert.equal(continuation.status, 0, continuation.stderr);
-  assert.doesNotMatch(continuation.stdout, /[^\x00-\x7F\r\n]/u);
-  assert.equal(JSON.parse(continuation.stdout).decision, 'block');
-  rmSync(continuationDir, { recursive: true, force: true });
-
-  const verificationDir = mkdtempSync(join(tmpdir(), 'tcx-verification-'));
-  const session = { session_id: 'strict-console-verification', cwd: '/workspace/example-project' };
-  const ledger = runPythonHook('hooks/tofable/verify-ledger.py', {
-    ...session,
-    tool_name: 'Edit',
-    tool_input: { file_path: '/workspace/example-project/code.py' },
-  }, { ...env, FABLE_STATE_DIR: verificationDir });
-  assert.equal(ledger.status, 0, ledger.stderr);
-  const verification = runPythonHook('hooks/tofable/stop-verify-gate.py', session, {
-    ...env, FABLE_STATE_DIR: verificationDir,
-  });
-  assert.equal(verification.status, 0, verification.stderr);
-  assert.doesNotMatch(verification.stdout, /[^\x00-\x7F\r\n]/u);
-  assert.equal(JSON.parse(verification.stdout).decision, 'block');
-  rmSync(verificationDir, { recursive: true, force: true });
-
-  const dispatchDir = mkdtempSync(join(tmpdir(), 'tcx-dispatch-console-'));
-  const workspace = join(dispatchDir, 'workspace');
-  const roster = join(dispatchDir, 'bot-roster.yaml');
-  mkdirSync(workspace);
-  writeFileSync(roster, 'bots:\n  konan:\n    user_id: "222222222222222222"\n');
-  writeFileSync(join(dispatchDir, 'dispatch-gate.json'), JSON.stringify({
-    top_channels: ['111111111111111111'],
-    roster_path: roster,
-    workspace_roots: [workspace],
-  }));
-  const dispatch = runPythonHook('hooks/dispatch-room-gate.py', {
-    cwd: workspace,
-    tool_name: 'mcp__discord__reply',
-    tool_input: {
-      chat_id: '111111111111111111',
-      text: '<@222222222222222222> 작업 착수',
-    },
-  }, { ...env, MEETING_WATCHDOG_STATE_DIR: dispatchDir });
-  assert.equal(dispatch.status, 0, dispatch.stderr);
-  assert.doesNotMatch(dispatch.stdout, /[^\x00-\x7F\r\n]/u);
-  assert.equal(JSON.parse(dispatch.stdout).hookSpecificOutput.permissionDecision, 'deny');
-  rmSync(dispatchDir, { recursive: true, force: true });
-});
-
-test('all packaged Python hooks avoid raw-Unicode json.dumps on stdout', () => {
-  const scanner = String.raw`
-import ast
-from pathlib import Path
-
-violations = []
-for path in Path("hooks").rglob("*.py"):
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        if not isinstance(node.func, ast.Name) or node.func.id != "print" or not node.args:
-            continue
-        dumped = node.args[0]
-        if not isinstance(dumped, ast.Call) or not isinstance(dumped.func, ast.Attribute):
-            continue
-        if not isinstance(dumped.func.value, ast.Name) or dumped.func.value.id != "json" or dumped.func.attr != "dumps":
-            continue
-        for keyword in dumped.keywords:
-            if keyword.arg == "ensure_ascii" and isinstance(keyword.value, ast.Constant) and keyword.value.value is False:
-                violations.append(f"{path}:{node.lineno}")
-if violations:
-    raise SystemExit("raw-Unicode stdout JSON: " + ", ".join(violations))
-`;
-  const result = spawnSync('python3', ['-c', scanner], {
-    cwd: process.cwd(), encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-});
-
 test('automatic handoff hook flow state denies unmarked prose and atomically consumes a receipt once', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-handoff-'));
   const input = {
@@ -179,14 +75,19 @@ test('automatic handoff hook flow state denies unmarked prose and atomically con
     tool_name: 'mcp__discord__reply',
     tool_input: { text: '<!-- thiscodex-manual-handoff --> 직접 로그인해 주세요.' },
   };
-  const run = value => spawnSync('python3', ['hooks/automation-handoff-gate.py'], {
+  const run = (value, extraEnv = {}) => spawnSync('python3', ['hooks/automation-handoff-gate.py'], {
     cwd: process.cwd(), encoding: 'utf8', input: JSON.stringify(value),
-    env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto' },
+    env: { ...process.env, THISCODEX_AUTOMATION_EVIDENCE_DIR: dir, THISCODEX_AUTOMATION_MODE: 'auto', ...extraEnv },
   });
-  const denied = run(input);
-  assert.doesNotMatch(denied.stdout, /[^\x00-\x7F\r\n]/u,
-    'hook JSON must remain writable on Windows code pages');
-  assert.equal(JSON.parse(denied.stdout).hookSpecificOutput.permissionDecision, 'deny');
+  // Reproduce the legacy Windows console encoding that used to truncate the
+  // Korean input and denial reason around the hook's UTF-8 JSON protocol.
+  const denied = run(
+    input,
+    { PYTHONIOENCODING: 'cp1252' },
+  );
+  const deniedPayload = JSON.parse(denied.stdout).hookSpecificOutput;
+  assert.equal(deniedPayload.permissionDecision, 'deny');
+  assert.match(deniedPayload.permissionDecisionReason, /자동 모드/);
   for (const text of [
     'Please enter your GitHub login credentials to continue.',
     'GitHub 계정으로 로그인해 주세요.',

@@ -13,10 +13,13 @@
 New here and not a developer? Think of your bot as a **new teammate**:
 
 - **CLAUDE.md / AGENTS.md / GEMINI.md** = their *one-page job sheet* — what the project is, where they sit, and "check the handbook when the situation calls for it." Keep it short.
-- **soul.md** = their *personality & voice* — copy a ready-made template, fill the blanks.
+- **SOUL v2 capsule** = their *personality & voice* — a compact section inside
+  that one canonical instruction file, not a second same-directory file.
 - **rules/** = the *company handbook* — they do NOT memorize it; they open the one page that matches the moment.
 
-You do three things: (1) put one job sheet, (2) pick a personality template, (3) point at the handbook. That is the whole setup. Everything below is just the detail of those three.
+You do three things: (1) put one canonical instruction file, (2) fill its SOUL
+v2 capsule, (3) point it at the handbook. That is the whole setup. Everything
+below is just the detail of those three.
 
 > **Don't want to hand-write any of it?** Run **§0 guided onboarding** — the
 > installing AI designates your workspace, makes the skill plugin available,
@@ -30,12 +33,13 @@ You do three things: (1) put one job sheet, (2) pick a personality template, (3)
 Start by giving the installing AI this prompt:
 
 ```text
-Configure my Codex bot from this ThisCodex repo. Read docs/SETUP-CONFIG-GUIDE.md first, designate the workspace, make the bundled `/prompt` skill available, scan only the needed files, draft AGENTS.md and soul.md through `/prompt`, then verify the files and explain the result in plain language.
+Configure my Codex bot from this ThisCodex repo. Read docs/SETUP-CONFIG-GUIDE.md first, designate the workspace, make the bundled `/prompt` skill available, scan only the needed files, draft one canonical AGENTS.md with its SOUL v2 capsule through `/prompt`, then verify the files and explain the result in plain language.
 ```
 
 The non-developer path. The installing AI runs it **once**, and the output is
-a finished `AGENTS.md` + `soul.md` per bot — produced by the bundled `/prompt`
-skill and a short `/using-superpowers` interview, not hand-written. §1-§6
+a finished canonical `AGENTS.md` per bot — including its SOUL v2 capsule —
+produced by the bundled `/prompt` skill and a short `/using-superpowers`
+interview, not hand-written. §1-§6
 below are the manual equivalent if you'd rather author by hand or audit what
 the AI produced.
 
@@ -47,7 +51,7 @@ the AI produced.
   bots search and store into (**working directory** = 작업 폴더, the folder a
   bot "lives in").
 - *"For each bot, what is its working directory?"* — one bot = one working
-  directory; that folder is where that bot's `AGENTS.md` + `soul.md` go.
+  directory; that folder is where that bot's canonical `AGENTS.md` goes.
 
 Don't guess the vault root — ask. (The companion
 [ThisCode](https://github.com/treylom/ThisCode) repo ships
@@ -69,16 +73,16 @@ Verify the skill resolves with `/skills` (or a description-match invoke).
 
 1. **Scan the designated workspace.** For the vault root and each bot working
    directory, the AI reads: folder structure (top ~2 levels), any existing
-   `AGENTS.md`/`CLAUDE.md`/`soul.md`, a *sample* of notes for dominant topics
+   `AGENTS.md`/`CLAUDE.md`/legacy `SOUL.md`, a *sample* of notes for dominant topics
    (it does not slurp the whole vault), and which Discord channel/role each
    bot will own. This grounds the draft in your *actual* workspace, not a
    generic template.
-2. **Auto-invoke `/prompt` to draft the two meta files.** For each bot working
+2. **Auto-invoke `/prompt` to draft the canonical instruction file.** For each bot working
    directory, the AI **must** invoke the bundled `skills/prompt/` skill
-   (force-invoke — see §6; never hand-roll) to produce: a thin `AGENTS.md`
-   (the job sheet — §1 shape) and a `soul.md` seeded from the closest
-   companion `ThisCode/templates/soul-*.md` (the persona — §2 shape).
-   `/prompt` is mandatory here precisely because these two files *are* prompts
+   (force-invoke — see §6; never hand-roll) to produce one canonical
+   `AGENTS.md`: a thin job-sheet/rules pointer plus the SOUL v2 capsule
+   described in §2. `/prompt` is mandatory here precisely because this file
+   *is* the prompt
    (the bot's standing instruction); ad-hoc authoring is the exact regression
    §6 exists to stop. Also **scaffold the bot's `rules/`** by copying the
    bundled `rules/` skeleton (INDEX router + generic topical stubs) into the
@@ -104,8 +108,10 @@ Verify the skill resolves with `/skills` (or a description-match invoke).
    (search/write paths; Obsidian-present vs. Obsidian-less). Answers are
    written back into the drafts; the meta file is then pointed at
    `rules/INDEX.md` (rules are never inlined — §3).
-4. **Verify before declaring done.** `soul.md` frontmatter valid · signature
-   line present · meta file points *only* at `rules/INDEX.md` · `/prompt` was
+4. **Verify before declaring done.** SOUL v2 frontmatter valid · both capsule
+   markers present (`<!-- SOUL-CAPSULE-START -->` / `<!-- SOUL-CAPSULE-END -->`)
+   · signature line present · canonical meta file points *only* at
+   `rules/INDEX.md` for rules · `/prompt` was
    actually entered (not free-handed) · the bridge actually injected the
    persona (SKILL.md §Verify). Then continue with the normal §4 flow.
 
@@ -124,37 +130,40 @@ So this is not skippable, wire it the same way §6 wires `/prompt`:
   scan → `/prompt` draft → `/using-superpowers` interview) before normal
   work."*
 - Or a `rules/INDEX.md` row:
-  `First run / WD has no soul.md | onboarding.md | Run SETUP-CONFIG-GUIDE §0: workspace → superpowers → scan → /prompt → /using-superpowers`
+  `First run / WD has no AGENTS.md | onboarding.md | Run SETUP-CONFIG-GUIDE §0: workspace → superpowers → scan → /prompt → /using-superpowers`
 
 ## The config surfaces (and load order)
 
-![Config surfaces and load order — AGENTS.md → soul.md → rules/INDEX.md → memory/meetings](../assets/config-surfaces-loading-order.png)
+![Config surfaces and load order — project/root AGENTS.md → bot AGENTS.md
+with SOUL v2 capsule → rules/INDEX.md → memory/meetings](../assets/config-surfaces-loading-order.png)
 
-A ThisCodex (Codex CLI) bot composes behavior from these, in order:
+Codex discovers instruction files from the project/Git root down to the
+current working directory; more-local instructions are applied later. At each
+directory it selects **one** instruction file (the configured precedence
+applies). ThisCodex's guided default is `AGENTS.md`. Do not put both `SOUL.md`
+and `AGENTS.md` in one bot directory and assume they will both load.
+
+The canonical bot `AGENTS.md` holds a compact SOUL v2 capsule and points to
+the rules router:
 
 ```
-1. AGENTS.md            ← project + bot working-dir meta. Codex auto-loads this
-   (Codex's CLAUDE.md-     as the project doc. Points ONLY at rules/INDEX.md.
-    equivalent)
+project/root AGENTS.md  ← shared project guidance (if present)
         ↓
-2. soul.md / SOUL.md    ← persona / voice / model meta. The bridge injects it
-   (persona doc)           at session start (mirrors Claude's SessionStart).
+bot-working-dir AGENTS.md
+  ├─ SOUL v2 capsule    ← persona / voice / model / domain tools
+  └─ rules/INDEX.md     ← progressive-disclosure router; read matching topic
         ↓
-3. rules/INDEX.md       ← progressive disclosure. Bridge injects per-turn
-   (router; on demand)     dynamic state; static rules stay here, pulled by
-                            trigger — never re-injected every turn.
-        ↓
-   memory / meetings    ← run-time state, not config
+memory / meetings       ← run-time state, not configuration
 ```
 
 **single source of truth** (단일 기준 출처 — one place each fact lives): keep
-each surface to its own concern. Do not copy rules into `AGENTS.md`/`soul.md`
-— that is the context-bloat failure the rules system exists to prevent.
+each surface to its own concern. Do not copy rules into the `AGENTS.md` SOUL
+v2 capsule — that is the context-bloat failure the rules system exists to
+prevent.
 
 | Surface | What it owns | Author from |
 |---|---|---|
-| `AGENTS.md` | project meta + bot-WD meta + INDEX pointer | §1 |
-| `soul.md` | persona, voice, signatures, model | §2 |
+| `AGENTS.md` | project/bot-WD meta, SOUL v2 capsule, and INDEX pointer | §1–§2 |
 | `rules/` | situational operating rules | §3 → [rules-system.md](rules-system.md) |
 
 See also [skill-portability.md](skill-portability.md) §3 for *why* Codex uses
@@ -162,26 +171,36 @@ See also [skill-portability.md](skill-portability.md) §3 for *why* Codex uses
 
 ## §1 — AGENTS.md (the meta file, Codex side)
 
-Codex auto-loads `AGENTS.md` as the project document — it is the Codex
-equivalent of Claude Code's `CLAUDE.md`. Keep it thin (it is always in
-context). It carries: project, the bot's working-dir role, the **load order
-above**, and a single pointer to `rules/INDEX.md` — never the rule bodies.
+Codex auto-loads the selected `AGENTS.md` as a project instruction document —
+it is the Codex equivalent of Claude Code's `CLAUDE.md`. Keep it thin (it is
+always in context). It carries the project, the bot's working-dir role, the
+SOUL v2 capsule, and a single pointer to `rules/INDEX.md` — never rule bodies.
 
 Minimal template:
 
 ```markdown
+---
+name: <bot-name>
+description: <one-line role>
+version: 2.0.0
+triggers: ["<when this bot should engage>"]
+---
+
 # <Project> — bot working-dir meta (Codex)
 
-This dir is the project root and **<BotName>'s working dir**. On a bot
-session, load in order:
+This is **<BotName>'s canonical bot-working-directory instruction file**.
+Codex merges instruction files from the project root to this directory. Do
+not add a same-directory `SOUL.md` expecting both files to load.
 
-0. ./AGENTS.md (this file — project + bot-WD meta; Codex auto-loads)
-1. <path>/soul.md (persona · voice · model)
-2. rules/INDEX.md (situational rules — Read the matched topic file on demand)
-3. meetings/<date>-<topic>/ (current task context)
+<!-- SOUL-CAPSULE-START -->
+## SOUL v2 capsule
 
-**Bot meta**: <BotName> (`<@discord-id>`) · <one-line role> · model `<id>` ·
-WD `<abs-path>`.
+- **Identity and voice:** <role, audience, tone, and completion signature>
+- **Specialist domain and tool chain:** <domain>; prefer <tool A> → <tool B>
+- **Local gates and boundaries:** <what this bot must verify; what it must not do>
+- **Delegation defaults:** follow `rules/orchestration.md` §11 R1–R5 when its
+  trigger matches.
+<!-- SOUL-CAPSULE-END -->
 
 ## Operating rules = rules/ (progressive disclosure)
 Every turn: self-check rules/INDEX.md trigger table → Read the matched row's
@@ -189,13 +208,14 @@ file → apply. Conflict priority: **explicit user instruction > rule file >
 inline default**.
 ```
 
-Gotcha: the pointer block must be the *only* rules content here. A rule that
-grows inline moves to `rules/<topic>.md`, leaving one INDEX row.
+Gotcha: the pointer block must be the *only* operating-rule content here. A
+rule that grows inline moves to `rules/<topic>.md`, leaving one INDEX row.
 
-## §2 — soul.md (persona / voice / model)
+## §2 — SOUL v2 capsule (persona / voice / model)
 
-ThisCodex ships no template of its own — reuse the companion repo's fillable
-soul templates (anatomy is harness-agnostic):
+SOUL v2 is a **content contract**, not a requirement to create a second
+`SOUL.md` in the bot working directory. ThisCodex's guided installer seeds the
+canonical `AGENTS.md` example with these required slots:
 
 | Template | For |
 |---|---|
@@ -206,13 +226,39 @@ soul templates (anatomy is harness-agnostic):
 | [soul-schedule-bot.md](https://github.com/treylom/ThisCode/blob/main/templates/soul-schedule-bot.md) | scheduling |
 
 Steps:
-1. Copy the closest template into your bot's working dir as `soul.md`.
+1. Use the closest companion template to draft the persona slots, then copy
+   the resulting capsule into the canonical `AGENTS.md`; do not keep the
+   template as a second same-directory instruction file.
 2. Fill the **frontmatter** (문서 맨 위 `---` 메타 블록 — `name`,
-   `description`, `version`, `triggers`). The bridge reads this to inject.
-3. Keep the **forced-persona self-check table** + **completion signature**
-   (`— <BotName>`) — signature absence is the #1 persona-regression symptom.
-4. Set the model meta to a real Codex model id (e.g. a `gpt-5.x` id your
-   Codex CLI exposes).
+   `description`, `version: 2.0.0`, `triggers`). This makes the v2 identity
+   contract visible and portable.
+3. Keep the fixed `<!-- SOUL-CAPSULE-START -->` and
+   `<!-- SOUL-CAPSULE-END -->` markers around the **identity/voice
+   self-check**, **specialist domain + preferred tool chain**, **local
+   gates/boundaries**, and **completion signature** (`— <BotName>`). A missing
+   marker or signature is a common persona-regression signal.
+4. Set model metadata only to a real Codex model id your CLI exposes.
+
+### New install versus existing install
+
+**New guided install.** `thiscodex init --apply` copy-once seeds the canonical
+`<BOT_WD>/AGENTS.md` from `examples/AGENTS.md` only when **both** `AGENTS.md`
+and `SOUL.md` are absent. It does not add a same-directory `SOUL.md`, and a
+later init does not update the installed copy.
+
+**Existing install.** Treat either an `AGENTS.md` or a legacy `SOUL.md` as an
+existing install. Use `thiscodex migrate-identity --preview` first (or omit
+`--preview`); review the proposed `AGENTS.md.v2` alongside the active legacy
+file. `--apply` stages the v2 candidate and a migration receipt without
+overwriting the active file. For a legacy `SOUL.md`, it also saves
+`SOUL.md.thiscodex.pre-v2.bak`; for an existing `AGENTS.md`, it saves
+`AGENTS.md.thiscodex.pre-v2.bak`. The operator performs the project-specific
+cutover only after review, selecting one canonical instruction file for that
+directory. `thiscodex migrate-identity --rollback --apply` removes only an
+unchanged staged candidate and its receipt; it preserves the original active
+file and backup. A changed candidate is refused, so later manual edits are
+never clobbered. This migration is deliberately not an automatic update or
+merge.
 
 ## §3 — rules/ (progressive-disclosure operating rules)
 
@@ -379,9 +425,10 @@ Example asks and what to expect:
 |---|---|
 | "Set up codex as a discord bot like claude code" | walks the bridge + persona + rules wiring (this guide) |
 | "Port these Claude Code skills/rules to Codex" | applies the [skill-portability.md](skill-portability.md) path |
-| "Why did you do X?" | answers from the injected soul + the rule that applied (it names which) |
+| "Why did you do X?" | answers from the SOUL v2 capsule + the rule that applied (it names which) |
 
-Off-persona / rule ignored? Check (a) `soul.md` frontmatter valid, (b) the
+Off-persona / rule ignored? Check (a) the canonical `AGENTS.md` SOUL v2
+frontmatter is valid, (b) the
 situation matches an `rules/INDEX.md` trigger row, (c) the bridge actually
 injected the persona (see SKILL.md §Verify / §Troubleshooting).
 
@@ -417,9 +464,9 @@ Wire enforcement into the Codex bot's config:
   pointer: *"Prompt-authoring tasks → MUST invoke the `prompt` skill before
   producing any prompt (no ad-hoc prompts)."*
 - Or a `rules/INDEX.md` row: `Producing a prompt for a model | prompt-skill.md | Invoke skills/prompt first; never hand-roll`.
-- In `soul.md`, put a hard rule in the forced-persona self-check table (reuse
-  the companion `ThisCode/templates/soul-custom.md`, which includes a `/prompt`
-  enforcement line).
+- In the `AGENTS.md` SOUL v2 capsule, put a hard rule in the identity/voice
+  self-check table (reuse the companion `ThisCode/templates/soul-custom.md`
+  only as a drafting aid; it is not a second same-directory instruction file).
 
 Why a hard rule: prompt quality regresses to ad-hoc without enforced routing;
 the skill's frameworks (IFCN fact-check base, 5-stage image, GPTs/Gems
@@ -428,18 +475,23 @@ structure) apply only if the skill is actually entered.
 ## Stuck? — friendly FAQ
 
 **Q. The bot ignores its personality / signature.**
-A. Open `soul.md`. Is the top `---` block (frontmatter) filled and valid? Is the completion-signature line still there? Missing signature is the #1 cause.
+A. Open the canonical `AGENTS.md`. Is the top `---` block (SOUL v2
+frontmatter) filled and valid? Is the completion-signature line still there?
+Missing signature is the #1 cause.
 
 **Q. The bot did not follow a rule I expected.**
 A. A rule only loads when its trigger row in `rules/INDEX.md` matches the situation. Check that a row actually describes your case; if not, add one.
 
 **Q. Where do I put these files?**
-A. The job sheet (`CLAUDE.md`/`AGENTS.md`) at the project/bot root; `soul.md` in the bot working dir; `rules/` next to it. The load order at the top of this guide shows the sequence.
+A. Put one selected instruction file in each directory: shared
+`AGENTS.md`/`CLAUDE.md` where needed and the canonical `AGENTS.md` in the bot
+working dir. Its SOUL v2 capsule lives inside that file; put `rules/` next to
+it. The load order at the top of this guide shows the sequence.
 
 **Q. Do I really need Obsidian?**
 A. For full memory + internal search, yes — recommended. Without it a plain Discord bot still works for basic connectivity, but memory/search quality is not guaranteed (see the README "Before you start").
 
-**Q. What model id do I write in soul.md?**
+**Q. What model id do I write in the SOUL v2 capsule?**
 A. A real id your tool exposes (e.g. an Opus/Sonnet/Haiku id for Claude Code, a gpt-5.x id for Codex). Not a made-up name.
 
 **Q. It still feels overwhelming.**
@@ -461,16 +513,17 @@ A. Do only the three steps in "In one minute" first. Skip §1-§6 detail until s
 
 ### §0 가이드 온보딩 (첫 실행 — 권장, 비개발자용 경로)
 
-직접 안 쓰고 싶으면 이 경로. 설치 AI 가 **한 번** 실행, 결과물은 봇별 완성된
-`AGENTS.md` + `soul.md` — 번들 `/prompt` 스킬 + 짧은 `/using-superpowers`
-인터뷰가 생성(손으로 안 씀). 아래 §1~§6 은 손수 작성/감수 시의 수동 대응판.
+직접 안 쓰고 싶으면 이 경로. 설치 AI 가 **한 번** 실행, 결과물은 봇별 정본
+`AGENTS.md` 1개(안의 SOUL v2 capsule 포함) — 번들 `/prompt` 스킬 + 짧은
+`/using-superpowers` 인터뷰가 생성(손으로 안 씀). 아래 §1~§6 은 손수
+작성/감수 시의 수동 대응판.
 
 **선행(이 순서로 먼저):**
 
 - **0a. 작업공간 지정.** 설치 AI 가 평이하게: ① "옵시디언 볼트 / 전체 작업
   폴더 어디예요?"(봇 검색·저장 루트 — **working directory** = 작업 폴더) ②
-  "봇마다 작업 폴더 어디예요?"(봇 1개=폴더 1개, 그 폴더에 그 봇
-  `AGENTS.md`+`soul.md`). 볼트 루트 추측 ❌ — 물어볼 것. 동반
+  "봇마다 작업 폴더 어디예요?"(봇 1개=폴더 1개, 그 폴더에 그 봇의 정본
+  `AGENTS.md`). 볼트 루트 추측 ❌ — 물어볼 것. 동반
   [ThisCode](https://github.com/treylom/ThisCode) 레포의
   `scripts/claude-discode-init.sh --detect-only` 가 볼트 후보·노트 수
   자동탐지 — 가용 시 후보 채워 사용자 확인/수정. 루트 틀리면 이후 전 단계
@@ -486,13 +539,14 @@ A. Do only the three steps in "In one minute" first. Skip §1-§6 detail until s
 **가이드 흐름(설치 AI 실행):**
 
 1. **지정 작업공간 스캔** — 볼트 루트+각 봇 작업폴더의 폴더 구조(상위 ~2
-   레벨)·기존 `AGENTS.md`/`CLAUDE.md`/`soul.md`·노트 *샘플*(전체 흡입 ❌)
+   레벨)·기존 `AGENTS.md`/`CLAUDE.md`/legacy `SOUL.md`·노트 *샘플*(전체 흡입 ❌)
    주제·담당 Discord 채널/역할. 일반 템플릿 아닌 *실제* 작업공간 근거.
-2. **`/prompt` 자동 호출로 메타 2파일 초안** — 봇 작업폴더마다 번들
-   `skills/prompt/` **반드시** 호출(force-invoke, §6 — 손작성 금지)해 얇은
-   `AGENTS.md`(업무지시서 §1) + 가장 가까운 동반
-   `ThisCode/templates/soul-*.md` 기반 `soul.md`(페르소나 §2). 이 두 파일이
-   곧 prompt(봇 상시 지시) → `/prompt` 강제, 즉흥 작성이 §6 이 막는 회귀.
+2. **`/prompt` 자동 호출로 정본 지시 파일 초안** — 봇 작업폴더마다 번들
+   `skills/prompt/` **반드시** 호출(force-invoke, §6 — 손작성 금지)해 정본
+   `AGENTS.md` 1개(업무지시서 §1 + SOUL v2 capsule §2)를 만든다. 동반
+   `ThisCode/templates/soul-*.md`는 capsule 초안용일 뿐 같은 폴더에 두 번째
+   지시 파일로 남기지 않는다. 이 파일이 곧 prompt(봇 상시 지시) → `/prompt`
+   강제, 즉흥 작성이 §6 이 막는 회귀.
    동시에 **봇 `rules/` 스캐폴드**: 번들 `rules/` 스켈레톤(INDEX 라우터 +
    generic topical 스텁)을 봇 WD 로 복사 — `AGENTS.md` 는 `rules/INDEX.md`
    만 가리킴(§3), 스텁은 다음 단계에서 채움(inline ❌).
@@ -511,8 +565,9 @@ A. Do only the three steps in "In one minute" first. Skip §1-§6 detail until s
    Codex `gpt-5.x` id, 지어냄 ❌) · Discord 표면(채널/스레드·mention id·회의
    스레드 거버넌스) · 볼트 범위(옵시디언 유/무). 답을 초안 반영 후 메타를
    `rules/INDEX.md` 포인팅(규칙 inline ❌ — §3).
-4. **완료 선언 전 검증** — soul.md frontmatter 유효 · 서명 줄 · 메타가
-   `rules/INDEX.md` *만* 가리킴 · `/prompt` 실제 진입 · bridge 페르소나 주입
+4. **완료 선언 전 검증** — AGENTS.md 안 SOUL v2 frontmatter 유효 · capsule
+   marker 2개(`<!-- SOUL-CAPSULE-START -->` / `<!-- SOUL-CAPSULE-END -->`) ·
+   서명 줄 · 메타가 `rules/INDEX.md` *만* 가리킴 · `/prompt` 실제 진입 · bridge 페르소나 주입
    (SKILL.md §Verify). 이후 §4 흐름.
 
 **옵시디언 없는 경로:** 0a 미사용 선택 시 0b~3 그대로, 볼트 범위=연결 전용
@@ -522,25 +577,37 @@ A. Do only the three steps in "In one minute" first. Skip §1-§6 detail until s
 `AGENTS.md` 규칙 포인터 아래 한 줄: *"첫 실행 / 미설정 작업폴더 → 일반 작업
 전 SETUP-CONFIG-GUIDE §0(작업공간 지정 → superpowers 가용화 → 스캔 →
 `/prompt` 초안 → `/using-superpowers` 인터뷰) 필수."* 또는 `rules/INDEX.md`
-행: `첫 실행 / WD 에 soul.md 없음 | onboarding.md | SETUP-CONFIG-GUIDE §0 실행: 작업공간→superpowers→스캔→/prompt→/using-superpowers`
+행: `첫 실행 / WD 에 AGENTS.md 없음 | onboarding.md | SETUP-CONFIG-GUIDE §0 실행: 작업공간→superpowers→스캔→/prompt→/using-superpowers`
 
 ### 설정 표면 + 로딩 순서
-`AGENTS.md`(프로젝트+봇 WD 메타 — Codex 가 프로젝트 문서로 자동 로드, Claude 의
-CLAUDE.md 대응, **rules/INDEX.md 만 가리킴**) → `soul.md`(페르소나·말투·모델,
-bridge 가 세션 시작 시 주입) → `rules/INDEX.md`(라우터; bridge 는 매 턴 동적
-상태만 주입, 정적 규칙은 트리거로 pull — 매 턴 재주입 안 함) → 메모리/회의록.
-**single source of truth(단일 기준 출처)**: 규칙을 AGENTS.md/soul.md 에 복붙
-금지 — context 비대화 방지가 rules 시스템의 존재 이유.
+Codex 는 프로젝트/Git root에서 현재 작업 폴더까지 지시 파일을 합치며, 디렉터리
+하나당 선택되는 지시 파일은 **하나**다. ThisCodex 기본은 `AGENTS.md`: 같은 봇
+폴더에 `SOUL.md`와 `AGENTS.md`를 두고 둘 다 자동 로드된다고 가정하지 않는다.
+봇 WD의 정본 `AGENTS.md` 안에 SOUL v2 capsule(페르소나·말투·모델·도구 체인)을
+넣고 `rules/INDEX.md`(라우터; 매칭 파일만 그때 Read)로 잇는다 → 메모리/회의록.
+**single source of truth(단일 기준 출처)**: 운영 규칙을 AGENTS.md capsule에
+복붙 금지 — context 비대화 방지가 rules 시스템의 존재 이유.
 
 ### §1 AGENTS.md (Codex 메타)
 항상 context — 얇게. (a)프로젝트 (b)봇 WD 역할 (c)위 로딩 순서 (d)
 `rules/INDEX.md` 포인터 1개. 템플릿은 위 영문 §1 코드블록.
 
-### §2 soul.md
-ThisCodex 자체 템플릿 없음 → 동반 레포 ThisCode 의 `templates/soul-*.md`(절대
-링크, 위 표) 중 가까운 것 복사 → frontmatter(맨 위 `---` 메타 블록) 채움 →
-자가점검 표 + 완료 서명(`— <봇이름>`) 유지 → 모델 메타를 Codex CLI 가 실제
-노출하는 `gpt-5.x` id 로.
+### §2 SOUL v2 capsule
+SOUL v2는 별도 `SOUL.md` 파일명이 아니라 정본 AGENTS.md 안 내용 계약이다.
+동반 레포 ThisCode 의 `templates/soul-*.md`(위 표)는 capsule 초안용으로만 쓰고
+같은 폴더에 두 번째 지시 파일로 남기지 않는다. frontmatter(맨 위 `---` 메타
+블록: `name`·`description`·`version: 2.0.0`·`triggers`) + 정체성/말투·도구
+체인·고유 게이트/경계·완료 서명(`— <봇이름>`)을 고정 marker
+`<!-- SOUL-CAPSULE-START -->` / `<!-- SOUL-CAPSULE-END -->` 사이에 유지한다.
+
+**신규 설치**는 `AGENTS.md`와 `SOUL.md`가 **모두 없을 때만** `thiscodex init
+--apply`가 정본 AGENTS.md를 copy-once로 만든다. `AGENTS.md`나 `SOUL.md` 중
+하나라도 있으면 기존 설치다. `thiscodex migrate-identity --preview`로 먼저
+확인하고, `--apply`는 active 파일을 보존한 채 `AGENTS.md.v2`+receipt를 만든다.
+legacy SOUL.md는 `SOUL.md.thiscodex.pre-v2.bak`에, 기존 AGENTS.md는
+`AGENTS.md.thiscodex.pre-v2.bak`에 백업한다. 검토 뒤 manual cutover하며,
+`--rollback --apply`는 unchanged candidate+receipt만 제거한다. receipt 기록 뒤
+candidate가 바뀌었으면 rollback을 거부해 수동 편집을 덮어쓰지 않는다.
 
 ### §3 rules/
 정본 = [rules-system.md](rules-system.md)(본 레포, 중복 금지). "Applying to a
@@ -550,8 +617,8 @@ Read → 적용. 우선순위 = **사용자 명시 지시 > rule 파일 > inline
 ### §4 설정·질문 방법
 [README §Setup](../README.md) + [SKILL.md](../skills/thiscodex/SKILL.md) 대로
 설치(`codex plugin marketplace add treylom/ThisCodex`, `/skills thiscodex` 로
-호출 — `codex plugin install` 서브커맨드 없음). 페르소나/규칙 벗어나면 soul.md
-frontmatter·INDEX 매칭·bridge 주입(SKILL.md §Verify/§Troubleshooting) 점검.
+호출 — `codex plugin install` 서브커맨드 없음). 페르소나/규칙 벗어나면 AGENTS.md
+안 SOUL v2 frontmatter·INDEX 매칭·bridge 주입(SKILL.md §Verify/§Troubleshooting) 점검.
 
 ### §5 Skills 2.0 체크리스트
 `skills/<name>/SKILL.md`: frontmatter 존재 · `name` kebab-case ·
@@ -565,16 +632,17 @@ Skills 2.0 12-check 루브릭). push 전 매 항목 수동 확인 + diff 에서 
 
 봇을 **새 팀원**이라고 생각하세요:
 - `CLAUDE.md/AGENTS.md/GEMINI.md` = 한 장짜리 **업무 지시서**(프로젝트가 뭔지·어디 앉는지·"상황 맞으면 매뉴얼 펴봐"). 짧게.
-- `soul.md` = **성격·말투**. 완성 템플릿 복사 후 빈칸 채우기.
+- `AGENTS.md` 안 **SOUL v2 capsule** = 성격·말투. 완성 템플릿으로 초안 후
+  같은 정본 파일의 빈칸 채우기.
 - `rules/` = **사내 매뉴얼**. 통째로 외우지 않고, 그 순간에 맞는 한 페이지만 펴봄.
 
 할 일 3개: ① 지시서 1장 ② 성격 템플릿 1개 ③ 매뉴얼 가리키기. 이게 전부입니다. 아래는 그 3개의 세부일 뿐.
 
 ### 막히면? — 자주 묻는 질문
 
-- **봇이 성격/서명을 무시해요** → `soul.md` 맨 위 `---` 블록 채워졌는지 + 완료 서명 줄 남아있는지 (서명 누락이 1순위 원인).
+- **봇이 성격/서명을 무시해요** → 정본 `AGENTS.md` 맨 위 SOUL v2 `---` 블록 채워졌는지 + 완료 서명 줄 남아있는지 (서명 누락이 1순위 원인).
 - **기대한 규칙을 안 따라요** → 규칙은 `rules/INDEX.md` 트리거 행이 상황과 맞을 때만 로드. 내 상황 설명하는 행 있는지 확인, 없으면 추가.
-- **파일 어디 둬요?** → 지시서=프로젝트/봇 루트, `soul.md`=봇 작업폴더, `rules/`=그 옆. 맨 위 로딩 순서 그림 참고.
+- **파일 어디 둬요?** → 디렉터리마다 선택 지시 파일 1개: 공용 `AGENTS.md`/`CLAUDE.md`와 봇 작업폴더의 정본 `AGENTS.md`; SOUL v2는 그 안, `rules/`는 옆. 맨 위 로딩 순서 그림 참고.
 - **옵시디언 꼭 필요해요?** → 메모리·내부검색 제대로 쓰려면 권장. 없이도 단순 연결은 되지만 품질 미보장.
 - **모델 id 뭘 써요?** → 도구가 실제 노출하는 id(Claude=Opus/Sonnet/Haiku id, Codex=gpt-5.x id). 지어낸 이름 ❌.
 - **너무 복잡해요** → 위 "1분 설명" 3단계만 먼저. 뭔가 깨지기 전엔 §1~§6 세부 skip. 이 문서는 한 번에 끝낼 체크리스트가 아니라 참조용.
