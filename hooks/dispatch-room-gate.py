@@ -219,7 +219,7 @@ def hook_main():
             "permissionDecision": "deny",
             "permissionDecisionReason": DENY_REASON,
         }
-    }, ensure_ascii=False))
+    }))
     return 0
 
 

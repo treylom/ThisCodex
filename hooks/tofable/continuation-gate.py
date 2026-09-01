@@ -85,7 +85,7 @@ def main() -> int:
             return 0  # bounced already this session — a re-affirmed stop passes
         ledger["continuation_blocks"] = blocks + 1
         save_ledger(input_data, ledger)
-        print(json.dumps({"decision": "block", "reason": QUESTIONS}, ensure_ascii=False))
+        print(json.dumps({"decision": "block", "reason": QUESTIONS}))
         return 0
     except Exception:
         return 0  # fail-open

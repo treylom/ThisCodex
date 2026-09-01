@@ -192,6 +192,16 @@ progress log; a project may provide a more specific location.
   finished artifact through that project's normal knowledge workflow. This is
   a procedural gate: it prevents duplicate conventions; it does not authorize
   broad or speculative searching.
+- **Enforcement honesty**: R1 = a pre-tool counter hook (warn-and-observe
+  first, promote later only after repeated confirmed misses) · R3 = roster
+  `domains:` field + router suggestion line · R4 = the delegation ledger ·
+  R2 and R5 are procedural gates only — don't label them "mechanically
+  enforced" when nothing counts them.
+- **Who records what, when, where** (per rule): the acting bot itself
+  records — R1: before the first write, in the track's spec/log · R2: before
+  spinning up the workflow · R3: before dispatch, in the track's spec/log ·
+  R4: at wakeup self-check, in the delegation ledger · R5: right after the
+  output is done, linking it into the knowledge index.
 
 ▶ Fill in: your writable delegation layers; Workflow/checkpoint tool; roster
 or ownership-map path and reachability check; orchestrator/implementation lead

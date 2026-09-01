@@ -51,7 +51,7 @@ def main() -> int:
         ledger["stop_blocks"] = int(ledger.get("stop_blocks") or 0) + 1
         save_ledger(input_data, ledger)
         # hookkit hk_block_stop convention: stdout JSON + exit 0
-        print(json.dumps({"decision": "block", "reason": reason}, ensure_ascii=False))
+        print(json.dumps({"decision": "block", "reason": reason}))
         return 0
     except Exception:
         return 0  # fail-open

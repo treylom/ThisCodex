@@ -114,7 +114,6 @@ def main() -> int:
                         "permissionDecisionReason": REASON.format(token=token),
                     }
                 },
-                ensure_ascii=False,
             )
         )
         return 0
