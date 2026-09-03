@@ -76,10 +76,14 @@ test('bot-only treats .PY as Python and fails open when python3 is unavailable',
 
     const emptyPath = mkdtempSync(join(tmpdir(), 'tcx-no-python-'));
     try {
-      const absent = spawnSync('/bin/bash', ['hooks/lib/bot-only.sh', 'python-fixture', target], {
-        encoding: 'utf8', input: 'payload',
-        env: { ...process.env, PATH: emptyPath, DISCORD_STATE_DIR: dir },
+      const absent = spawnSync('bash', [
+        '-c', 'cat_path=$(command -v cat) || exit 127; PATH="$1"; shift; cat() { "$cat_path" "$@"; }; source "$@"', 'bot-only-test',
+        emptyPath, 'hooks/lib/bot-only.sh', 'python-fixture', target,
+      ], {
+        encoding: 'utf8', input: 'x'.repeat(1024 * 1024),
+        env: { ...process.env, DISCORD_STATE_DIR: dir },
       });
+      assert.equal(absent.error, undefined, absent.error?.message);
       assert.equal(absent.status, 0);
       assert.equal(absent.stdout, '');
       assert.match(absent.stderr, /python3 unavailable/);
