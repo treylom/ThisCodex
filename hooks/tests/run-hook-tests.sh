@@ -11,15 +11,27 @@
 # 등록 전 PASS 필수.
 
 set -uo pipefail
+unset CODEX_BOT BOT_NAME HK_AUTOMATION DISCORD_STATE_DIR HK_AUTOMATION_BOTS
 CASES_DIR="$(cd "$(dirname "$0")" && pwd)/cases"
 HOOKS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-pass=0; fail=0
+pass=0; fail=0; skip=0
 declare -a failures=()
 
 for c in "$CASES_DIR"/*/; do
   [ -d "$c" ] || continue
   name="$(basename "$c")"
   [ -f "$c/cmd" ] || continue
+  if [ -f "$c/requires" ]; then
+    missing=""
+    while IFS= read -r tool || [ -n "$tool" ]; do
+      [ -z "$tool" ] && continue
+      command -v "$tool" >/dev/null 2>&1 || missing="${missing}${missing:+,}${tool}"
+    done < "$c/requires"
+    if [ -n "$missing" ]; then
+      skip=$((skip+1)); printf '  SKIP  %-28s missing=%s\n' "$name" "$missing"
+      continue
+    fi
+  fi
   expect="$(tr -d '[:space:]' < "$c/expect" 2>/dev/null)"
   if [ -f "$c/input.json" ]; then
     input="$(sed -e "s#__CASEDIR__#${c%/}#g" -e "s#__HOME__#$HOME#g" "$c/input.json")"
@@ -44,5 +56,5 @@ for c in "$CASES_DIR"/*/; do
 done
 
 echo "----------------------------------------"
-echo "PASS=$pass FAIL=$fail"
+echo "PASS=$pass FAIL=$fail SKIP=$skip"
 [ "$fail" = "0" ]

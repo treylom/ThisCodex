@@ -15,7 +15,7 @@ import {
   withDetectedDefaults,
 } from '../scripts/lib/state.mjs';
 import { verifyStep } from '../scripts/lib/doctor.mjs';
-import { applySkillInstall, marketplaceHint, patchCodexConfig } from '../scripts/lib/apply.mjs';
+import { applySkillInstall, patchCodexConfig } from '../scripts/lib/apply.mjs';
 import { aliasBlock, materializeBotFiles, migrateIdentity } from '../scripts/lib/materialize.mjs';
 import { promptForStep } from '../scripts/lib/prompts.mjs';
 import {
@@ -43,9 +43,10 @@ import {
   inspectBrowserTools,
   runPlaywrightMcpE2e,
 } from '../scripts/lib/browser-tools.mjs';
+import { migrateLegacyHooks, runHooksCli } from '../scripts/lib/hooks-install.mjs';
 
 const args = process.argv.slice(2);
-const command = ['init', 'doctor', 'smoke', 'discord-thread', 'browser-e2e', 'automation-flow', 'automation-attempt', 'automation-gate', 'migrate-identity'].includes(args[0]) ? args.shift() : 'init';
+const command = ['init', 'doctor', 'smoke', 'hooks', 'discord-thread', 'browser-e2e', 'automation-flow', 'automation-attempt', 'automation-gate', 'migrate-identity'].includes(args[0]) ? args.shift() : 'init';
 const has = flag => args.includes(flag);
 const arg = name => {
   const found = args.find(a => a.startsWith(`${name}=`));
@@ -75,6 +76,10 @@ const CONFIRMED_PATH_KEYS = [
   'confirmed_windows_profile',
   'confirmed_windows_skill_dir',
 ];
+
+if (command === 'hooks') {
+  process.exit(runHooksCli(args, process.env));
+}
 
 if (command === 'automation-flow') {
   let output;
@@ -472,6 +477,7 @@ if (nonInteractive) {
 }
 
 let browserToolsResult = null;
+let hooksMigrationResult = null;
 const handlers = {
   async prepare(step, ctx) {
     if (!step.handoff_gate) return { ok: true };
@@ -548,6 +554,33 @@ const handlers = {
       });
       return;
     }
+    if (step.action === 'apply' && step.id === 'plugin_hooks_migration') {
+      if (ctx.mode !== 'apply') return;
+      const home = process.env.HOME || homedir();
+      hooksMigrationResult = migrateLegacyHooks({
+        home,
+        project: cwd,
+        repoRoot,
+        apply: true,
+      });
+      console.log(`Hook migration: removable=${hooksMigrationResult.known.length} changed=${hooksMigrationResult.changed.length} backups=${hooksMigrationResult.backups.length}`);
+      for (const row of hooksMigrationResult.inlineKnown) {
+        console.log(`CONFLICT ${row.path}:${row.line} ${row.basename}`);
+      }
+      for (const row of hooksMigrationResult.inlineUnknown) {
+        console.log(`WARNING ${row.path}:${row.line} ${row.basename} ownership=unknown action=preserved`);
+      }
+      for (const row of hooksMigrationResult.unknown) {
+        console.log(`WARNING ${row.path}:${row.event}:${row.groupIndex}:${row.hookIndex} ${row.basename} ownership=unknown action=preserved`);
+      }
+      for (const row of hooksMigrationResult.invalid) {
+        console.log(`INVALID ${row.path} ${row.invalid}`);
+      }
+      for (const row of hooksMigrationResult.errors) {
+        console.log(`ERROR ${row.path} migration_failed:${row.stage}:${row.code}`);
+      }
+      return;
+    }
     if (step.action === 'generate') {
       if (ctx.mode !== 'apply') return;
       if (step.id === 'alias_consent') console.log(aliasBlock(state));
@@ -555,6 +588,25 @@ const handlers = {
     }
   },
   async verify(step) {
+    if (step.verify?.type === 'hooks-migration-applied') {
+      const result = hooksMigrationResult || migrateLegacyHooks({
+        home: process.env.HOME || homedir(),
+        project: cwd,
+        repoRoot,
+        apply: false,
+      });
+      return result.ok
+        ? {
+            ok: true,
+            message: 'plugin hooks registered_pending_trust; approve the current definitions in /hooks after starting a new session',
+            detail: result,
+          }
+        : {
+            ok: false,
+            message: `legacy hook conflict; NEXT ${result.next}`,
+            detail: result,
+          };
+    }
     if (step.verify?.type === 'browser-tools-ready') {
       if (browserToolsResult) {
         return {
@@ -590,8 +642,10 @@ if (mode === 'apply' && result.ok) {
   const home = process.env.HOME || homedir();
   const install = applySkillInstall(repoRoot, home, state.answers.codex_skill_layer || 'user');
   console.log(`Installed skills (${install.installed.join(', ')}): ${join(repoRoot, 'skills')} -> ${dirname(install.dest)}`);
-  const hint = marketplaceHint(repoRoot, state.answers.codex_marketplace === 'yes');
-  if (hint) console.log(`Marketplace hint: ${hint}`);
+  if (state.answers.codex_marketplace === 'yes') {
+    console.log(`Marketplace hint: codex plugin marketplace add ${shellArg(repoRoot)}`);
+    console.log('Plugin hint: codex plugin add thiscodex@thiscodex, then start a new session and review /hooks');
+  }
   // PRD success criterion 8: no wiki path is a supported, non-blocking outcome —
   // point the operator at the sample-vault path instead of leaving it unsaid.
   if (state.answers.install_surface === 'guided' && !state.answers.wiki_path) {

@@ -6,10 +6,28 @@
 > design doc. Newest first. Plain language; first use of a jargon term is
 > explained inline.
 
-## How these reach a fresh install (Codex needs **wire + trust**)
+## 2026-09-03 — plugin hooks bundle + one aggregate verifier (1.1.0)
 
-Most items below only take effect once the hooks are both **wired** into
-`~/.codex/hooks.json` and **trusted** by Codex:
+- The package, Codex/Claude manifests, lock metadata, and marketplace surface
+  now agree on `1.1.0`; this resolves the prior `1.0.0` / `1.0.1` mismatch.
+- Codex discovers the guarded 11-handler bundle from `hooks/hooks.json`; users
+  no longer copy those handlers into `~/.codex/hooks.json`. Start a new session,
+  review the current definitions in `/hooks`, then run
+  `thiscodex hooks --verify` before calling them active.
+- `thiscodex hooks --apply` backs up and removes only required-name legacy JSON
+  entries owned by the bot wrapper, a ThisCodex path, a sibling ThisCodex
+  manifest, or a missing target (never the missing-target rule for unresolved
+  `$` paths). Matching the current bundle hash alone is not ownership proof.
+  Unknown same-name JSON or inline entries are preserved and warned without
+  failing verification. A proven ThisCodex inline entry remains an exit-1
+  conflict for human `/hooks` review.
+
+---
+
+## How these reach a fresh install (Codex needs **register + trust**)
+
+Most items below only take effect once the plugin hooks are both **registered**
+from `hooks/hooks.json` and **trusted** by Codex:
 
 - **SessionStart** → `hooks/bot-session-init.sh`: injects the bot roster, the
   active-meeting state, and the situational rules router `rules/INDEX.md`.
@@ -20,15 +38,15 @@ Most items below only take effect once the hooks are both **wired** into
   asks the bot to re-read the meeting progress file before it ends a turn.
   ("Stop" = a hook that runs when the model is about to stop responding.) The
   shipped hook takes no flag — it auto-detects a bot session from the
-  environment, so it is wired plainly in `~/.codex/hooks.json`.
+  environment, so the plugin bundle can register it without per-user JSON.
 
-**Trust is not optional on Codex.** A wired Codex hook does **not** run until
+**Trust is not optional on Codex.** A registered Codex hook does **not** run until
 it is approved through the Codex `/hooks` flow, which writes a `trusted_hash`
-for that hook into `~/.codex/config.toml`. If there is no Stop `trusted_hash`
-there, the meeting reread is silently inactive even though `hooks.json` is
-correct. After wiring: run `/hooks` in the Codex TUI, approve the Stop (and
-SessionStart) hook, and verify a Stop `trusted_hash` exists in
-`~/.codex/config.toml`. The `/thiscodex setup` skill drives wire + trust + verify.
+for that hook into `~/.codex/config.toml`. Missing current hashes mean
+`registered_pending_trust`, not active. After enabling the plugin and starting
+a new session, run `/hooks`, review all 11 definitions, then run
+`thiscodex hooks --verify`. The `/thiscodex setup` skill drives registration,
+trust, and verification.
 (Claude Code / ThisCode has no equivalent trust step.)
 
 ---
@@ -151,9 +169,10 @@ such as completion thread, owner user ID, orchestrator bot name, and watchdog
 state directory are supplied by environment variables rather than hardcoded in
 the public repo.
 
-Before enabling in a live bot, run `node --test tests/init/hard-hooks.test.mjs`
-and `bash hooks/tests/run-hook-tests.sh`, then wire the hooks into
-`~/.codex/hooks.json` and approve them through `/hooks`.
+At that release, operators ran `node --test tests/init/hard-hooks.test.mjs`,
+`bash hooks/tests/run-hook-tests.sh`, manually wired the hooks into
+`~/.codex/hooks.json`, and approved them through `/hooks`. Version 1.1.0 above
+supersedes only that manual-wiring step with the plugin bundle.
 
 ---
 
