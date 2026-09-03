@@ -512,6 +512,7 @@ function validateRelevantConfig(config) {
 
 const PYTHON_TOML_CHECK = [
   'import sys',
+  'import re',
   'try:',
   '    import tomllib',
   'except ModuleNotFoundError:',
@@ -521,6 +522,9 @@ const PYTHON_TOML_CHECK = [
   'except tomllib.TOMLDecodeError as error:',
   '    line = getattr(error, "lineno", 0)',
   '    column = getattr(error, "colno", 0)',
+  '    coordinate = re.search(r"line (\\d+), column (\\d+)", str(error))',
+  '    if coordinate:',
+  '        line, column = coordinate.groups()',
   '    print(f"{line}:{column}")',
   '    raise SystemExit(2)',
 ].join('\n');

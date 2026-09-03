@@ -42,7 +42,9 @@ test('package ships hard hook files', () => {
   }
 });
 
-test('raw hook fixture runner is isolated from ambient bot variables', () => {
+test('raw hook fixture runner is isolated from ambient bot variables', {
+  skip: process.platform === 'win32' ? 'POSIX hook runtime is supported through WSL, not native Windows' : false,
+}, () => {
   const cleanHome = mkdtempSync(join(tmpdir(), 'tcx-hook-home-clean-'));
   const clean = spawnSync('bash', ['hooks/tests/run-hook-tests.sh'], {
     cwd: process.cwd(),

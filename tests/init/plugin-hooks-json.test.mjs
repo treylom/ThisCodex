@@ -72,7 +72,7 @@ test('bot-only treats .PY as Python and fails open when python3 is unavailable',
       encoding: 'utf8', env: { ...process.env, DISCORD_STATE_DIR: dir },
     });
     assert.equal(upper.status, 6);
-    assert.equal(upper.stdout, 'python-target\n');
+    assert.equal(upper.stdout.replace(/\r\n/g, '\n'), 'python-target\n');
 
     const emptyPath = mkdtempSync(join(tmpdir(), 'tcx-no-python-'));
     try {

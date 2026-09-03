@@ -295,7 +295,9 @@ test('ownership-unknown JSON and inline TOML are preserved warnings and do not f
     assert.equal(result.changed.length, 1);
     assert.equal(result.backups.length, 1);
     assert.notEqual(readFileSync(hooksPath, 'utf8'), beforeJson);
-    assert.match(readFileSync(hooksPath, 'utf8'), new RegExp(ambiguousTarget.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    const migrated = JSON.parse(readFileSync(hooksPath, 'utf8'));
+    assert.equal(migrated.hooks.Stop[0].hooks.length, 1);
+    assert.equal(migrated.hooks.Stop[0].hooks[0].command, `bash "${ambiguousTarget}"`);
     assert.equal(readFileSync(configPath, 'utf8'), beforeToml);
 
     const cli = spawnSync(process.execPath, [
