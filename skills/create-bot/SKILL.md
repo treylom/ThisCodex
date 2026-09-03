@@ -362,6 +362,47 @@ gate protects the secret; it is not permission to skip the clipboard attempt.
 Do not place a real token in a command literal, test fixture, log, screenshot,
 git diff, or generated report.
 
+## 4.7 Register the operator without asking for their Discord user ID
+
+Reuse the logged-in browser session from the portal flow. Do not ask the
+operator to find or paste an ID until both automatic routes have actually
+failed.
+
+1. If the selected browser provider exposes network response bodies, inspect
+   the portal's own `GET /api/v9/users/@me` response. Read only `id` and
+   `username` from that response.
+2. Otherwise open `https://discord.com/channels/@me`, inspect the lower-left
+   user panel, and read the avatar `src`. Extract the ID only from a path shaped
+   like `/avatars/<user-id>/...`. A default avatar with no user ID is a failed
+   second route, not permission to inspect another authentication surface.
+3. Validate the candidate as **17-20 digits**. Show only the username, when
+   available, and the **last four digits** for confirmation. Never print or log
+   the full ID.
+4. Send the full validated ID to the local merge helper over stdin, not a
+   command-line argument:
+
+   ```bash
+   printf '%s\n' "$DISCORD_USER_ID" | node "$PLUGIN_ROOT/scripts/lib/access-control.mjs" \
+     --state-dir "$DISCORD_STATE_DIR" --user-id-stdin --username "$DISCORD_USERNAME"
+   ```
+
+   The helper creates a minimal `access.json` when absent. When present, it
+   adds the ID idempotently to `allowFrom`, preserves every other key, makes a
+   timestamped backup before a changed write, and replaces the file atomically.
+
+Do not read or create cookies, `localStorage`, `sessionStorage`, token values,
+or `Authorization` headers for either route. The browser is allowed to show a
+page response or a rendered avatar URL; authentication internals are outside
+this skill's capability contract.
+
+### Manual user-ID fallback
+
+Use this only after route 1 and route 2 each produced a concrete failure. Ask
+the operator for the non-secret Discord user ID, validate it with the same
+17-20 digit rule, and pass it to the same stdin helper. State which two
+automatic capabilities were unavailable; do not collapse “not attempted” into
+“failed”.
+
 ## 5. Verify behavior, not file presence
 
 After `.env` exists, run secret-safe checks that never print the credential:
