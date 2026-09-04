@@ -215,14 +215,24 @@
       "on_fail": { "next_command": "thiscodex init --apply --yes --daemon-guide yes" }
     },
     {
-      "id": "automation_handoff_hook_ready",
+      "id": "plugin_hooks_migration",
+      "order": 127,
+      "when": "mode == 'apply'",
+      "action": "apply",
+      "reason": "Before the plugin becomes the hook source, remove only provenance-confirmed ThisCodex entries from legacy user/project hooks.json. Unknown same-name hooks and inline config.toml entries stop for one human review action.",
+      "safety": "none",
+      "verify": { "type": "hooks-migration-applied" },
+      "on_fail": { "next_command": "thiscodex hooks --dry-run, review every AMBIGUOUS coordinate, then rerun thiscodex hooks --apply" }
+    },
+    {
+      "id": "thiscodex_hooks_ready",
       "order": 128,
       "when": "answers.automation_mode == 'auto' and mode == 'doctor' or answers.automation_mode == 'auto' and mode == 'smoke'",
       "action": "check",
-      "reason": "Automatic mode is safe only when the manual-handoff PreToolUse gate is both wired and trusted; otherwise prose can bypass the YAML policy.",
+      "reason": "Automatic mode is safe only when the plugin bundle, all 11 guarded handlers, exact current trust hashes, and zero legacy conflicts pass as one aggregate contract.",
       "safety": "dry-run-only",
-      "verify": { "type": "automation-handoff-hook-ready" },
-      "on_fail": { "next_command": "wire hooks/automation-handoff-gate.py under PreToolUse for Discord reply/edit tools, approve it with /hooks, then rerun thiscodex doctor" }
+      "verify": { "type": "thiscodex-hooks-ready" },
+      "on_fail": { "next_command": "run thiscodex hooks --verify and perform its single NEXT action, then rerun thiscodex doctor" }
     },
     {
       "id": "doctor_rollout_materialized",

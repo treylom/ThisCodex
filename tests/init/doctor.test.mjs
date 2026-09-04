@@ -1,9 +1,49 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { automationHandoffHookReady, verifyStep, detectStaleSuperpowersWrapper, rolloutFilesForThread } from '../../scripts/lib/doctor.mjs';
+import { flattenHooks, hookTrustHash, hooksDocument, pluginTrustKey } from '../../scripts/lib/hooks-contract.mjs';
+
+function trustedConfig(pluginId = 'thiscodex@test') {
+  const lines = [`[plugins."${pluginId}"]`, 'enabled = true', '', '[hooks.state]', ''];
+  for (const row of flattenHooks(hooksDocument())) {
+    lines.push(
+      `[hooks.state."${pluginTrustKey(pluginId, row.event, row.groupIndex, row.hookIndex)}"]`,
+      `trusted_hash = "${hookTrustHash(row.event, row.matcher, row.hook)}"`,
+      '',
+    );
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+test('hooks-migration-applied verify is recognized and fails while proven legacy entries remain', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
+  const codex = join(home, '.codex');
+  mkdirSync(codex, { recursive: true });
+  writeFileSync(join(codex, 'hooks.json'), `${JSON.stringify({
+    hooks: { Stop: [{ hooks: [
+      { type: 'command', command: 'bash "/opt/ThisCodex/hooks/reply-gate.sh"' },
+    ] }] },
+  }, null, 2)}\n`);
+  const env = {
+    ...process.env,
+    HOME: home,
+    THISCODEX_REPO_ROOT: process.cwd(),
+    THISCODEX_PROJECT_ROOT: home,
+  };
+  try {
+    const pending = await verifyStep({ verify: { type: 'hooks-migration-applied' } }, {}, env);
+    assert.equal(pending.ok, false);
+    assert.match(pending.message, /legacy hook conflict/i);
+    rmSync(join(codex, 'hooks.json'));
+    const clean = await verifyStep({ verify: { type: 'hooks-migration-applied' } }, {}, env);
+    assert.equal(clean.ok, true);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
 
 test('path-writable verify passes for existing writable path', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
@@ -12,28 +52,25 @@ test('path-writable verify passes for existing writable path', async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('automatic handoff hook readiness requires exact wiring and matching trust coordinate', () => {
+test('legacy readiness API now delegates to the aggregate 11-hook bundle and trust contract', () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   const codex = join(home, '.codex');
   mkdirSync(codex, { recursive: true });
-  const hook = join(home, 'automation-handoff-gate.py');
-  writeFileSync(hook, '#!/usr/bin/env python3\n');
-  writeFileSync(join(codex, 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
-    matcher: 'mcp__discord__reply|mcp__discord__edit_message',
-    hooks: [{ type: 'command', command: `python3 ${hook}` }],
-  }] } }));
-  assert.equal(automationHandoffHookReady(home).ok, false);
-  writeFileSync(join(codex, 'config.toml'), '[hooks.state."hooks.json:pre_tool_use:0:0"]\nenabled = true\ntrusted_hash = "sha256:abc"\n');
-  assert.equal(automationHandoffHookReady(home).ok, true);
-  writeFileSync(join(codex, 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
-    matcher: 'mcp__discord__replyx|mcp__discord__edit_messagex',
-    hooks: [{ type: 'command', command: `python3 ${hook}` }],
-  }] } }));
-  assert.equal(automationHandoffHookReady(home).ok, false);
-  writeFileSync(join(codex, 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
-    matcher: 'Bash', hooks: [{ type: 'command', command: `python3 ${hook}` }],
-  }] } }));
-  assert.equal(automationHandoffHookReady(home).ok, false);
+  const env = {
+    ...process.env,
+    HOME: home,
+    THISCODEX_REPO_ROOT: process.cwd(),
+    THISCODEX_PROJECT_ROOT: home,
+    THISCODEX_PLUGIN_ID: 'thiscodex@test',
+  };
+  assert.equal(automationHandoffHookReady(home, env).ok, false);
+  writeFileSync(join(codex, 'config.toml'), trustedConfig());
+  const ready = automationHandoffHookReady(home, env);
+  assert.equal(ready.ok, true);
+  assert.match(ready.message, /HOOKS PASS/);
+  const missingTrust = readFileSync(join(codex, 'config.toml'), 'utf8').replace(/trusted_hash = .*\n/, '');
+  writeFileSync(join(codex, 'config.toml'), missingTrust);
+  assert.equal(automationHandoffHookReady(home, env).ok, false);
   rmSync(home, { recursive: true, force: true });
 });
 

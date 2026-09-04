@@ -42,6 +42,48 @@ test('package ships hard hook files', () => {
   }
 });
 
+test('raw hook fixture runner is isolated from ambient bot variables', {
+  skip: process.platform === 'win32' ? 'POSIX hook runtime is supported through WSL, not native Windows' : false,
+}, () => {
+  const cleanHome = mkdtempSync(join(tmpdir(), 'tcx-hook-home-clean-'));
+  const clean = spawnSync('bash', ['hooks/tests/run-hook-tests.sh'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HOME: cleanHome,
+      CODEX_BOT: '',
+      BOT_NAME: '',
+      HK_AUTOMATION: '',
+      DISCORD_STATE_DIR: '',
+      HK_AUTOMATION_BOTS: '',
+    },
+  });
+  const noisyHome = mkdtempSync(join(tmpdir(), 'tcx-hook-home-noisy-'));
+  const noisy = spawnSync('bash', ['hooks/tests/run-hook-tests.sh'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      HOME: noisyHome,
+      CODEX_BOT: 'ambient-bot',
+      BOT_NAME: 'ambient-bot',
+      HK_AUTOMATION: '1',
+      DISCORD_STATE_DIR: '/ambient/state',
+      HK_AUTOMATION_BOTS: 'ambient-bot',
+    },
+  });
+  try {
+    assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+    assert.equal(noisy.status, 0, noisy.stdout + noisy.stderr);
+    assert.match(clean.stdout, /PASS=34 FAIL=0 SKIP=0/);
+    assert.equal(noisy.stdout, clean.stdout);
+  } finally {
+    rmSync(cleanHome, { recursive: true, force: true });
+    rmSync(noisyHome, { recursive: true, force: true });
+  }
+});
+
 test('Stop reply gate emits Codex-compatible decision:block JSON', () => {
   const { dir, file } = writeTranscript([
     { type: 'user', message: { role: 'user', content: '<channel source="discord" chat_id="T">ping</channel>' } },
@@ -66,6 +108,18 @@ test('PreToolUse automation guard denies with permissionDecision JSON', () => {
   assert.equal(payload.hookSpecificOutput.hookEventName, 'PreToolUse');
   assert.equal(payload.hookSpecificOutput.permissionDecision, 'deny');
   assert.match(payload.hookSpecificOutput.permissionDecisionReason, /AskUserQuestion|무인 자동화/);
+});
+
+test('PreToolUse automation guard also denies the Codex 0.152.1 request_user_input tool name', () => {
+  const res = runHook(
+    'hooks/automation-no-interactive.sh',
+    { hook_event_name: 'PreToolUse', tool_name: 'request_user_input', tool_input: {} },
+    { HK_AUTOMATION: '1' },
+  );
+  assert.equal(res.status, 0);
+  const payload = JSON.parse(res.stdout);
+  assert.equal(payload.hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(payload.hookSpecificOutput.permissionDecisionReason, /request_user_input/);
 });
 
 test('automatic handoff hook flow state denies unmarked prose and atomically consumes a receipt once', async () => {

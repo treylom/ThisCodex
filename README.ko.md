@@ -255,7 +255,49 @@ guided init은 짧은 런타임 이름도 묻고, 그 한 값을 정확한 tmux 
 
 ---
 
-### 3.6 문제 해결 — 봇은 로그인했는데 답이 없다
+### 3.6 Codex 훅 — 플러그인 등록·사람 신뢰·집계 검사
+
+1.1.0부터 `hooks/hooks.json` 하나가 11개 필수 훅을 플러그인 소유로
+등록합니다. `/plugins`에서 ThisCodex를 설치·활성화한 뒤 **새 세션**을
+시작하세요. `~/.codex/hooks.json`에 같은 훅을 손으로 합치지 않습니다.
+모든 번들 명령은 먼저 `hooks/lib/bot-only.sh`를 지나므로
+`DISCORD_STATE_DIR`이 없는 일반 Codex 세션에서는 대상 실행 0회·stdout
+0바이트·exit 0입니다.
+
+필수 11개는 SessionStart의 `bot-session-init.sh`, UserPromptSubmit의
+`rule-router.sh`, PreToolUse의 `dispatch-room-gate.py`·
+`automation-handoff-gate.py`·`automation-no-interactive.sh`·
+`verify-before-push.sh`, Stop의 `meeting-stop-reread.sh`·`reply-gate.sh`·
+`completion-gate.sh`·`dispatch-verify.sh`·`kst-timestamp.sh`입니다.
+`meeting-liveness.py`는 자동 번들 밖의 운영자 도구입니다.
+
+등록은 활성화가 아닙니다. Codex는 사람이 `/hooks`에서 현재 정의를 검토해
+신뢰하기 전까지 훅을 건너뜁니다. 순서는 다음과 같습니다.
+
+```text
+1. thiscodex hooks --apply
+2. /plugins에서 ThisCodex 설치·활성화 → 새 Codex 세션 시작
+3. /hooks에서 ThisCodex 11개 현재 정의 검토·신뢰
+4. thiscodex hooks --verify
+```
+
+검사는 정확한 번들·공통 가드·플러그인 활성·현재 trust hash 11개·옛 등록
+충돌 0을 모두 관측해야 exit 0입니다. 신뢰 전 상태는
+`registered_pending_trust`이며, 검사 통과 뒤에만 `active`입니다.
+`thiscodex doctor`도 대표 훅 1개가 아니라 이 집계 검사를 그대로 씁니다.
+
+마이그레이션은 삭제 전에 소유를 증명합니다. `thiscodex hooks --apply`는 필수
+11개 basename과 함께 ① 봇 세션 래퍼 경유 ② 대소문자를 무시한 ThisCodex
+경로 ③ 이름이 `thiscodex`인 형제 plugin manifest ④ 대상 파일 부재 중 하나가
+확인된 옛 JSON 항목만 백업 후 원자 제거합니다. 미해결 `$` 변수가 있는 경로는
+④를 쓰지 않으며, 현 번들 파일과 SHA-256이 같다는 사실만으로는 소유를
+증명하지 않습니다. 이름만 같은 소유 불명 JSON·inline `config.toml` 훅은
+보존하고 좌표를 경고하되 검사 실패로 세지 않습니다. 소유가 증명된 ThisCodex
+inline 훅은 자동 수정하지 않고 충돌로 세어, 사람이 `/hooks`에서 검토할 한
+동작과 함께 exit 1을 냅니다. 두 번째 깨끗한 apply는 파일·mtime·backup을
+바꾸지 않습니다.
+
+### 3.7 문제 해결 — 봇은 로그인했는데 답이 없다
 
 원인 다섯이 증상 하나를 공유한다(전부 2026-08-09 WSL 실측). 먼저 반응 이모지로
 증상을 반 가른다: **내 메시지에 🔍 가 안 붙었으면 봇이 아예 못 들은 것**(대개
@@ -281,7 +323,7 @@ Claude Code + Codex 에이전트가 공존하게 하는 규칙. `bot-roster.yaml
 - **봇끼리 호출**: 공용 채널에서 다른 봇 대상 메시지는 **반드시** `<@user_id>` 멘션 또는 `reply_to`. 아니면 받는 봇이 조용히 버림(silent drop). 봇 `user_id`는 봇 토큰 첫 base64 조각에서 결정적으로 추출 — 추측 금지.
 - **직통 채널은 멘션 규칙 면제**(`require_mention: false`).
 - **회의 = 전용 스레드**: 봇 2개↑·10분↑·안건 있음 중 2개 충족 시 전용 스레드 신설, 본 채널엔 안내만. 단발 relay/ACK는 본문 유지.
-- **세션 시작 주입**: 단일 렌더러(`roster-inject.py`)가 같은 좌표·규칙을 Claude Code 봇(세션 init 훅)과 Codex 봇(`~/.codex/hooks.json`) 양쪽에 주입.
+- **세션 시작 주입**: 단일 렌더러(`roster-inject.py`)가 같은 좌표·규칙을 Claude Code 봇(세션 init 훅)과 Codex 봇(플러그인 소유 `hooks/hooks.json`) 양쪽에 주입.
 - **디스코드 답장 규칙(정적, AGENTS.md — 매 턴 아님)**: 각 턴은 `<channel chat_id="…" message_id="…">`로 들어옴 → `mcp__discord__reply(chat_id, reply_to=message_id)`로 답장. 페르소나·볼트 규율은 정본 `AGENTS.md`가 자동 로드되므로 항상 적용.
 
 ---

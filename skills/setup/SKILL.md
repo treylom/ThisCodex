@@ -111,27 +111,22 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
 5. Ask `progress_report_cadence`: `per_task`, `1m`, `3m`, `5m`, `off`, or
    `custom`. `per_task` means a meaningful subtask or milestone completion,
    not every raw model turn boundary.
-6. Wire **and trust** the Codex hooks. Ensure `~/.codex/hooks.json` has the
-   SessionStart helper (`hooks/bot-session-init.sh` — injects roster +
-   active-meeting state + `rules/INDEX.md`) and the active-meeting Stop reread
-   (`hooks/meeting-stop-reread.sh` — no flag; it auto-detects a bot session
-   from the environment). Then run `/hooks` in the Codex TUI
-   and approve them: a wired Codex hook does NOT run until trusted (a
-   `trusted_hash` is written to `~/.codex/config.toml`). Verify a Stop
-   `trusted_hash` is present in `~/.codex/config.toml` — if absent, the meeting
-   reread is silently inactive. (See README §3.6.) This trust step is
-   Codex-specific; do not skip it or report the bot ready without it.
-   Notation caveat: `hooks.json` uses CamelCase event keys (`PreToolUse`,
-   `SessionStart`, `Stop`) while the `config.toml` trust state keys use
-   snake_case (`pre_tool_use:…`) — same event, two notations; never "unify"
-   them when transcribing. If you add / remove / reorder hook array entries,
-   re-check `/hooks` approval: the trust keys are index-based.
-   Automatic mode additionally requires `hooks/automation-handoff-gate.py`
-   under `PreToolUse` with matcher
-   `mcp__discord__reply|mcp__discord__edit_message`. Run `/hooks`, approve that
-   exact hook, and rerun `thiscodex doctor`; doctor fails until both wiring and
-   its matching `pre_tool_use:<group>:<hook>` `trusted_hash` are present.
-   Immediately before the trust prompt, run:
+6. Register **and trust** the Codex plugin hooks. Do not merge ThisCodex
+   handlers into `~/.codex/hooks.json`: version 1.1.0 declares the guarded
+   11-handler bundle at `hooks/hooks.json`. First run
+   `thiscodex hooks --apply`; that migration removes only old JSON entries whose
+   required basename and ownership are both confirmed by the bot wrapper,
+   product path, sibling manifest, or missing target. An unresolved `$` path
+   cannot use missing-target ownership, and a matching bundle hash is not
+   ownership proof. Preserve an unknown same-name JSON or inline `config.toml`
+   entry and relay its warning coordinate; it does not fail verification. A
+   proven ThisCodex inline entry remains untouched and is a conflict: stop for
+   the one requested human `/hooks` review action.
+   Then install/enable ThisCodex in `/plugins` and start a new Codex session.
+
+   Registration alone is `registered_pending_trust`, never `active`. Immediately
+   before asking the operator to inspect and trust all 11 current definitions
+   in `/hooks`, run:
 
    ```bash
    thiscodex automation-gate --gate codex_hook_trust_approval \
@@ -139,18 +134,15 @@ and the PreToolUse hook reject a handoff without a current-turn receipt.
      --operation review-codex-hook-trust --terminal human_security_gate \
      --reason-code security_boundary_review
    ```
-   For multi-bot workspaces, additionally wire the dispatch-room gate
-   (`hooks/dispatch-room-gate.py`, PreToolUse, matcher
-   `mcp__discord__reply|mcp__discord__edit_message`), write
-   `<state>/dispatch-gate.json` (`top_channels` + `roster_path` +
-   `workspace_roots`; state = `$MEETING_WATCHDOG_STATE_DIR` or
-   `~/.claude-state`), then run
-   `python3 REPO_DIR/hooks/dispatch-room-gate.py --probe` (REPO_DIR = this
-   ThisCodex checkout) — installation is complete only on `PROBE PASS 6/6`
-   (wiring · trust · config · deny · non-top pass · out-cwd pass). A wired
-   but untrusted gate probes FAIL — that is the silent-inactive case the
-   probe exists to catch. Single-bot installs may skip with
-   `dispatch_gate: skipped(single-bot)`.
+   After approval, run `thiscodex hooks --verify`. Exit 0 is required: it
+   aggregates exact bundle structure, the common `DISCORD_STATE_DIR` guard,
+   plugin enabled state, all 11 current trust hashes, and zero legacy
+   conflicts. `thiscodex doctor` calls the same verifier. If the command exits
+   1, perform only its `NEXT` action and rerun it; never forge or copy a trust
+   hash. For multi-bot workspaces also create `<state>/dispatch-gate.json`
+   (`top_channels`, `roster_path`, `workspace_roots`) and require
+   `python3 REPO_DIR/hooks/dispatch-room-gate.py --probe` → `PROBE PASS 6/6`.
+   Single-bot installs may record `dispatch_gate: skipped(single-bot)`.
 7. Read `docs/RECENT-CHANGES.md` and apply anything not yet reflected — it is
    the newest-first digest of contract/behavior changes a fresh install must
    adopt (e.g. the Stop-hook output contract + the trust requirement above).
@@ -196,9 +188,9 @@ setup_completion:
 | When to use | Call |
 |---|---|
 | Start guided ThisCodex setup | `/setup` or `/setup init` — launches the interactive onboarding wizard. Covers repo root, workspace, BOT_WD, Discord state directory, safe/YOLO mode selection, progress reporting cadence, and Codex hook setup. |
-| View setup progress summary | `/setup status` — shows what's been configured so far (repo, workspace, aliases generated, hooks wired, doctor check done). |
-| Run setup verification | `/setup doctor` — verifies all paths exist, Discord MCP is wired, `~/.codex/config.toml` is readable, hook trust hashes are present, and tmux/Python dependencies are installed. |
-| Re-wire Codex hooks | `/setup hooks` — re-runs the SessionStart + meeting-Stop hook wiring and trust approval in the Codex TUI. Use this if hooks were unwired or the trust hash was removed. |
+| View setup progress summary | `/setup status` — shows what's been configured so far (repo, workspace, aliases generated, hooks registered/trusted, doctor check done). |
+| Run setup verification | `/setup doctor` — verifies all paths exist, Discord MCP is configured, the exact 11-hook plugin bundle is enabled and trusted, legacy conflicts are zero, and tmux/Python dependencies are installed. |
+| Re-check Codex hooks | `/setup hooks` — runs `thiscodex hooks --apply`, directs the operator through `/hooks`, and requires `thiscodex hooks --verify` exit 0. Use this after a bundle definition or trust state changes. |
 | Generate shell aliases | `/setup aliases` — generates convenience shell aliases (`thiscodex_run`, `thiscodex_tui`, `thiscodex_connect`, etc.) and shows you how to `source` or permanently add them. |
 | View guide documents | `/setup guide` — prints paths to SETUP.md, SETUP-BEGINNER.md, and RECENT-CHANGES.md for reference during setup. |
 

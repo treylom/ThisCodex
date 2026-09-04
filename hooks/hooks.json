@@ -1,0 +1,95 @@
+{
+  "description": "ThisCodex bot hooks — plugin-discovered and guarded by DISCORD_STATE_DIR so ordinary Codex sessions stay silent.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"bot-session-init\" \"${PLUGIN_ROOT}/hooks/bot-session-init.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"rule-router\" \"${PLUGIN_ROOT}/hooks/rule-router.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "mcp__discord__reply|mcp__discord__edit_message|mcp__plugin_discord_discord__reply|mcp__plugin_discord_discord__edit_message",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"dispatch-room-gate\" \"${PLUGIN_ROOT}/hooks/dispatch-room-gate.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"automation-handoff-gate\" \"${PLUGIN_ROOT}/hooks/automation-handoff-gate.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion|request_user_input",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"automation-no-interactive\" \"${PLUGIN_ROOT}/hooks/automation-no-interactive.sh\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|exec_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"verify-before-push\" \"${PLUGIN_ROOT}/hooks/verify-before-push.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"meeting-stop-reread\" \"${PLUGIN_ROOT}/hooks/meeting-stop-reread.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"reply-gate\" \"${PLUGIN_ROOT}/hooks/reply-gate.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"completion-gate\" \"${PLUGIN_ROOT}/hooks/completion-gate.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"dispatch-verify\" \"${PLUGIN_ROOT}/hooks/dispatch-verify.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"kst-timestamp\" \"${PLUGIN_ROOT}/hooks/kst-timestamp.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

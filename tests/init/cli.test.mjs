@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { flattenHooks, hookTrustHash, hooksDocument, pluginTrustKey } from '../../scripts/lib/hooks-contract.mjs';
 
 const BIN = fileURLToPath(new URL('../../bin/thiscodex.mjs', import.meta.url));
 const PRODUCTION_POLICY = fileURLToPath(new URL('../../install/automation-policy.yaml', import.meta.url));
@@ -22,6 +23,18 @@ const run = (args, cwd, extraEnv = {}) => execFileSync(process.execPath, [BIN, .
   encoding: 'utf8',
   env: { ...process.env, ...TEST_CLI_ENV, ...extraEnv },
 });
+
+function trustedHooksConfig(pluginId = 'thiscodex@test') {
+  const lines = [`[plugins."${pluginId}"]`, 'enabled = true', ''];
+  for (const row of flattenHooks(hooksDocument())) {
+    lines.push(
+      `[hooks.state."${pluginTrustKey(pluginId, row.event, row.groupIndex, row.hookIndex)}"]`,
+      `trusted_hash = "${hookTrustHash(row.event, row.matcher, row.hook)}"`,
+      '',
+    );
+  }
+  return `${lines.join('\n')}\n`;
+}
 
 test('--check --non-interactive writes nothing', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-'));
@@ -403,6 +416,13 @@ test('answers file confirms guided paths and persists them explicitly', () => {
   const bot = mkdtempSync(join(tmpdir(), 'tcx-bot-'));
   const stateDir = mkdtempSync(join(tmpdir(), 'tcx-state-'));
   const answers = join(home, 'answers.json');
+  mkdirSync(join(home, '.codex'), { recursive: true });
+  writeFileSync(join(home, '.codex', 'hooks.json'), `${JSON.stringify({
+    hooks: { Stop: [{ hooks: [
+      { type: 'command', command: 'bash "/opt/ThisCodex/hooks/reply-gate.sh"' },
+      { type: 'command', command: 'bash "/opt/vendor/keep.sh"' },
+    ] }] },
+  }, null, 2)}\n`);
   writeFileSync(answers, JSON.stringify({
     install_surface: 'guided',
     automation_mode: 'auto',
@@ -411,7 +431,7 @@ test('answers file confirms guided paths and persists them explicitly', () => {
     confirmed_bot_wd: bot,
     confirmed_state_dir: stateDir,
     codex_skill_layer: 'user',
-    codex_marketplace: 'no',
+    codex_marketplace: 'yes',
     codex_yolo: 'safe',
     progress_report_cadence: '1m',
     alias_consent: 'no',
@@ -431,6 +451,15 @@ test('answers file confirms guided paths and persists them explicitly', () => {
   assert.equal(state.confirmed_bot_wd, bot);
   assert.equal(state.confirmed_state_dir, stateDir);
   assert.equal(state.answers.progress_report_cadence, '1m');
+  assert.match(result.stdout, /Hook migration: removable=1 changed=1 backups=1/);
+  const migrated = JSON.parse(readFileSync(join(home, '.codex', 'hooks.json'), 'utf8'));
+  assert.deepEqual(migrated.hooks.Stop[0].hooks, [
+    { type: 'command', command: 'bash "/opt/vendor/keep.sh"' },
+  ]);
+  assert.equal(readdirSync(join(home, '.codex')).filter(name => name.endsWith('.bak')).length, 1);
+  assert.match(result.stdout, /codex plugin marketplace add .*ThisCodex/);
+  assert.doesNotMatch(result.stdout, /marketplace add .*\.codex-plugin/);
+  assert.match(result.stdout, /codex plugin add thiscodex@thiscodex/);
   rmSync(repo, { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
   rmSync(workspace, { recursive: true, force: true });
@@ -539,17 +568,19 @@ test('doctor on a materialized install points to the exact runner instead of res
     alias_consent: 'yes',
     daemon_guide: 'yes',
   }));
-  const env = { ...process.env, ...TEST_CLI_ENV, THISCODEX_REPO_ROOT: process.cwd(), HOME: home };
+  const env = {
+    ...process.env,
+    ...TEST_CLI_ENV,
+    THISCODEX_REPO_ROOT: process.cwd(),
+    THISCODEX_PLUGIN_ID: 'thiscodex@test',
+    HOME: home,
+  };
   const apply = spawnSync(process.execPath, [BIN, 'init', '--apply', '--yes', '--answers', answers], {
     cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
   });
   assert.equal(apply.status, 0, apply.stdout + apply.stderr);
   mkdirSync(join(home, '.codex'), { recursive: true });
-  writeFileSync(join(home, '.codex', 'hooks.json'), JSON.stringify({ hooks: { PreToolUse: [{
-    matcher: 'mcp__discord__reply|mcp__discord__edit_message',
-    hooks: [{ type: 'command', command: `python3 ${join(process.cwd(), 'hooks', 'automation-handoff-gate.py')}` }],
-  }] } }));
-  writeFileSync(join(home, '.codex', 'config.toml'), '[hooks.state."hooks.json:pre_tool_use:0:0"]\ntrusted_hash = "sha256:test"\n');
+  writeFileSync(join(home, '.codex', 'config.toml'), trustedHooksConfig());
   const doctor = spawnSync(process.execPath, [BIN, 'doctor', '--non-interactive'], {
     cwd: repo, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], env,
   });

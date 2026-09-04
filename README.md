@@ -292,74 +292,61 @@ sandbox**. The reference bridge ships in this repo:
 - GitHub: `gh auth login` (or a PAT in the environment) before launch so codex `exec` can push/PR.
 - Superpowers / skills: codex reads `AGENTS.md`; point it at your skills directory and the migration rules (§5) so skill invocations resolve.
 
-### 3.6 Codex hooks — wire **and trust**
+### 3.6 Codex hooks — plugin registration, human trust, aggregate verification
 
-The shipped hook helpers only take effect once they are both **wired** into
-`~/.codex/hooks.json` and **trusted** by Codex:
+Version 1.1.0 ships one plugin-owned `hooks/hooks.json`. Once ThisCodex is
+installed and enabled in `/plugins`, Codex discovers the bundle in a **new
+session**; do not merge its handlers into `~/.codex/hooks.json` by hand. Every
+bundled command first passes through `hooks/lib/bot-only.sh`, so a normal Codex
+session without `DISCORD_STATE_DIR` runs no bot target, writes no stdout, and
+exits 0.
 
-- **SessionStart** → `hooks/bot-session-init.sh`: injects the bot roster +
-  active-meeting state + the situational rules router `rules/INDEX.md`. This is
-  how recent `rules/` changes auto-apply — a new session reads the current
-  INDEX, not a frozen copy.
-- **UserPromptSubmit** → `hooks/rule-router.sh`: matches task-type keywords in
-  the prompt and force-surfaces the corresponding rule gates from
-  `rules/INDEX.md` (fail-open — silent when nothing matches).
-- **Stop** → `hooks/meeting-stop-reread.sh`: during an active meeting,
-  asks the bot to re-read the meeting progress file before it ends a turn. The
-  shipped hook is runtime-agnostic — it auto-detects a bot session from the
-  environment (`DISCORD_STATE_DIR`/`BOT_WD`), so it is wired plainly with no
-  flag. It
-  emits the only valid Stop primitive `{"decision":"block","reason":...}` (the
-  Stop event has **no** `hookSpecificOutput` variant), guarded single-shot by
-  `stop_hook_active`; every other case allows stop (empty stdout + `exit 0`).
-- **Stop soft→hard gates** → `hooks/reply-gate.sh`,
-  `hooks/completion-gate.sh`, `hooks/dispatch-verify.sh`, and
-  `hooks/kst-timestamp.sh`: these add one-turn reminders for missing Discord
-  replies, completion reports, dispatch execution checks, and KST timestamp
-  drift. They use the same Stop primitive as above:
-  `{"decision":"block","reason":"..."}`.
-- **PreToolUse dispatch-room gate (multi-bot)** → `hooks/dispatch-room-gate.py`
-  (matcher `mcp__discord__reply|mcp__discord__edit_message`): denies bot-to-bot
-  work dispatch in configured top-level channels (rules-seed Rule 3 — same
-  verdict criteria), with a cwd guard bound to `workspace_roots` so unrelated
-  projects pass. Config = `<state>/dispatch-gate.json`; state =
-  `$MEETING_WATCHDOG_STATE_DIR` or `~/.claude-state`. Install is complete only
-  on `python3 hooks/dispatch-room-gate.py --probe` → `PROBE PASS 6/6` — the
-  probe's trust slot catches the wired-but-untrusted silent-inactive case.
-  Notation caveat: `hooks.json` event keys are CamelCase (`PreToolUse`) while
-  `config.toml` trust state keys are snake_case (`pre_tool_use:…`) — same
-  event, two notations; do not unify them when transcribing, and re-check
-  `/hooks` approval after adding/removing/reordering hook entries (trust keys
-  are index-based).
-- **PreToolUse soft→hard gates** → `hooks/automation-no-interactive.sh` and
-  `hooks/verify-before-push.sh`, plus `hooks/automation-handoff-gate.py` for
-  Discord reply/edit calls: these deny risky tool calls with
-  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",...}}`
-  and `exit 0`. This JSON deny shape is covered by the shipped tests for the
-  Codex 0.130+ hook contract. `verify-before-push.sh` defaults to observe mode
-  unless `A1_ENFORCE=1` or `hooks/.a1-enforce` is present.
-  In automatic install mode the handoff gate requires the current-turn receipt
-  from `thiscodex automation-gate`; `thiscodex doctor` fails until that hook is
-  both wired and trusted.
-- **Meeting liveness** → `hooks/meeting-liveness.py`: a standalone dry-run by
-  default that detects active meeting participants whose `02-progress.md` row
-  is stale and, when explicitly run with `--send`, posts a per-bot nudge.
+The required set is exactly 11 handlers:
 
-**Trust is not optional on Codex.** A wired Codex hook does **not** run until
-it is approved through the Codex `/hooks` flow, which writes a `trusted_hash`
-for that hook into `~/.codex/config.toml`. If `~/.codex/config.toml` has no
-Stop `trusted_hash`, the meeting reread is silently inactive even though
-`hooks.json` is correct. After wiring, run `/hooks` in the Codex TUI, approve
-the Stop (and SessionStart) hook, then verify a `trusted_hash` entry for the
-Stop hook exists in `~/.codex/config.toml`. Claude Code / ThisCode has no
-equivalent trust step — this caveat is Codex-specific. For automation-only
-verification, `codex --dangerously-bypass-hook-trust` can exercise hooks without
-persisting trust, but normal operators should use `/hooks`.
+- SessionStart: `bot-session-init.sh`.
+- UserPromptSubmit: `rule-router.sh`.
+- PreToolUse: `dispatch-room-gate.py`, `automation-handoff-gate.py`,
+  `automation-no-interactive.sh`, and `verify-before-push.sh`.
+- Stop: `meeting-stop-reread.sh`, `reply-gate.sh`, `completion-gate.sh`,
+  `dispatch-verify.sh`, and `kst-timestamp.sh`.
 
-Run the isolated hook tests before enabling these in a live bot:
+`meeting-liveness.py` remains a standalone operator tool and is not part of the
+automatic bundle. The dispatch-room probe still applies to multi-bot installs:
+`python3 hooks/dispatch-room-gate.py --probe` must report `PROBE PASS 6/6`.
+
+Registration is not activation. Codex skips a hook until a person reviews its
+current definition in `/hooks`; that approval records a definition hash in
+`~/.codex/config.toml`. Use this sequence:
+
+```text
+1. Run: thiscodex hooks --apply
+2. Install/enable ThisCodex in /plugins and start a new Codex session.
+3. Run /hooks, inspect all 11 ThisCodex definitions, and trust them.
+4. Run: thiscodex hooks --verify
+```
+
+The verifier returns 0 only when the exact bundle, common guard, enabled plugin,
+all current trust hashes, and zero legacy conflicts are observed. Before trust,
+the honest state is `registered_pending_trust`; only a passing verifier is
+`active`. `thiscodex doctor` delegates to this same aggregate contract instead
+of checking one representative hook.
+
+Migration proves ownership before deletion. `thiscodex hooks --apply` backs up
+and atomically removes an old JSON entry only when its basename is in the
+required 11 **and** at least one ownership signal is present: the bot-session
+wrapper, a case-insensitive `thiscodex` path segment, a sibling plugin manifest
+named `thiscodex`, or a missing target file. A path containing an unresolved
+`$` variable never uses the missing-file signal; a copied current hook hash is
+not ownership proof. An unknown same-name JSON or inline `config.toml` entry is
+preserved and printed as a warning, but is not counted as a verification
+failure. A proven ThisCodex inline entry is also preserved, but remains a
+conflict that exits 1 and asks for one human `/hooks` review action. A second
+clean apply makes no file, timestamp, or backup change.
+
+For isolated verification, run:
 
 ```bash
-node --test tests/init/hard-hooks.test.mjs
+node --test tests/init/plugin-hooks-json.test.mjs tests/init/hooks-install.test.mjs
 bash hooks/tests/run-hook-tests.sh
 ```
 
@@ -392,7 +379,7 @@ These are the rules that make Claude Code + Codex agents coexist. They live in `
 - **Cross-bot addressing**: in shared channels, a message aimed at another bot **must** use its `<@user_id>` mention or a `reply_to`. Otherwise the receiving bot silently drops it. Bot `user_id`s are derived deterministically from the bot token's first base64 segment — never guessed.
 - **Direct channels are exempt** from the mention rule (`require_mention: false`).
 - **Meetings = dedicated threads**: any task with ≥2 bots, ≥10 min, or an agenda (2-of-3) gets its own thread; the main channel only gets a redirect. One-shot relays/ACKs stay inline.
-- **SessionStart injection**: a single renderer (`roster-inject.py`) feeds the same coordinates + rules into both Claude Code bots (via the session-init hook) and Codex bots (via `~/.codex/hooks.json`).
+- **SessionStart injection**: a single renderer (`roster-inject.py`) feeds the same coordinates + rules into both Claude Code bots (via the session-init hook) and Codex bots (via the plugin-owned `hooks/hooks.json`).
 - **Discord-reply rule (static, in AGENTS.md — not per turn)**: each turn arrives as `<channel chat_id="…" message_id="…" …>`; reply with `mcp__discord__reply(chat_id, reply_to=message_id)`. Persona/vault discipline is always on because the canonical `AGENTS.md` is auto-loaded.
 
 ---

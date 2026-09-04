@@ -1,7 +1,11 @@
 import { accessSync, constants, existsSync, readFileSync, readdirSync } from 'node:fs';
-import { isAbsolute, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { detectCodexConfig, whichSync } from './detect.mjs';
+import { migrateLegacyHooks, verifyHooks } from './hooks-install.mjs';
 import { detectSuperpowers } from './superpowers.mjs';
+
+const DEFAULT_REPO = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 
 export function isWritable(path) {
   try {
@@ -41,55 +45,23 @@ export function detectStaleSuperpowersWrapper({ wrapperVersion, home }) {
   };
 }
 
-export function automationHandoffHookReady(home, env = process.env) {
-  const hooksPath = env.THISCODEX_HOOKS_FILE || join(home, '.codex', 'hooks.json');
-  const configPath = env.THISCODEX_CODEX_CONFIG || join(home, '.codex', 'config.toml');
-  let hooks;
-  try {
-    hooks = JSON.parse(readFileSync(hooksPath, 'utf8'));
-  } catch {
-    return { ok: false, message: 'automation handoff hook is not wired' };
-  }
-  const groups = hooks?.hooks?.PreToolUse || [];
-  let coordinate = null;
-  let hookPath = '';
-  for (const [groupIndex, group] of groups.entries()) {
-    const matcher = String(group?.matcher || '');
-    let matchesDiscordTools = false;
-    try {
-      const exact = new RegExp(`^(?:${matcher})$`);
-      matchesDiscordTools = exact.test('mcp__discord__reply')
-        && exact.test('mcp__discord__edit_message')
-        && !exact.test('mcp__discord__replyx')
-        && !exact.test('mcp__discord__edit_messagex');
-    } catch {
-      matchesDiscordTools = false;
-    }
-    if (!matchesDiscordTools) continue;
-    for (const [hookIndex, hook] of (group?.hooks || []).entries()) {
-      const command = String(hook?.command || '');
-      const pathMatch = command.match(/(?:^|\s)([^\s"']*automation-handoff-gate\.py)(?:\s|$)/);
-      if (pathMatch) {
-        coordinate = `${groupIndex}:${hookIndex}`;
-        const raw = pathMatch[1].replace(/^~(?=\/)/, home);
-        hookPath = isAbsolute(raw) ? raw : resolve(raw);
-      }
-    }
-  }
-  if (!coordinate) return { ok: false, message: 'automation handoff hook is not wired' };
-  if (!existsSync(hookPath)) return { ok: false, message: `automation handoff hook path missing: ${hookPath}` };
-  let config = '';
-  try {
-    config = readFileSync(configPath, 'utf8');
-  } catch {
-    return { ok: false, message: 'automation handoff hook is wired but not trusted' };
-  }
-  const escaped = coordinate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const trust = new RegExp(`pre_tool_use:${escaped}"?\\]?[\\s\\S]{0,240}trusted_hash\\s*=`, 'i');
-  return trust.test(config)
-    ? { ok: true }
-    : { ok: false, message: `automation handoff hook ${coordinate} is wired but not trusted` };
+export function thisCodexHooksReady(home, env = process.env) {
+  const result = verifyHooks({
+    home,
+    project: env.THISCODEX_PROJECT_ROOT || process.cwd(),
+    repoRoot: resolve(env.THISCODEX_REPO_ROOT || DEFAULT_REPO),
+    pluginId: env.THISCODEX_PLUGIN_ID || '',
+  });
+  return {
+    ok: result.ok,
+    message: result.ok ? result.summary : `${result.summary}; NEXT ${result.next}`,
+    detail: result,
+  };
 }
+
+// Compatibility export for callers of the pre-1.1.0 single-hook probe. Its
+// semantics are intentionally upgraded to the aggregate 11-hook contract.
+export const automationHandoffHookReady = thisCodexHooksReady;
 
 export async function verifyStep(step, state, env = process.env) {
   const type = step.verify?.type;
@@ -138,9 +110,22 @@ export async function verifyStep(step, state, env = process.env) {
   if (type === 'tmux-present-or-guide-shown') return whichSync('tmux', env) ? { ok: true } : { ok: true, message: 'tmux guide shown' };
   if (type === 'runner-files-present') return { ok: true };
   if (type === 'aliases-parameterized') return { ok: true };
-  if (type === 'automation-handoff-hook-ready') {
+  if (type === 'thiscodex-hooks-ready' || type === 'automation-handoff-hook-ready') {
     const home = env.HOME || env.USERPROFILE || '';
-    return automationHandoffHookReady(home, env);
+    return thisCodexHooksReady(home, env);
+  }
+  if (type === 'hooks-migration-applied') {
+    const home = env.HOME || env.USERPROFILE || '';
+    const result = migrateLegacyHooks({
+      home,
+      project: env.THISCODEX_PROJECT_ROOT || process.cwd(),
+      repoRoot: resolve(env.THISCODEX_REPO_ROOT || DEFAULT_REPO),
+      apply: false,
+    });
+    const ok = result.ok && result.known.length === 0;
+    return ok
+      ? { ok: true, message: 'legacy hook migration is clean', detail: result }
+      : { ok: false, message: `legacy hook conflict; NEXT ${result.next}`, detail: result };
   }
   if (type === 'rollout-materialized') {
     let tid = state.thread_id || state.answers?.thread_id;

@@ -51,6 +51,18 @@ test('plugin lock records shipped skills and upstream packaging basis', () => {
   assert.deepEqual(lock.skills.map(s => s.id).sort(), ['create-bot', 'prompt', 'thiscodex']);
 });
 
+test('release version is one value across package, manifests, lock, and marketplace', () => {
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+  const claude = JSON.parse(readFileSync('.claude-plugin/plugin.json', 'utf8'));
+  const marketplace = JSON.parse(readFileSync('.claude-plugin/marketplace.json', 'utf8'));
+  const lock = JSON.parse(readFileSync('plugin.lock.json', 'utf8'));
+  assert.equal(pkg.version, '1.1.0');
+  assert.deepEqual(
+    [plugin.version, claude.version, marketplace.plugins[0].version, lock.plugin.version],
+    Array(4).fill(pkg.version),
+  );
+});
+
 test('README documents plugin packaging as canonical but keeps guided onboarding distinct', () => {
   const readme = readFileSync('README.md', 'utf8');
   assert.match(readme, /Codex plugin/i);

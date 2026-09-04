@@ -20,10 +20,23 @@ test('manifest loads ordered ThisCodex steps', () => {
     'config_ceiling_patch',
     'tmux_install_consent',
     'alias_consent',
+    'plugin_hooks_migration',
+    'thiscodex_hooks_ready',
     'doctor_rollout_materialized',
   ]) {
     assert.ok(ids.includes(id), `${id} missing`);
   }
+});
+
+test('hook migration precedes one aggregate doctor contract', () => {
+  const manifest = loadManifest('install/thiscodex.install.json');
+  const byId = Object.fromEntries(manifest.steps.map(step => [step.id, step]));
+  assert.equal(byId.plugin_hooks_migration.action, 'apply');
+  assert.equal(byId.plugin_hooks_migration.verify.type, 'hooks-migration-applied');
+  assert.equal(byId.thiscodex_hooks_ready.action, 'check');
+  assert.equal(byId.thiscodex_hooks_ready.verify.type, 'thiscodex-hooks-ready');
+  assert.ok(byId.plugin_hooks_migration.order < byId.thiscodex_hooks_ready.order);
+  assert.match(byId.thiscodex_hooks_ready.reason, /all 11|aggregate/i);
 });
 
 test('automatic/manual is the first interaction and remains separate from install surface', () => {
