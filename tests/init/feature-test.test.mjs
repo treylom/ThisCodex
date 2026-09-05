@@ -13,15 +13,15 @@ function runFeatureTest(args = []) {
   });
 }
 
-test('feature-test default run excludes the expensive graphrag benchmark', () => {
+test('feature-test default run checks every supported harness feature', () => {
   const result = runFeatureTest();
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const output = `${result.stdout}\n${result.stderr}`;
-  for (const id of ['memory', 'tmux', 'graphrag', 'meeting', 'rules', 'hooks', 'install']) {
+  for (const id of ['memory', 'tmux', 'meeting', 'rules', 'hooks', 'install']) {
     assert.match(output, new RegExp(`\\b${id}\\b`));
   }
-  assert.doesNotMatch(output, /\bgraphrag-bench\b/);
+  assert.match(output, /TOTAL 6/);
   assert.match(output, /Summary:/);
 });
 
@@ -35,14 +35,23 @@ test('feature-test dispatches a single fuzzy feature query', () => {
   assert.match(output, /Summary:/);
 });
 
-test('feature-test bench mode includes graphrag-bench', () => {
-  const result = runFeatureTest(['--bench']);
+test('feature-test all runs the same supported set as the default', () => {
+  const result = runFeatureTest(['all']);
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const output = `${result.stdout}\n${result.stderr}`;
-  assert.match(output, /\bgraphrag-bench\b/);
+  assert.match(output, /TOTAL 6/);
   assert.match(output, /Summary:/);
 });
+
+for (const query of ['graphrag', 'graphrag-bench', '--bench']) {
+  test(`feature-test rejects retired query ${query}`, () => {
+    const result = runFeatureTest([query]);
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /unknown feature query/);
+    assert.doesNotMatch(result.stdout, /PASS|Summary:/);
+  });
+}
 
 test('/test skill entrypoint points at the feature-test harness', () => {
   const skillPath = join(repoRoot, 'skills', 'test', 'SKILL.md');

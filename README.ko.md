@@ -50,7 +50,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 | `/create-bot` | 연결된 브라우저 자동화 MCP로 디스코드 앱 생성 | 개발자 포털·인텐트·시크릿 비노출 토큰 수령·초대 |
 | `/prompt` | LLM·GPT·Gem·이미지 생성용 구조화된 프롬프트 작성 | `<작업설명>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
 | `/setup` | 단계별 안내 및 검증 | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
-| `/test` | ThisCodex 스모크 테스트 실행 (메모리, tmux, 회의, 규칙, 훅) | `<기능이름>`, `graphrag-bench`, `--verbose` |
+| `/test` | ThisCodex 스모크 테스트 실행 (메모리, tmux, 회의, 규칙, 훅) | `<기능이름>`, `all` |
 
 **각 스킬**의 `SKILL.md` 파일을 로드해 전체 옵션과 사용 예시를 확인하세요. 모든 스킬은 점진식 공개(progressive disclosure)를 따릅니다 — 요약부터 시작하고, 자세한 참고 자료는 필요할 때만 로드합니다.
 

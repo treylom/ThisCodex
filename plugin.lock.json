@@ -2,7 +2,7 @@
   "lockVersion": 1,
   "plugin": {
     "name": "thiscodex",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "manifest": ".codex-plugin/plugin.json"
   },
   "sources": [
@@ -27,7 +27,7 @@
         "type": "repo",
         "path": "skills/create-bot/SKILL.md"
       },
-      "integrity": "sha256-1f4b839293f2dab511620ea7f3a391bd249f0a69b4f149329a66c4d26ca5d200"
+      "integrity": "sha256-3c58dc3964ddab4fffd04961e703fb97fa01f2c20dc0b43c0debb138184c0916"
     },
     {
       "id": "prompt",

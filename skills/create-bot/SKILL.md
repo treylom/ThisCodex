@@ -437,5 +437,4 @@ the automation audit before a manual handoff.
 ## References
 
 - Companion source of truth: ThisCode `skills/create-bot/SKILL.md`.
-- Codex mapping: `docs/tool-equivalence-contract.md`.
 - Installation: `docs/SETUP.md` §3.

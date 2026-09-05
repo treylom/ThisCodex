@@ -123,27 +123,6 @@ const FEATURES = [
     },
   },
   {
-    id: 'graphrag',
-    aliases: ['graphrag', 'graph rag', 'obsidian', 'vault search', 'graph'],
-    run() {
-      // Compatibility name retained: this feature compiles the bundled vault
-      // wrapper only; it does not contact GraphRAG or run live vault E2E.
-      return compilePython('scripts/obsidian_cli_wrapper.py');
-    },
-  },
-  {
-    id: 'graphrag-bench',
-    aliases: ['graphrag bench', 'graph rag bench', 'benchmark', 'bench'],
-    run() {
-      const base = compilePython('scripts/obsidian_cli_wrapper.py');
-      if (base.status === STATUS.FAIL) return base;
-      if (process.env.THISCODEX_RUN_GRAPHRAG_BENCH !== '1') {
-        return skip('benchmark disabled; set THISCODEX_RUN_GRAPHRAG_BENCH=1 to run it');
-      }
-      return pass('benchmark prerequisites available; wrapper syntax smoke only, no live GraphRAG request');
-    },
-  },
-  {
     id: 'meeting',
     aliases: ['meeting', 'meeting protocol', 'watchdog', 'thread'],
     run() {
@@ -219,12 +198,8 @@ function scoreFeature(feature, query) {
 }
 
 function selectFeatures(args) {
-  const includeBench = args.includes('--bench') || args.includes('all');
-  const query = args.filter((arg) => arg !== '--bench').join(' ').trim();
-  if (!query) {
-    return FEATURES.filter((feature) => includeBench || feature.id !== 'graphrag-bench');
-  }
-  if (normalize(query) === 'all') {
+  const query = args.join(' ').trim();
+  if (!query || normalize(query) === 'all') {
     return FEATURES;
   }
 

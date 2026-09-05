@@ -32,9 +32,8 @@ test('create-bot skill ports the Discord portal browser contract to Codex', () =
   assert.match(skill, /discord_reset_token_modal/);
 });
 
-test('create-bot install and tool-equivalence docs expose the MCP path', () => {
+test('create-bot setup and public docs expose the MCP path', () => {
   const setup = read('docs/SETUP.md');
-  const contract = read('docs/tool-equivalence-contract.md');
   const readme = read('README.md');
   const readmeKo = read('README.ko.md');
   const help = read('skills/help/SKILL.md');
@@ -42,8 +41,6 @@ test('create-bot install and tool-equivalence docs expose the MCP path', () => {
   assert.match(setup, /## 3\. Discord Bot Creation With Browser Automation/);
   assert.match(setup, /\[mcp_servers\.playwright\]/);
   assert.match(setup, /@playwright\/mcp@latest/);
-  assert.match(contract, /interactive browser control.*Playwright MCP/is);
-  assert.match(contract, /tool name.*hard-cod/is);
   assert.match(readme, /`\/create-bot`/);
   assert.match(readmeKo, /`\/create-bot`/);
   assert.match(help, /`\/create-bot`/);
