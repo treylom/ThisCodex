@@ -399,7 +399,7 @@ harder to run on Windows.
 
 This installer does not install the separate Knowledge Manager plugin, its
 `/km:search` or `/km:setup` entry points, `km-config.json`, MCP entries, or
-GraphRAG/search tiers. The optional `wiki_path` above only connects a save
+GraphRAG/search tiers. The installer's optional `wiki_path` answer only connects a save
 destination. Use the Knowledge Manager plugin's own installer and setup for
 vault search; the ThisCode companion owns the local GraphRAG build/setup path.
 
@@ -420,13 +420,11 @@ zero-config default.
 
 ![Archived search illustration — GraphRAG → vault-search MCP → Obsidian CLI → ripgrep](../assets/search-fallback-4tier.png)
 
-The archived illustration uses an older tier order and qualitative support
-bars; it is not a current search contract or a measured quality comparison.
-It describes an optional connected stack, not a ThisCodex installer surface.
-The current fallback order is GraphRAG → Obsidian CLI →
-Obsidian MCP → ripgrep. ThisCodex does not install these tiers; `/km:search`
-and `/km:setup` are provided by the separate Knowledge Manager plugin, while
-the local GraphRAG build/setup path is in the ThisCode companion.
+The archived illustration uses an older tier order and rough support markers;
+it is not a current search contract or a measured quality comparison.
+It shows optional connected tools, not something the ThisCodex installer sets up.
+The Knowledge Manager plugin documents its fallback order as GraphRAG →
+Obsidian CLI → Obsidian MCP → text search. For installer ownership, see §3 above.
 
 Install per [README §Setup](../README.md) and [SKILL.md](../skills/thiscodex/SKILL.md)
 (register: `codex plugin marketplace add treylom/ThisCodex`; invoke via

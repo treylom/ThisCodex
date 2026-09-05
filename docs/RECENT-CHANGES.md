@@ -12,9 +12,9 @@
   files only. It does not install the separate Knowledge Manager plugin,
   `/km:search`, `/km:setup`, `km-config.json`, MCP entries, or search tiers.
 - The optional wiki path connects a save destination; it is not a second vault
-  search provider. The bundled vault bridge remains unchanged; the
-  compatibility contract now labels its current integration status without
-  changing its body, code, or API semantics.
+  search provider. The bundled vault bridge remains unchanged;
+  `docs/tool-equivalence-contract.md` now carries matching English/Korean status
+  notes without changing its contract body, code, or API behavior.
 - Package, Codex/Claude manifests, lock metadata, and marketplace metadata now
   agree on `1.1.1`.
 

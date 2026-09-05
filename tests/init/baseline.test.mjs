@@ -18,6 +18,9 @@ test('contract references both wrappers it ships with', () => {
   const c = readFileSync('docs/tool-equivalence-contract.md', 'utf8');
   assert.match(c, /obsidian_cli_wrapper\.py/);
   assert.match(c, /codex_worker_orchestrator\.py/);
+  const [english, korean] = c.split(/^## 한국어\s*$/m);
+  assert.match(english, /Compatibility status/);
+  assert.match(korean ?? '', /호환 상태/, 'the Korean entry point must include the same integration-status warning');
 });
 
 test('python baseline files compile', () => {
