@@ -7,6 +7,11 @@
 > *usage* discipline: [rules/search-usage.md](../rules/search-usage.md); tool
 > *selection*: [rules/knowledge-retrieval.md](../rules/knowledge-retrieval.md).
 >
+> This runbook is not an installer. The local GraphRAG build/setup files are in
+> the ThisCode companion; `/km:search` and `/km:setup` are entry points of the
+> separate Knowledge Manager plugin. ThisCodex documents the consumer-side
+> bridge and operating procedure for a search server that is already running.
+>
 > **Principle 1**: every command here must be copy-paste runnable.
 > **Principle 2 (model-independence contract)**: a new operator model must be
 > able to onboard from this doc + the design record alone. If that fails, the

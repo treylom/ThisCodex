@@ -6,6 +6,20 @@
 > design doc. Newest first. Plain language; first use of a jargon term is
 > explained inline.
 
+## 2026-09-05 — vault product boundary clarified (1.1.1)
+
+- ThisCodex's Node installer owns ThisCodex skill placement and guided bot
+  files only. It does not install the separate Knowledge Manager plugin,
+  `/km:search`, `/km:setup`, `km-config.json`, MCP entries, or search tiers.
+- The optional wiki path connects a save destination; it is not a second vault
+  search provider. The bundled vault bridge remains unchanged;
+  `docs/tool-equivalence-contract.md` now carries matching English/Korean status
+  notes without changing its contract body, code, or API behavior.
+- Package, Codex/Claude manifests, lock metadata, and marketplace metadata now
+  agree on `1.1.1`.
+
+---
+
 ## 2026-09-03 — plugin hooks bundle + one aggregate verifier (1.1.0)
 
 - The package, Codex/Claude manifests, lock metadata, and marketplace surface

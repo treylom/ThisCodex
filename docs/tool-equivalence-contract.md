@@ -1,5 +1,13 @@
 # Tool-Equivalence Contract — Claude-only tools → Codex equivalents (no quality loss)
 
+> **Compatibility status (2026-09-05):** This is a design/history record, not
+> a description of the current Knowledge Manager integration. The tracked
+> Knowledge Manager 1.4.0 source ships its own `.agent/skills`, `commands`, and
+> installers, with no `references/codex-adapter.md` linkage to the ThisCodex
+> wrapper or worker orchestrator. The mappings and smoke criteria below do not
+> prove that the current installation calls these files. This note preserves
+> the contract body, code, and API behavior.
+
 > Goal (maintainer directive, 2026-05-16): ThisCode skills (the
 > `knowledge-manager` family etc.) must migrate to Codex bots **without
 > quality loss** — not "exposed but
@@ -222,6 +230,13 @@ unchanged.
 ---
 
 ## 한국어
+
+> **호환 상태 (2026-09-05):** 이 문서는 설계·이력 기록이며, 현재 Knowledge Manager의
+> 연결 방식을 설명하는 문서가 아닙니다. 추적 대상인 Knowledge Manager 1.4.0 소스에는
+> 자체 `.agent/skills`·`commands`·설치기가 있지만, ThisCodex의 wrapper나 worker
+> orchestrator로 연결하는 `references/codex-adapter.md`는 없습니다. 아래 매핑과
+> smoke 기준은 현재 설치가 이 파일들을 호출한다는 증거가 아닙니다.
+> 이 안내는 계약 본문·코드·API 동작을 바꾸지 않습니다.
 
 목표(maintainer 지시, 2026-05-16): ThisCode 스킬(`knowledge-manager` 계열 등)을 Codex
 봇으로 **품질손해 없이** 마이그레이션 — "노출했지만 저하"가 아님. 일부 KM

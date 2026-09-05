@@ -126,6 +126,8 @@ const FEATURES = [
     id: 'graphrag',
     aliases: ['graphrag', 'graph rag', 'obsidian', 'vault search', 'graph'],
     run() {
+      // Compatibility name retained: this feature compiles the bundled vault
+      // wrapper only; it does not contact GraphRAG or run live vault E2E.
       return compilePython('scripts/obsidian_cli_wrapper.py');
     },
   },
@@ -138,7 +140,7 @@ const FEATURES = [
       if (process.env.THISCODEX_RUN_GRAPHRAG_BENCH !== '1') {
         return skip('benchmark disabled; set THISCODEX_RUN_GRAPHRAG_BENCH=1 to run it');
       }
-      return pass('benchmark prerequisites available');
+      return pass('benchmark prerequisites available; wrapper syntax smoke only, no live GraphRAG request');
     },
   },
   {

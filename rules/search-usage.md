@@ -3,6 +3,11 @@
 Trigger: about to query the knowledge-base search (graph/semantic server or
 KB CLI); a search just failed or came back empty.
 
+Provider boundary: this file governs how a consumer uses an already-available
+search provider; it does not install or duplicate one. The Knowledge Manager
+plugin owns `/km:search` and its tiers when installed, while ThisCodex only
+ships its own bot/bridge installer.
+
 > Why: 2026-06-11 GraphRAG full audit (366-query server sample) — bots
 > converged on tool defaults (good), but exhibited (a) the same failed query
 > re-thrown 9 times in a row with no backoff, (b) ad-hoc weight overrides that

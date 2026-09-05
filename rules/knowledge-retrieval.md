@@ -3,6 +3,11 @@
 Trigger: about to search the project's own knowledge base / notes / docs
 (not arbitrary code, not the web).
 
+Provider boundary: this rule describes consumer-side routing only. It does not
+install or duplicate a knowledge provider. When the Knowledge Manager plugin
+is installed, `/km:search` and its fallback tiers remain that plugin's surface;
+the ThisCodex installer does not add them.
+
 ## 1. Pick the retrieval tool by query shape — don't raw-grep first
 Searching "our own docs" with a bare find/grep when a structured index
 exists is a regression (the curated store has better-than-grep retrieval).

@@ -457,7 +457,9 @@ test('answers file confirms guided paths and persists them explicitly', () => {
     { type: 'command', command: 'bash "/opt/vendor/keep.sh"' },
   ]);
   assert.equal(readdirSync(join(home, '.codex')).filter(name => name.endsWith('.bak')).length, 1);
-  assert.match(result.stdout, /codex plugin marketplace add .*ThisCodex/);
+  const marketplaceHint = result.stdout.split('\n').find(line => line.startsWith('Marketplace hint: '));
+  assert.ok(marketplaceHint?.includes('codex plugin marketplace add '), result.stdout);
+  assert.ok(marketplaceHint.includes(process.cwd()), 'marketplace hint must use the actual clone root');
   assert.doesNotMatch(result.stdout, /marketplace add .*\.codex-plugin/);
   assert.match(result.stdout, /codex plugin add thiscodex@thiscodex/);
   rmSync(repo, { recursive: true, force: true });
