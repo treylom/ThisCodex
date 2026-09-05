@@ -345,10 +345,16 @@ def response_text(value: Any, limit: int = 4000) -> str:
 def command_from_input(input_data: dict[str, Any]) -> str:
     tool_input = input_data.get("tool_input")
     if isinstance(tool_input, dict):
-        return str(tool_input.get("command") or "")
-    if isinstance(tool_input, str):
-        return tool_input
-    return ""
+        command = str(tool_input.get("command") or "")
+    elif isinstance(tool_input, str):
+        command = tool_input
+    else:
+        return ""
+    # Strip NUL/control bytes (keep tab/newline/carriage-return) and cap
+    # length so downstream consumers never receive unsanitized, unbounded
+    # command strings derived from untrusted tool_input.
+    command = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", command)
+    return command[:4000]
 
 
 def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
