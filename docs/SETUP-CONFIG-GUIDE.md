@@ -397,6 +397,12 @@ by default, repo-local `.agents/skills` when selected). ThisCodex intentionally
 does not ship a second shell sync script; duplicate sync paths drift and are
 harder to run on Windows.
 
+This installer does not install the separate Knowledge Manager plugin, its
+`/km:search` or `/km:setup` entry points, `km-config.json`, MCP entries, or
+GraphRAG/search tiers. The optional `wiki_path` above only connects a save
+destination. Use the Knowledge Manager plugin's own installer and setup for
+vault search; the ThisCode companion owns the local GraphRAG build/setup path.
+
 `scripts/launch.sh` remains a legacy/tmux fallback for operators who already
 run a bridge manually. New users should follow the Node runner guide. When
 `launch.sh` is used, set `THISCODEX_SHELL=${SHELL:-/bin/sh}` (or an explicit
@@ -412,7 +418,15 @@ zero-config default.
 
 ## §4 — How to set up & how to ask (first run)
 
-![4-Tier vault search with Obsidian-less degradation — GraphRAG → vault-search MCP → Obsidian CLI → ripgrep fallback](../assets/search-fallback-4tier.png)
+![Archived search illustration — GraphRAG → vault-search MCP → Obsidian CLI → ripgrep](../assets/search-fallback-4tier.png)
+
+The archived illustration uses an older tier order and qualitative support
+bars; it is not a current search contract or a measured quality comparison.
+It describes an optional connected stack, not a ThisCodex installer surface.
+The current fallback order is GraphRAG → Obsidian CLI →
+Obsidian MCP → ripgrep. ThisCodex does not install these tiers; `/km:search`
+and `/km:setup` are provided by the separate Knowledge Manager plugin, while
+the local GraphRAG build/setup path is in the ThisCode companion.
 
 Install per [README §Setup](../README.md) and [SKILL.md](../skills/thiscodex/SKILL.md)
 (register: `codex plugin marketplace add treylom/ThisCodex`; invoke via

@@ -1,5 +1,14 @@
 # Tool-Equivalence Contract — Claude-only tools → Codex equivalents (no quality loss)
 
+> **Compatibility status (2026-09-05):** This document preserves the adapter
+> design and the wrapper/orchestrator APIs described below. The tracked
+> Knowledge Manager 1.4.0 source currently ships its own `.agent/skills`,
+> `commands`, and installers; it contains no `references/codex-adapter.md`
+> linkage to the ThisCodex wrapper or orchestrator. Treat the mappings and
+> smoke criteria below as compatibility design/history, not proof that the
+> current Knowledge Manager installation calls these ThisCodex files. No body,
+> code, or API semantics are changed by this status note.
+
 > Goal (maintainer directive, 2026-05-16): ThisCode skills (the
 > `knowledge-manager` family etc.) must migrate to Codex bots **without
 > quality loss** — not "exposed but

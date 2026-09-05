@@ -56,7 +56,7 @@ test('release version is one value across package, manifests, lock, and marketpl
   const claude = JSON.parse(readFileSync('.claude-plugin/plugin.json', 'utf8'));
   const marketplace = JSON.parse(readFileSync('.claude-plugin/marketplace.json', 'utf8'));
   const lock = JSON.parse(readFileSync('plugin.lock.json', 'utf8'));
-  assert.equal(pkg.version, '1.1.0');
+  assert.equal(pkg.version, '1.1.1');
   assert.deepEqual(
     [plugin.version, claude.version, marketplace.plugins[0].version, lock.plugin.version],
     Array(4).fill(pkg.version),
