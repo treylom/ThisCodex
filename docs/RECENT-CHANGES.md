@@ -6,15 +6,31 @@
 > design doc. Newest first. Plain language; first use of a jargon term is
 > explained inline.
 
+## 2026-09-05 — bundled vault helpers retired (1.1.2)
+
+- Vault search and storage belong to the separate Knowledge Manager plugin
+  (`km-search` and `km-storage-abstraction`).
+- Removed the bundled vault CLI wrapper, KM worker orchestrator, their adapter
+  contract, and the archived search-order illustration. These helpers were
+  removed, not moved or replaced by a compatible ThisCodex API.
+- `/test` now checks only the six harness features: memory, tmux, meetings,
+  rules, hooks, and installer behavior. The vault syntax-smoke and benchmark
+  entries are retired; `/test all` runs the same six checks.
+- The Discord bridge, interactive questions, installer, and shared-memory
+  behavior are unchanged. Existing local copies of the retired helpers are
+  not automatically deleted; review any direct calls before upgrading.
+
+---
+
 ## 2026-09-05 — vault product boundary clarified (1.1.1)
 
 - ThisCodex's Node installer owns ThisCodex skill placement and guided bot
   files only. It does not install the separate Knowledge Manager plugin,
   `/km:search`, `/km:setup`, `km-config.json`, MCP entries, or search tiers.
 - The optional wiki path connects a save destination; it is not a second vault
-  search provider. The bundled vault bridge remains unchanged;
-  `docs/tool-equivalence-contract.md` now carries matching English/Korean status
-  notes without changing its contract body, code, or API behavior.
+  search provider. In 1.1.1, the bundled vault helpers were preserved and their
+  compatibility design received matching English/Korean status notes.
+  Those helpers and that design were subsequently retired in 1.1.2 above.
 - Package, Codex/Claude manifests, lock metadata, and marketplace metadata now
   agree on `1.1.1`.
 

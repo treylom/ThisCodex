@@ -418,11 +418,6 @@ zero-config default.
 
 ## §4 — How to set up & how to ask (first run)
 
-![Archived search illustration — GraphRAG → vault-search MCP → Obsidian CLI → ripgrep](../assets/search-fallback-4tier.png)
-
-The archived illustration uses an older tier order and rough support markers;
-it is not a current search contract or a measured quality comparison.
-It shows optional connected tools, not something the ThisCodex installer sets up.
 The Knowledge Manager plugin documents its fallback order as GraphRAG →
 Obsidian CLI → Obsidian MCP → text search. For installer ownership, see §3 above.
 

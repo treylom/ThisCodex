@@ -780,7 +780,7 @@ class CodexRPC:
                 if fut.done():
                     return fut.result()
 
-    # ── AskUserQuestion shim (tool-equivalence-contract.md §AskUserQuestion) ──
+    # ── AskUserQuestion shim for app-server requestUserInput ──
     async def _handle_request_user_input(self, msg: dict) -> None:
         params = msg.get("params", {}) or {}
         # Spec uncertainty: the public codex docs do not pin requestUserInput's
@@ -914,7 +914,7 @@ codex = CodexRPC(CODEX_WS)
 queue: asyncio.Queue = asyncio.Queue()
 thread_id: str | None = None
 
-# ── AskUserQuestion shim state (tool-equivalence-contract.md §AskUserQuestion) ──
+# ── AskUserQuestion shim state for app-server requestUserInput ──
 # A skill calling the AskUserQuestion equivalent surfaces as a codex
 # `item/tool/requestUserInput`. The bridge turns it into a stateful Discord
 # question and returns the matched answer. The 6 security conditions are

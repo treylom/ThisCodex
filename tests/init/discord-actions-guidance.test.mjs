@@ -11,11 +11,10 @@ const consumers = {
   help: read('skills/help/SKILL.md'),
   features: read('skills/thiscodex/SKILL.md'),
   agents: read('examples/AGENTS.md'),
-  contract: read('docs/tool-equivalence-contract.md'),
 };
 
 test('Discord reaction and thread-history guidance names the callable tools', () => {
-  assert.equal(Object.keys(consumers).length, 6, 'consumer inventory must stay explicit');
+  assert.equal(Object.keys(consumers).length, 5, 'consumer inventory must stay explicit');
   for (const [name, body] of Object.entries(consumers)) {
     assert.match(body, /mcp__discord__react/, `${name}: react guidance missing`);
     assert.match(body, /mcp__discord__fetch_messages/, `${name}: thread-history guidance missing`);
@@ -26,7 +25,7 @@ test('Discord reaction and thread-history guidance names the callable tools', ()
   assert.match(consumers.agents, /parent channel must\s+be allowlisted/i);
 });
 
-test('six guidance consumers distinguish the ThisCodex thread CLI from the official MCP', () => {
+test('five guidance consumers distinguish the ThisCodex thread CLI from the official MCP', () => {
   for (const [name, body] of Object.entries(consumers)) {
     assert.match(body, /reply_to/iu, `${name}: reply_to boundary missing`);
     assert.match(body, /thiscodex discord-thread/iu, `${name}: thread CLI guidance missing`);
