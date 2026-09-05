@@ -67,7 +67,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 | `/create-bot` | Create the Discord application through a connected browser-automation MCP | Developer Portal, intents, secret-safe token receipt, invite |
 | `/prompt` | Generate structured prompts for LLMs, GPTs, Gems, or image generation | `<task description>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
 | `/setup` | Step-by-step onboarding and verification | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
-| `/test` | Run ThisCodex smoke tests (memory, tmux, meetings, rules, hooks) | `<feature name>`, `all` |
+| `/test` | Run ThisCodex smoke tests (memory, tmux, meetings, rules, hooks, installer) | `<feature name>`, `all` |
 
 **For each skill**, load its detailed `SKILL.md` file for complete options and usage examples. All skills follow progressive disclosure — start with the summary, load detailed references only when you need them.
 
