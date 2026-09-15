@@ -187,7 +187,8 @@ def write_manifest(path: str, data: dict) -> None:
         v = ("null" if v is None else "true" if v is True
              else "false" if v is False else str(v))
         lines.append(f"{k}: {v}")
-    with open(tmp, "w", encoding="utf-8") as fh:
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines) + "\n")
         fh.flush()
         os.fsync(fh.fileno())
