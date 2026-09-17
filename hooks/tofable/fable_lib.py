@@ -345,10 +345,16 @@ def response_text(value: Any, limit: int = 4000) -> str:
 def command_from_input(input_data: dict[str, Any]) -> str:
     tool_input = input_data.get("tool_input")
     if isinstance(tool_input, dict):
-        return str(tool_input.get("command") or "")
-    if isinstance(tool_input, str):
-        return tool_input
-    return ""
+        command = str(tool_input.get("command") or "")
+    elif isinstance(tool_input, str):
+        command = tool_input
+    else:
+        return ""
+    # Strip embedded ASCII control bytes (keep tab/newline/carriage-return)
+    # before downstream parsing/verification consumes this value. Does not
+    # truncate or strip shell metacharacters — callers that persist this
+    # value already limit display/log length via redact().
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", command)
 
 
 def exit_success(input_data: dict[str, Any], text: str) -> bool | None:
