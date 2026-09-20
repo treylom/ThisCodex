@@ -1,0 +1,1 @@
+bash "$HOOKS_DIR/lib/bot-only.sh" "discord-readability-gate" "$HOOKS_DIR/discord-readability-gate.py"

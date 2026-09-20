@@ -36,6 +36,11 @@
             "type": "command",
             "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"automation-handoff-gate\" \"${PLUGIN_ROOT}/hooks/automation-handoff-gate.py\"",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/lib/bot-only.sh\" \"discord-readability-gate\" \"${PLUGIN_ROOT}/hooks/discord-readability-gate.py\"",
+            "timeout": 5
           }
         ]
       },
