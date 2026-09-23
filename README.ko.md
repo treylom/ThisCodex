@@ -53,7 +53,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 | `/setup` | 단계별 안내 및 검증 | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
 | `/test` | ThisCodex 스모크 테스트 실행 (메모리, tmux, 회의, 규칙, 훅, 설치기) | `<기능이름>`, `all` |
 
-> `/slack-bridge` 는 봇이 초대된 공개 채널에 있는 **사람 누구의 글에나** 엔진을 돌려 답합니다 — 로컬 엔진을 맡겨도 되는 사람만 있는 채널에만 초대하세요. ThisCode 의 Slack 브리지(`claude/channel`: DM top-level 답·선택형 `*` 채널 와일드카드·자동 수신 이모지/✅ 반응·하트비트)와도 동작이 다르며, 비교표는 이 스킬 `SKILL.md` 맨 앞에 있습니다.
+> `/slack-bridge` 는 봇이 초대된 공개 채널에서 **누가 쓴 글이든** 엔진을 돌려 답합니다 — 사람은 물론, 8단계 분기를 넣기 전에는 다른 봇의 글도 마찬가지입니다. 로컬 엔진을 맡겨도 되는 사람만 있는 채널에만 초대하세요. ThisCode 의 Slack 브리지(`claude/channel`: DM top-level 답·선택형 `*` 채널 와일드카드·자동 수신 이모지/✅ 반응·하트비트)와도 동작이 다르며, 비교표는 이 스킬 `SKILL.md` 맨 앞에 있습니다.
 
 **각 스킬**의 `SKILL.md` 파일을 로드해 전체 옵션과 사용 예시를 확인하세요. 모든 스킬은 점진식 공개(progressive disclosure)를 따릅니다 — 요약부터 시작하고, 자세한 참고 자료는 필요할 때만 로드합니다.
 

@@ -70,7 +70,7 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 | `/setup` | Step-by-step onboarding and verification | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
 | `/test` | Run ThisCodex smoke tests (memory, tmux, meetings, rules, hooks, installer) | `<feature name>`, `all` |
 
-> `/slack-bridge` answers **any person** in a public channel the bot has been invited to — invite it only where everyone may run your local engines. It also behaves differently from ThisCode's Slack bridge (`claude/channel`: DM replies top-level, opt-in `*` channel wildcard, automatic receipt-emoji/✅ reactions, heartbeat); the comparison table sits at the top of its `SKILL.md`.
+> `/slack-bridge` answers **anyone** who posts in a public channel the bot has been invited to — any person and, until you add the stage-8 branch, any other bot too. Invite it only where everyone may run your local engines. It also behaves differently from ThisCode's Slack bridge (`claude/channel`: DM replies top-level, opt-in `*` channel wildcard, automatic receipt-emoji/✅ reactions, heartbeat); the comparison table sits at the top of its `SKILL.md`.
 
 **For each skill**, load its detailed `SKILL.md` file for complete options and usage examples. All skills follow progressive disclosure — start with the summary, load detailed references only when you need them.
 
