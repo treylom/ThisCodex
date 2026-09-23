@@ -48,9 +48,12 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 |---|---|---|
 | `/thiscodex` | Codex를 Claude Code 페르소나·규칙과 동일한 디스코드 봇으로 설정 | `init`, `doctor`, `run`, `logs`, `features`, `troubleshoot` |
 | `/create-bot` | 연결된 브라우저 자동화 MCP로 디스코드 앱 생성 | 개발자 포털·인텐트·시크릿 비노출 토큰 수령·초대 |
+| `/slack-bridge` | Slack Bolt(Python)로 Slack 봇을 로컬 엔진(Claude Code `claude -p` / Codex CLI `codex exec`)에 연결 | Slack CLI 인증·앱·매니페스트·엔진 라우팅(`codex:` 접두사)·스레드 이어 대화·회의 모드·엔진별 봇 분리 |
 | `/prompt` | LLM·GPT·Gem·이미지 생성용 구조화된 프롬프트 작성 | `<작업설명>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
 | `/setup` | 단계별 안내 및 검증 | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
 | `/test` | ThisCodex 스모크 테스트 실행 (메모리, tmux, 회의, 규칙, 훅, 설치기) | `<기능이름>`, `all` |
+
+> `/slack-bridge` 는 봇이 초대된 공개 채널에 있는 **사람 누구의 글에나** 엔진을 돌려 답합니다 — 로컬 엔진을 맡겨도 되는 사람만 있는 채널에만 초대하세요. ThisCode 의 Slack 브리지(`claude/channel`: DM top-level 답·선택형 `*` 채널 와일드카드·자동 수신 이모지/✅ 반응·하트비트)와도 동작이 다르며, 비교표는 이 스킬 `SKILL.md` 맨 앞에 있습니다.
 
 **각 스킬**의 `SKILL.md` 파일을 로드해 전체 옵션과 사용 예시를 확인하세요. 모든 스킬은 점진식 공개(progressive disclosure)를 따릅니다 — 요약부터 시작하고, 자세한 참고 자료는 필요할 때만 로드합니다.
 

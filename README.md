@@ -65,9 +65,12 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 |---|---|---|
 | `/thiscodex` | Set up Codex as a Discord bot with Claude Code persona/rules | `init`, `doctor`, `run`, `logs`, `features`, `troubleshoot` |
 | `/create-bot` | Create the Discord application through a connected browser-automation MCP | Developer Portal, intents, secret-safe token receipt, invite |
+| `/slack-bridge` | Connect a Slack bot to local engines (Claude Code `claude -p` / Codex CLI `codex exec`) with Slack Bolt (Python) | Slack CLI auth, app + manifest, engine routing (`codex:` prefix), thread resume, meeting mode, one bot per engine |
 | `/prompt` | Generate structured prompts for LLMs, GPTs, Gems, or image generation | `<task description>`, `review:`, `gpt:`, `gem:`, `image:`, `research:` |
 | `/setup` | Step-by-step onboarding and verification | `init`, `status`, `doctor`, `hooks`, `aliases`, `guide` |
 | `/test` | Run ThisCodex smoke tests (memory, tmux, meetings, rules, hooks, installer) | `<feature name>`, `all` |
+
+> `/slack-bridge` answers **any person** in a public channel the bot has been invited to — invite it only where everyone may run your local engines. It also behaves differently from ThisCode's Slack bridge (`claude/channel`: DM replies top-level, opt-in `*` channel wildcard, automatic receipt-emoji/✅ reactions, heartbeat); the comparison table sits at the top of its `SKILL.md`.
 
 **For each skill**, load its detailed `SKILL.md` file for complete options and usage examples. All skills follow progressive disclosure — start with the summary, load detailed references only when you need them.
 

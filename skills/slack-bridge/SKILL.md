@@ -9,6 +9,20 @@ description: Use when creating a Slack bot that bridges to local AI engines (Cla
 
 Slack 워크스페이스에 봇을 만들고, 메시지를 로컬 AI 엔진(Claude Code `claude -p` / Codex CLI `codex exec`)으로 라우팅해 스레드로 답하게 하는 전 공정. 2026-08-05 macOS 에서 전 단계 실측 검증됨(왕복·페르소나 로딩 포함). Windows 는 설치 명령만 다르고 공정은 동일하다 — Windows 실측은 아직 없으므로 어긋나는 단계가 나오면 그 단계를 기록하고 멈춘다.
 
+## 짝 브리지(ThisCode)와 지금 다른 점 — 2026-09-23 기준
+
+ThisCode 의 `claude/channel` 브리지(`vendor/claude-channel-server`)에 2026-09-23 들어온 동작과, 이 문서 Bolt 예시의 현재 상태를 나란히 둔다. 같은 워크스페이스에 두 브리지의 봇이 섞여 있으면 반응·답 위치가 봇마다 다르게 보이므로 이 표로 구분한다. ThisCode 쪽 설정·상세는 그쪽 `vendor/claude-channel-server/README.md`·`.env.example`, 하트비트는 루트 `README.md` 의 훅 목록이 기준이다.
+
+| 동작 | ThisCode `claude/channel` 브리지 | 이 문서의 Bolt 예시 |
+|---|---|---|
+| DM 답 위치 | top-level — 사용자가 DM 안에서 스레드에 썼을 때만 그 스레드(DM 스레드 답은 알림이 뜨지 않는다) | 기본은 DM 을 받지 않는다(기본 매니페스트 = DM 탭 비활성, 5단계·함정 목록) · DM 탭을 켜면(`message.im` 구독) DM 에도 스레드로 답한다 · 채널 답은 항상 스레드 |
+| 듣는 채널 | `SLACK_CHANNEL_ID` 목록만(쉼표 구분, 첫 항목 = 기본 채널). 끝에 `*` 를 더하면(`C…,*`) 봇이 초대된 채널 전부 — 선택이며 기본은 꺼짐 | 봇이 초대된 공개 채널 전부(`message.channels` 구독 — 비공개 채널은 `message.groups` 구독 + `groups:history` scope 를 더해야 받는다) — 끄는 설정 없음 |
+| 허용 밖 대상으로 답 | 에러를 돌려준다(기본 채널로 조용히 돌리지 않음) · 시작할 때 허용 사용자의 DM 을 미리 등록해 재시작 직후에도 DM 에 답한다(`im:read` scope, 선택 — 없으면 DM 이 먼저 한 번 와야 한다) | 해당 없음 — 답은 받은 글의 스레드로만 간다 |
+| 진행 표시 | Claude Code 훅 `hooks/slack-heartbeat-hook.py`(+ `slack_heartbeat_daemon.py`): 받은 글에 ⏳ 반응 + `⏳ working · Ns · K tool calls` 말풍선을 10초마다 갱신 → 끝나면 `✔ done · Ns · K tool calls` 로 바꾸고 ⏳ 제거(그 봇의 Slack `.env` — 봇별 또는 공용 — 가 있을 때만) | 없음 |
+| 수신·완료 반응 | 받으면 봇별 이모지(`SLACK_BOT_EMOJI`, 기본 `eyes`) → 답이 달리면 그 옆에 ✅ 추가 | 받으면 `AGENT_BRIDGE_EMOJI`(기본 `eyes`) — 완료 ✅ 는 없다 |
+
+🔴 **보안 경계(교차 갱신 대상)**: ThisCode 브리지는 기본이 허용 사람 1명(`ALLOWED_SLACK_USER_ID`) + 설정 채널만 받는 것이고, `*` 는 「초대 = 허용 목록」으로 채널 문을 일부러 다시 여는 선택이다(답을 보낼 수 있는 채널도 봇이 속한 채널 전부로 넓어진다). **이 문서의 Bolt 예시는 채널 문이 처음부터 열려 있고 사람 발신자 허용 목록도 없다 — 봇이 초대된 채널의 구성원이면 누구나 이 머신의 엔진(`claude -p`·`codex exec`)을 돌릴 수 있다.** 봇은 엔진을 맡겨도 되는 사람만 있는 곳에만 초대한다 — 가장 단순한 경계는 본인 실습 워크스페이스다(비공개 채널을 쓰려면 위 표의 `message.groups`·`groups:history` 추가가 먼저다). 다른 봇의 글은 **8단계 분기를 넣었을 때만** 허용 목록 + 명시 멘션 두 겹으로 걸러진다 — 3단계 예시 그대로면 다른 봇의 글도 사람 글처럼 엔진에 들어간다(Bolt 가 거르는 것은 자기 자신의 글뿐이다).
+
 ## 전제
 
 - Slack CLI v4.6+ — 사용자에게 설치 명령을 떠넘기지 않는다. 아래 0단계가 탐지하고, 없으면 host 변경 동의 뒤 엔진이 설치·현재 셸 PATH 보정·확인까지 수행한다. Windows 네이티브(WSL 아님)만 예외: https://tools.slack.dev/slack-cli 의 공식 Windows 안내 사용
