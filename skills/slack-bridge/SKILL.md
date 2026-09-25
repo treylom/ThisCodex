@@ -161,6 +161,26 @@ Bolt 앱 매니페스트의 `oauth_config.scopes.bot`에 `reactions:write`를 �
 
 🔴 **매니페스트 갱신은 scope 선언이고, 기존 설치 토큰의 실부여가 아니다.** 이미 설치된 앱에 `reactions:write`를 추가했다면 사용자가 새 탭에서 `https://api.slack.com/apps/<APP_ID>/install-on-team`을 열어 승인 목록에 `reactions:write`가 보이는지 확인한 뒤 재설치해야 한다. 재설치 승인 전에는 라이브 react를 GREEN으로 판정하지 않는다. 다만 아래 콜백은 `missing_scope`를 조용히 건너뛰므로 기존 메시지 응답 본선은 계속 동작한다.
 
+### 2-B. App Home — 홈 탭 끄기 · 메시지 탭 켜기 (2026-09-26 운영 기준 · ThisCode 짝 문서와 같은 기준)
+
+매니페스트 `features.app_home` 에 아래 세 값을 둔다(기존 목록에 합칠 조각).
+
+```json
+{
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    }
+  }
+}
+```
+
+- 홈 탭을 켜 두면 사람이 봇 DM 을 열 때 빈 홈 탭이 먼저 보인다 → 끄면 메시지 탭이 첫 화면이다.
+- 이미 만든 앱은 api.slack.com/apps → 앱 → **App Home** → Show Tabs 에서 「Display Home tab」 을 끈다. 확인 창(「Turn Off Home Tab?」 → **Turn Off**)이 한 번 뜬다. 「Display Messages tab」 과 「Allow users to send Slash commands and messages from the messages tab」 은 켜 둔다.
+- 짝 문서 = ThisCode `skills/slack-bridge/SKILL.md`·`skills/slack-configure/SKILL.md` 매니페스트 예시(같은 날 `home_tab_enabled: false` 로 갱신).
+
 ## 3단계 — 엔진 브리지 리스너
 
 `listeners/messages/agent_bridge.py` 생성(핵심부 — 전체 규칙: 메시지가 `codex:` 로 시작하면 codex, 그 외 claude. 답은 항상 스레드로):
