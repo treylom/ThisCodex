@@ -15,8 +15,8 @@ ThisCode 의 `claude/channel` 브리지(`vendor/claude-channel-server`)에 2026-
 
 | 동작 | ThisCode `claude/channel` 브리지 | 이 문서의 Bolt 예시 |
 |---|---|---|
-| DM 답 위치 | top-level — 사용자가 DM 안에서 스레드에 썼을 때만 그 스레드(DM 스레드 답은 알림이 뜨지 않는다) | 기본은 DM 을 받지 않는다(기본 매니페스트 = DM 탭 비활성, 5단계·함정 목록) · DM 탭을 켜면(`message.im` 구독) DM 에도 스레드로 답한다 · 채널 답은 항상 스레드 |
-| 듣는 채널 | `SLACK_CHANNEL_ID` 목록만(쉼표 구분, 첫 항목 = 기본 채널). 끝에 `*` 를 더하면(`C…,*`) 봇이 초대된 채널 전부 — 선택이며 기본은 꺼짐 | 봇이 초대된 공개 채널 전부(`message.channels` 구독 — 비공개 채널은 `message.groups` 구독 + `groups:history` scope 를 더해야 받는다) — 끄는 설정 없음 |
+| DM 답 위치 | top-level — 사용자가 DM 안에서 스레드에 썼을 때만 그 스레드(DM 스레드 답은 알림이 뜨지 않는다) | 기본 구독에 `message.im` 이 들어간다(2-C) — 메시지 탭을 켜 두면(2-B) DM 에도 스레드로 답한다(메시지 탭이 꺼져 있으면 DM 이 막힌다) · 채널 답은 항상 스레드 |
+| 듣는 채널 | `SLACK_CHANNEL_ID` 목록만(쉼표 구분, 첫 항목 = 기본 채널). 끝에 `*` 를 더하면(`C…,*`) 봇이 초대된 채널 전부 — 선택이며 기본은 꺼짐 | 봇이 초대된 채널에서 봇을 @멘션한 글만(`app_mention` 구독). 모든 글을 받으려면 2-C 선택(고급) 절차(구독 추가 + matcher 제거 + 중복 거르기) — 늘 켜진 호스트에서만(꺼지면 Slack 이 구독을 자동으로 끈다, 함정 표 참고) · 비공개 채널의 모든 글은 `message.groups` 구독 + `groups:history` scope 를 더해야 받는다 |
 | 허용되지 않은 곳에 답하려 할 때 | 에러를 돌려준다(기본 채널로 조용히 돌리지 않음) · 시작할 때 허용 사용자의 DM 을 미리 등록해 재시작 직후에도 DM 에 답한다(`im:read` scope, 선택 — 없으면 DM 이 먼저 한 번 와야 한다) | 해당 없음 — 답은 받은 글의 스레드로만 간다 |
 | 진행 표시 | Claude Code 훅 `hooks/slack-heartbeat-hook.py`(+ `slack_heartbeat_daemon.py`): 받은 글에 ⏳ 반응 + `⏳ working` 말풍선(경과 초·도구 호출 수·마지막 도구)을 10초마다 갱신 → 끝나면 `✔ done` 말풍선(경과 초·도구 호출 수)으로 바꾸고 ⏳ 제거(그 봇이 쓸 Slack `.env`가 있을 때만 — 봇별·공용 둘 다 인정) | 없음 |
 | 수신·완료 반응 | 받으면 봇별 이모지(`SLACK_BOT_EMOJI`, 기본 `eyes`) → 답이 달리면 그 옆에 ✅ 추가 | 받으면 `AGENT_BRIDGE_EMOJI`(기본 `eyes`) — 완료 ✅ 는 없다 |
@@ -181,6 +181,25 @@ Bolt 앱 매니페스트의 `oauth_config.scopes.bot`에 `reactions:write`를 �
 - 이미 만든 앱은 api.slack.com/apps → 앱 → **App Home** → Show Tabs 에서 「Display Home tab」 을 끈다. 확인 창(「Turn Off Home Tab?」 → **Turn Off**)이 한 번 뜬다. 「Display Messages tab」 과 「Allow users to send Slash commands and messages from the messages tab」 은 켜 둔다.
 - 짝 문서 = ThisCode `skills/slack-bridge/SKILL.md`·`skills/slack-configure/SKILL.md` 매니페스트 예시(같은 날 `home_tab_enabled: false` 로 갱신).
 
+### 2-C. 이벤트 구독 — `app_mention` + `message.im`
+
+매니페스트에 아래 조각을 합친다(기존 목록에 합칠 조각이며, 나머지 scope·이벤트 구독을 지우는 전체 교체본이 아니다). Bolt Python starter 기본 매니페스트에 `message.channels` 가 있으면 지운다.
+
+```json
+{
+  "oauth_config": { "scopes": { "bot": ["app_mentions:read", "im:history", "chat:write"] } },
+  "settings": { "event_subscriptions": { "bot_events": ["app_mention", "message.im"] } }
+}
+```
+
+- 왜: Slack 은 앱의 이벤트 전달이 60분 동안 95% 넘게 실패하면 Event Subscriptions 를 자동으로 끄고 그 사실을 메일로 알린다. 다시 켜는 곳은 앱 설정 화면이다. 시간당 1,000건 미만 받는 앱은 자동으로 끄지 않는다(https://docs.slack.dev/apis/events-api/ ).
+- `message.channels` 를 구독하면 봇이 들어가 있는 채널의 모든 글과 «수정»(message_changed)까지 받는다. 2026-10-17 실측: 봇 여럿인 워크스페이스에서 24시간 채널 이벤트 19,131건, 85% 가 수정 이벤트, 낮 시간당 1,000~1,650건. 봇 호스트(노트북·PC)가 절전·재시작으로 꺼지면 약 1시간 뒤 구독이 꺼졌다(Socket Mode 앱 2회 실측 — 공식 문서의 실패 조건은 HTTP 전달 기준으로 쓰여 있어, Socket Mode 적용은 이 실측이 근거다).
+- 그래서 기본 구독 = `app_mention`(채널에서 봇을 부른 글) + `message.im`(DM). 채널은 부른 글만 받고, DM 은 지금처럼 전부 받는다.
+- 대가: 채널에서는 매번 @멘션해야 답한다(멘션 없는 채널 글·멘션 없는 스레드 후속은 받지 않는다).
+- 선택(고급): 채널의 모든 글에 반응해야 하면 `message.channels` 를 다시 넣고, 3단계 리스너의 `matchers=[_dm_only]` 를 빼고, 같은 글이 `message`·`app_mention` 둘 다로 오므로 `ts` 중복 거르기를 더하고, 맨 앞 멘션 떼기도 `message` 경로에 똑같이 적용한다 — 봇 호스트가 늘 켜져 있을 때만.
+
+🔴 **매니페스트 갱신은 scope 선언이고, 기존 설치 토큰의 실부여가 아니다.** 이미 설치된 앱에 새 scope `app_mentions:read` 를 추가했다면 `https://api.slack.com/apps/<APP_ID>/install-on-team` 에서 승인 목록에 `app_mentions:read` 가 보이는지 확인하고 재설치한 뒤에야 실부여된다. 이벤트 구독 변경(`bot_events`)도 저장 뒤 재설치 안내가 뜨면 따른다.
+
 ## 3단계 — 엔진 브리지 리스너
 
 `listeners/messages/agent_bridge.py` 생성(핵심부 — 전체 규칙: 메시지가 `codex:` 로 시작하면 codex, 그 외 claude. 답은 항상 스레드로):
@@ -244,7 +263,24 @@ def agent_bridge_callback(client: WebClient, context: BoltContext, say: Say, log
 `listeners/messages/__init__.py` 에 등록:
 
 ```python
-app.message(re.compile(".*", re.DOTALL))(agent_bridge_callback)
+# DM 은 message.im 으로, 채널은 app_mention 으로만 받는다(채널 글 전체 구독 = message.channels 는 쓰지 않음)
+def _dm_only(message: dict) -> bool:
+    return message.get("channel_type") == "im"
+
+app.message(re.compile(".*", re.DOTALL), matchers=[_dm_only])(agent_bridge_callback)
+
+
+_LEADING_MENTION = re.compile(r"^\s*<@[UW][A-Z0-9]+>\s*")
+
+
+@app.event("app_mention")
+def on_mention(client: WebClient, context: BoltContext, say: Say, logger, event: dict):
+    # app_mention 이벤트 본문은 message 와 같은 꼴(text·ts·thread_ts·channel) — 같은 콜백으로 넘긴다.
+    # 사람이 «@봇 codex: 질문» 처럼 맨 앞에 멘션하면 그 멘션 하나를 떼어 `codex:`·`회의:` 접두사 분기를 살린다(멘션이 중간·끝이면 그대로).
+    # 봇 글(bot_id)은 그대로 둔다 — 8단계 봇간 게이트가 본문의 `<@이봇>` 명시 멘션을 확인한다.
+    if not event.get("bot_id"):
+        event = dict(event, text=_LEADING_MENTION.sub("", event.get("text") or "", count=1))
+    agent_bridge_callback(client, context, say, logger, event)
 ```
 
 > 위는 메시지마다 엔진을 새로 단발 호출하는 버전이다. 스레드 안에서 이어 물었을 때 이전 대화를 기억하게 하려면 **6단계 — 스레드 연속 대화** 참고.
@@ -278,8 +314,8 @@ cp bot-home/AGENTS.md bot-home/.codex/AGENTS.md       # 규칙은 봇 것만
 slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode·매니페스트 자동 설치)
 ```
 
-1. Slack 에서 채널에 봇 초대: `/invite @<멘션 핸들>` — `@` 자동완성은 한글 표시명도 잡히지만(2026-08-07 라이브 재실측) 미초대·이름 반영 직후엔 안 뜨는 사례가 있다(2026-08-06 오전 실측). 안 뜨면 manifest 의 `bot_user.display_name`(영문 핸들)로 치면 확실하다. (⚠️ Bolt 기본 manifest 는 DM 탭 비활성 + `message.channels` 구독 = **채널 멤버여야 반응**)
-2. **왕복 검증(합격선)**: 채널에 질문 → `[claude] …` 스레드 답 확인 → `codex: 질문` → `[codex] …` 확인
+1. Slack 에서 채널에 봇 초대: `/invite @<멘션 핸들>` — `@` 자동완성은 한글 표시명도 잡히지만(2026-08-07 라이브 재실측) 미초대·이름 반영 직후엔 안 뜨는 사례가 있다(2026-08-06 오전 실측). 안 뜨면 manifest 의 `bot_user.display_name`(영문 핸들)로 치면 확실하다. (⚠️ 기본 구독(2-C) = 채널에서는 **봇이 채널 멤버이고 봇을 @멘션한 글에만** 반응 · DM 은 메시지 탭(2-B)을 켜 두면 반응)
+2. **왕복 검증(합격선)**: 채널에서 `@봇 질문` → `[claude] …` 스레드 답 확인 → `@봇 codex: 질문` → `[codex] …` 확인
 3. **이모지 검증은 페르소나 지문으로**: 질문 메시지에 `AGENT_BRIDGE_EMOJI` 반응이 붙는지 확인한다. 텍스트 끝 서명처럼 이모지도 봇별 페르소나를 구분하는 서명이므로, 여러 봇이면 서로 다른 값이어야 한다.
 4. **페르소나 검증은 파일 존재가 아니라 행동으로**: "너는 누구야?" → 봇 이름 + 규칙의 서명(`— 토푸 🫘`)이 답에 실리는지 확인. 서명 = 규칙 로딩의 지문이다.
 5. **프로세스 수명(정직 표기)**: `slack run` 을 띄운 실행 터미널을 닫으면 봇이 멈춘다 — 에러가 아니라 프로세스가 그 터미널에 붙어 있기 때문이다. 복구는 같은 폴더에서 `slack run` 재실행뿐이고, 스레드 기억은 `bot-home/.sessions.json` 에 남아 있어 기존 스레드에서 그대로 이어진다.
@@ -288,7 +324,7 @@ slack run   # 앱 선택 → 팀 선택 → "Bolt app is running!" (Socket Mode�
 
 ## 6단계 — 스레드 연속 대화 (구현·실측 완료)
 
-Slack 스레드 `thread_ts`(또는 최상위 메시지면 `ts`) 를 엔진 세션 id 에 매핑해 **스레드 단위로 대화가 이어지게** 한다. 매핑은 `bot-home/.sessions.json` 에 스레드별 `{"claude": "<uuid>", "codex": "<session_id>"}` 로 원자 갱신 저장(`.tmp` 파일 후 `os.replace`).
+Slack 스레드 `thread_ts`(또는 최상위 메시지면 `ts`) 를 엔진 세션 id 에 매핑해 **스레드 단위로 대화가 이어지게** 한다. 기본 구독(2-C)에서는 스레드 안에서도 매번 `@봇` 으로 불러야 이어 받는다. 매핑은 `bot-home/.sessions.json` 에 스레드별 `{"claude": "<uuid>", "codex": "<session_id>"}` 로 원자 갱신 저장(`.tmp` 파일 후 `os.replace`).
 
 - **claude**: 스레드 첫 메시지 = `--session-id <신규 uuid>` 로 세션 id 를 직접 지정해 생성. 이후 같은 스레드는 저장해둔 id 로 `--resume <id>` 재개.
 - **codex**: 저장된 세션이 있으면 `codex exec resume <SESSION_ID>` 로 재개. 없으면 평소대로 `codex exec` 실행 후, codex 가 세션 id 를 표준출력으로 안 주므로 **`CODEX_HOME/sessions/**/*.jsonl` 중 가장 최근 mtime 파일명에서 역산**해 저장한다 — 동시 요청이 겹치면 다른 스레드의 파일을 최신으로 잘못 집을 수 있어 신규 세션 생성 구간을 락으로 직렬화한다(아래 `_CODEX_LOCK`).
@@ -338,7 +374,7 @@ else:
 
 > 정본 코드 = `tofu-agent-bridge/listeners/messages/agent_bridge.py`. 이 실습 리포지토리는 git 저장소가 아니다 — **본 SKILL.md 가 이 코드의 유일한 git 추적본**이라 발췌를 넉넉히 남긴다.
 
-`회의:` 로 시작하는 메시지가 오면 그 스레드를 회의 모드로 전환한다. 이후 접두사 없는 모든 메시지에 **claude → codex 순서로 두 엔진이 순차 응답**한다(디스코드 회의처럼). `회의 종료` 로 시작하면 claude 가 대화록을 요약해 발신하고 모드를 해제한다.
+`회의:` 로 시작하는 메시지가 오면 그 스레드를 회의 모드로 전환한다. 이후 접두사 없는 모든 메시지에 **claude → codex 순서로 두 엔진이 순차 응답**한다(디스코드 회의처럼). `회의 종료` 로 시작하면 claude 가 대화록을 요약해 발신하고 모드를 해제한다. 기본 구독(2-C)에서는 회의 스레드의 글도 매번 `@봇` 으로 불러야 들어온다(맨 앞 멘션은 떼고 판정하므로 `@봇 회의: 주제` 로 시작) — 멘션 없는 글까지 받으려면 2-C 선택(고급) 절차(구독 추가 + matcher 제거 + 중복 거르기, 늘 켜진 호스트에서만).
 
 ⚠️ **회의 모드는 6단계의 세션 resume 을 쓰지 않는다.** 엔진별 세션 기억은 자기 발언만 담고 있어 상대 엔진의 발언을 못 보기 때문에, 매 턴 Slack API(`conversations_replies`)로 스레드 대화록 전체를 새로 읽어 프롬프트에 실어 두 엔진이 서로의 발언을 참고하게 한다(무상태). 즉 **일반 모드(1:1 왕복, 6단계)는 세션 resume**, **회의 모드(N:N 토론, 본 단계)는 대화록 재주입** — 상황이 다른 두 메커니즘이지 서로 모순이 아니다.
 
@@ -469,6 +505,8 @@ echo '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":
 6. 봇간 통신은 **허용목록 + 명시 멘션** 두 겹으로 연다. `ALLOWED_SLACK_BOT_USER_IDS`에는 다른 Slack 봇의 **사용자 ID(`U…`, `B…` bot ID 아님)**를 쉼표로 적는다. 목록이 없거나 비어 있으면 모든 봇 발화를 버려 이식 전 동작을 그대로 유지한다. 목록에 든 봇도 DM에서는 통과하지 않고, 채널에서 이 봇을 `<@U…>`로 명시 멘션한 글만 통과한다. 왕복 횟수 상한은 두지 않는다 — 정상 회의를 자르는 코드 cap 대신 허용목록과 매 발화 멘션이 루프 압력을 제한한다.
 7. 실행: 터미널 2개를 열어 각 앱 폴더에서 각각 전경으로 `slack run`.
 
+기본 구독(2-C)에서는 상대 봇이 이 봇을 `<@BOTID>` 로 부른 글이 Slack 에서 이 봇에 `app_mention` 으로 들어와 같은 콜백으로 넘어가므로, `message.channels` 없이도 아래 허용목록 + 명시 멘션 분기가 동작한다(채널 글 전체 수신에 기대지 않는다). 다른 봇이 봇 토큰(xoxb)으로 쓴 @멘션 글이 기본 구독 앱에 배달되는 것은 2026-10-17 실측 1회로 확인했다 — 이 Bolt 예시 자체의 봇간 왕복은 미실측이라 첫 설치 때 1회 확인한다(`bot_id` 가 실려 아래 분기에 걸리는지 — `bot_id` 가 빠지면 이 예시는 봇 글을 사람 글로 처리해 봇 허용목록을 건너뛴다).
+
 `agent_bridge.py`의 환경변수 상수와 콜백 첫머리에 라이브 정본과 같은 분기를 넣는다. 사람 발화의 기존 라우팅은 그대로 두고, `bot_id`가 있는 저자만 아래 좁은 경로로 판정한다. Slack Bolt의 `IgnoringSelfEvents` 미들웨어가 자기 앱의 에코는 먼저 버리며, 작성자 `user`가 없는 봇 이벤트도 빈 문자열이라 허용목록을 통과하지 못한다.
 
 ```python
@@ -510,12 +548,14 @@ Discord 앱·토큰 공정은 여기서 수동 절차를 복제하지 않는다.
 | 함정 | 증상 | 처방 |
 |---|---|---|
 | 엔진 경로를 `which` 로 잡음 | slack run 프로세스에서 엔진 못 찾음 | 절대경로 고정 |
-| DM 으로 테스트 | 봇 무반응 (메시지 탭 비활성) | 채널 초대 후 채널에서 |
+| DM 으로 테스트 | 봇 무반응 (메시지 탭 비활성) | 메시지 탭 켜기(2-B) + `message.im` 구독(2-C) 확인 — 또는 채널 초대 후 채널에서 @멘션 |
+| 채널·스레드에서 멘션 없이 씀 | 봇 무반응 (기본 구독 = `app_mention` 만) | 매번 `@봇` 으로 부른다 — 모든 글이 필요하면 2-C 선택(고급) 절차(구독 추가 + matcher 제거 + 중복 거르기, 늘 켜진 호스트에서만) |
 | codex 전역 AGENTS.md 경합 | 다른 봇 이름으로 답함 | CODEX_HOME 격리 |
 | 티켓 유효시간 | 재부팅·지연 후 인증 실패 | 티켓은 쓰기 직전 발급 |
 | cwd 를 홈으로 둠 | 페르소나·규칙 미주입("나는 그냥 Claude") | cwd = bot-home |
 | codex 신규 세션 id 를 최신 rollout 파일 mtime 으로 역산 | 동시 실행 시 다른 스레드 세션 id 로 오귀속 위험 | 신규 세션 생성 구간을 락(`_CODEX_LOCK`)으로 직렬화 |
 | 회의 모드 응답 대기 | 메시지 1개당 claude+codex 를 **순차** 호출 — 체감 1~2분 소요 | 기대치를 미리 안내(병렬 아님, 느린 게 정상) |
 | `reactions_add`가 `missing_scope` | 매니페스트에는 `reactions:write`가 있는데 이모지만 안 붙고 답변은 계속됨 | 선언만 바꾼 상태다. 새 탭의 설치 URL에서 `reactions:write`를 눈으로 확인하고 사용자 재설치 승인을 받은 뒤 다시 검증한다 |
+| 이벤트 구독이 꺼졌다는 Slack 메일이 오고, 봇은 살아 있는데 아무 글도 못 받음 | 봇 호스트가 꺼져(절전·재시작) 있던 동안 이벤트 전달이 95% 넘게 실패 + 구독이 시간당 1,000건 넘음(`message.channels` 가 채널 글 «수정»까지 받아 쉽게 넘김) — Slack 이 구독을 자동으로 끔(2026-10-17 실측) | ① `https://api.slack.com/apps/<APP_ID>/event-subscriptions` 에서 **Enable Events** 다시 켜기(공식 문서의 재활성화 경로 = 앱 관리 화면) ② bot events 에서 `message.channels`·`message.groups`·`message.mpim` 중 있는 것을 삭제 → **Save Changes**(2-C) ③ 채널에서 @멘션 1회로 수신 확인 |
 
 > 위 함정 표는 작성자 실측(2026-08-05 macOS) 기반이다 — 비작성자(수강생) 환경에서의 검증은 아직 실시되지 않았다.
