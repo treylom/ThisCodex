@@ -36,7 +36,7 @@ test('hook migration precedes one aggregate doctor contract', () => {
   assert.equal(byId.thiscodex_hooks_ready.action, 'check');
   assert.equal(byId.thiscodex_hooks_ready.verify.type, 'thiscodex-hooks-ready');
   assert.ok(byId.plugin_hooks_migration.order < byId.thiscodex_hooks_ready.order);
-  assert.match(byId.thiscodex_hooks_ready.reason, /all 11|aggregate/i);
+  assert.match(byId.thiscodex_hooks_ready.reason, /all 12|aggregate/i);
 });
 
 test('automatic/manual is the first interaction and remains separate from install surface', () => {

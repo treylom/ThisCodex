@@ -76,7 +76,7 @@ test('raw hook fixture runner is isolated from ambient bot variables', {
   try {
     assert.equal(clean.status, 0, clean.stdout + clean.stderr);
     assert.equal(noisy.status, 0, noisy.stdout + noisy.stderr);
-    assert.match(clean.stdout, /PASS=34 FAIL=0 SKIP=0/);
+    assert.match(clean.stdout, /PASS=40 FAIL=0 SKIP=0/);
     assert.equal(noisy.stdout, clean.stdout);
   } finally {
     rmSync(cleanHome, { recursive: true, force: true });

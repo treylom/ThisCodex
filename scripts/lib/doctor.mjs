@@ -60,7 +60,7 @@ export function thisCodexHooksReady(home, env = process.env) {
 }
 
 // Compatibility export for callers of the pre-1.1.0 single-hook probe. Its
-// semantics are intentionally upgraded to the aggregate 11-hook contract.
+// semantics are intentionally upgraded to the aggregate 12-hook contract.
 export const automationHandoffHookReady = thisCodexHooksReady;
 
 export async function verifyStep(step, state, env = process.env) {
