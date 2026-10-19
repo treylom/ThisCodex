@@ -204,6 +204,7 @@ progress log; a project may provide a more specific location.
   spinning up the workflow · R3: before dispatch, in the track's spec/log ·
   R4: at wakeup self-check, in the delegation ledger · R5: right after the
   output is done, linking it into the knowledge index.
+- **Security-review bots scope (2026-10-08)**: run the security-review bot pair only for externally published or externally shared deliverables (customer packages, public repos). Internal work — hooks, judges, shadow logs, internal tools — gets no security-bot round. Even for deliverables, do not run a pair per repair round; run it once, right before release/installation, with both reviewers in parallel and sealed.
 
 ▶ Fill in: your writable delegation layers; Workflow/checkpoint tool; roster
 or ownership-map path and reachability check; orchestrator/implementation lead
