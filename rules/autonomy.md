@@ -127,7 +127,6 @@ reached partial / blocked / awaiting-permission state.
   release condition should instead point to that open window.
 - Owner: the bot that defers the row, writing the note "finished project:
   <name>" directly on that row.
-(vault docs/rules-full/autonomy.md, 2026-09-09)
 
 ## 2.13 No self-invented time gates (operator directive, 2026-09-11)
 

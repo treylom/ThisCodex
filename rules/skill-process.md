@@ -57,7 +57,6 @@ an automated experiment loop; delegating to a sub-agent.
 - Owner of this entry: the bot starting the row, writing the receipt or note
   directly on that row; the script's own exclusion list for quoted sources is
   the reference to follow, not a copy kept in this document.
-(vault docs/rules-full/skill-process.md, 2026-09-09)
 
 ## 2. Design-before-implement (hard gate)
 - "Let's build X" = present a design and get alignment **before** scaffolding
