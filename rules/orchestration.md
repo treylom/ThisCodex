@@ -36,6 +36,7 @@ starting work that may require delegation, a Workflow, or repository research.
 - Distinguish: **blocked on a user decision** → summarize, report, stop (no
   polling). **Teammate idle / oversight** → not a stop; drive and verify. Do
   not conflate the two into passive waiting.
+- **A stalled bot goes on the pause list in the same turn — check the list before you dispatch (2026-10-20).** A bot that finds another bot frozen (usage limit, expired auth, or no turn for N hours) adds it, in that turn, to the pause-switch file your bridge and stall alerts read (e.g. a `bots` list plus a reason and a release time), and every dispatcher reads that list once before sending work.
 
 ## 3. Meeting facilitation (no solo lock)
 - Convener does not force its own frame; adopt each bot's domain prep frame as
