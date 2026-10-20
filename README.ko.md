@@ -260,17 +260,17 @@ guided init은 짧은 런타임 이름도 묻고, 그 한 값을 정확한 tmux 
 
 ### 3.6 Codex 훅 — 플러그인 등록·사람 신뢰·집계 검사
 
-1.1.0부터 `hooks/hooks.json` 하나가 11개 필수 훅을 플러그인 소유로
+1.1.0부터 `hooks/hooks.json` 하나가 12개 필수 훅을 플러그인 소유로
 등록합니다. `/plugins`에서 ThisCodex를 설치·활성화한 뒤 **새 세션**을
 시작하세요. `~/.codex/hooks.json`에 같은 훅을 손으로 합치지 않습니다.
 모든 번들 명령은 먼저 `hooks/lib/bot-only.sh`를 지나므로
 `DISCORD_STATE_DIR`이 없는 일반 Codex 세션에서는 대상 실행 0회·stdout
 0바이트·exit 0입니다.
 
-필수 11개는 SessionStart의 `bot-session-init.sh`, UserPromptSubmit의
+필수 12개는 SessionStart의 `bot-session-init.sh`, UserPromptSubmit의
 `rule-router.sh`, PreToolUse의 `dispatch-room-gate.py`·
-`automation-handoff-gate.py`·`automation-no-interactive.sh`·
-`verify-before-push.sh`, Stop의 `meeting-stop-reread.sh`·`reply-gate.sh`·
+`automation-handoff-gate.py`·`discord-readability-gate.py`·
+`automation-no-interactive.sh`·`verify-before-push.sh`, Stop의 `meeting-stop-reread.sh`·`reply-gate.sh`·
 `completion-gate.sh`·`dispatch-verify.sh`·`kst-timestamp.sh`입니다.
 `meeting-liveness.py`는 자동 번들 밖의 운영자 도구입니다.
 
@@ -280,17 +280,17 @@ guided init은 짧은 런타임 이름도 묻고, 그 한 값을 정확한 tmux 
 ```text
 1. thiscodex hooks --apply
 2. /plugins에서 ThisCodex 설치·활성화 → 새 Codex 세션 시작
-3. /hooks에서 ThisCodex 11개 현재 정의 검토·신뢰
+3. /hooks에서 ThisCodex 12개 현재 정의 검토·신뢰
 4. thiscodex hooks --verify
 ```
 
-검사는 정확한 번들·공통 가드·플러그인 활성·현재 trust hash 11개·옛 등록
+검사는 정확한 번들·공통 가드·플러그인 활성·현재 trust hash 12개·옛 등록
 충돌 0을 모두 관측해야 exit 0입니다. 신뢰 전 상태는
 `registered_pending_trust`이며, 검사 통과 뒤에만 `active`입니다.
 `thiscodex doctor`도 대표 훅 1개가 아니라 이 집계 검사를 그대로 씁니다.
 
 마이그레이션은 삭제 전에 소유를 증명합니다. `thiscodex hooks --apply`는 필수
-11개 basename과 함께 ① 봇 세션 래퍼 경유 ② 대소문자를 무시한 ThisCodex
+12개 basename과 함께 ① 봇 세션 래퍼 경유 ② 대소문자를 무시한 ThisCodex
 경로 ③ 이름이 `thiscodex`인 형제 plugin manifest ④ 대상 파일 부재 중 하나가
 확인된 옛 JSON 항목만 백업 후 원자 제거합니다. 미해결 `$` 변수가 있는 경로는
 ④를 쓰지 않으며, 현 번들 파일과 SHA-256이 같다는 사실만으로는 소유를

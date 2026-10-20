@@ -229,7 +229,7 @@
       "order": 128,
       "when": "answers.automation_mode == 'auto' and mode == 'doctor' or answers.automation_mode == 'auto' and mode == 'smoke'",
       "action": "check",
-      "reason": "Automatic mode is safe only when the plugin bundle, all 11 guarded handlers, exact current trust hashes, and zero legacy conflicts pass as one aggregate contract.",
+      "reason": "Automatic mode is safe only when the plugin bundle, all 12 guarded handlers, exact current trust hashes, and zero legacy conflicts pass as one aggregate contract.",
       "safety": "dry-run-only",
       "verify": { "type": "thiscodex-hooks-ready" },
       "on_fail": { "next_command": "run thiscodex hooks --verify and perform its single NEXT action, then rerun thiscodex doctor" }
