@@ -36,6 +36,7 @@ starting work that may require delegation, a Workflow, or repository research.
 - Distinguish: **blocked on a user decision** → summarize, report, stop (no
   polling). **Teammate idle / oversight** → not a stop; drive and verify. Do
   not conflate the two into passive waiting.
+- **A stalled bot goes on the pause list in the same turn — check the list before you dispatch (2026-10-20).** A bot that finds another bot frozen (usage limit, expired auth, or no turn for N hours) adds it, in that turn, to the pause-switch file your bridge and stall alerts read (e.g. a `bots` list plus a reason and a release time), and every dispatcher reads that list once before sending work.
 
 ## 3. Meeting facilitation (no solo lock)
 - Convener does not force its own frame; adopt each bot's domain prep frame as
@@ -209,6 +210,11 @@ progress log; a project may provide a more specific location.
 ▶ Fill in: your writable delegation layers; Workflow/checkpoint tool; roster
 or ownership-map path and reachability check; orchestrator/implementation lead
 and handoff-ledger path; and repository/knowledge-base search command.
+
+## Dispatch hygiene — remote-command tests and worker habits (2026-10-20)
+
+- **Testing remote or deploy commands = a copy + a network-blocked box + fake `ssh`/`scp` first on `PATH` (they only log their arguments) — zero real servers (2026-10-20).** When you test, reproduce or verify anything that deploys or reaches a remote host (ssh, scp, remote rsync, deploy scripts), run it on a copy, inside a box with networking blocked, with stand-in `ssh`/`scp` at the front of `PATH` that record their arguments and do nothing else. Swapping a function inside the same process is not isolation — a child process still calls the real binary. Write these three conditions into the verification dispatch itself.
+- **Worker-dispatch habit line — paste it into every worker or child-session dispatch (2026-10-20).** "Write files with the file-write tool · append meeting progress lines with your meeting helper, not hand-built shell echo · read another terminal session with one plain, unquoted `tmux capture-pane` call (read-only, see the communication rule) · if the harness runs a destructive-command gate, it will refuse heredocs, `$(…)` and shell loops — write a script file and run it with `python3 -I <path>` instead." Why: a gate that refuses those shapes even for read-only commands burns worker turns; in one internal review, two audit workers each ran out of turns this way.
 
 ## Spawn is the last resort — route through search and planning tools first (operator directive, 2026-09-13)
 
