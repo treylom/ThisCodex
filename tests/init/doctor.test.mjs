@@ -52,7 +52,7 @@ test('path-writable verify passes for existing writable path', async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test('legacy readiness API now delegates to the aggregate 11-hook bundle and trust contract', () => {
+test('legacy readiness API now delegates to the aggregate 12-hook bundle and trust contract', () => {
   const home = mkdtempSync(join(tmpdir(), 'tcx-home-'));
   const codex = join(home, '.codex');
   mkdirSync(codex, { recursive: true });

@@ -304,12 +304,13 @@ bundled command first passes through `hooks/lib/bot-only.sh`, so a normal Codex
 session without `DISCORD_STATE_DIR` runs no bot target, writes no stdout, and
 exits 0.
 
-The required set is exactly 11 handlers:
+The required set is exactly 12 handlers:
 
 - SessionStart: `bot-session-init.sh`.
 - UserPromptSubmit: `rule-router.sh`.
 - PreToolUse: `dispatch-room-gate.py`, `automation-handoff-gate.py`,
-  `automation-no-interactive.sh`, and `verify-before-push.sh`.
+  `discord-readability-gate.py`, `automation-no-interactive.sh`, and
+  `verify-before-push.sh`.
 - Stop: `meeting-stop-reread.sh`, `reply-gate.sh`, `completion-gate.sh`,
   `dispatch-verify.sh`, and `kst-timestamp.sh`.
 
@@ -324,7 +325,7 @@ current definition in `/hooks`; that approval records a definition hash in
 ```text
 1. Run: thiscodex hooks --apply
 2. Install/enable ThisCodex in /plugins and start a new Codex session.
-3. Run /hooks, inspect all 11 ThisCodex definitions, and trust them.
+3. Run /hooks, inspect all 12 ThisCodex definitions, and trust them.
 4. Run: thiscodex hooks --verify
 ```
 
@@ -336,7 +337,7 @@ of checking one representative hook.
 
 Migration proves ownership before deletion. `thiscodex hooks --apply` backs up
 and atomically removes an old JSON entry only when its basename is in the
-required 11 **and** at least one ownership signal is present: the bot-session
+required 12 **and** at least one ownership signal is present: the bot-session
 wrapper, a case-insensitive `thiscodex` path segment, a sibling plugin manifest
 named `thiscodex`, or a missing target file. A path containing an unresolved
 `$` variable never uses the missing-file signal; a copied current hook hash is

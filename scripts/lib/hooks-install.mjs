@@ -716,7 +716,7 @@ export function verifyHooks({ home, project, repoRoot = DEFAULT_REPO, pluginId =
   else if (known.length) next = 'legacy_conflict — thiscodex hooks --apply로 provenance가 확인된 옛 JSON 항목을 제거';
   else if (trust.reason === 'config_invalid') next = `configuration_invalid — 사람이 ${trust.configPath}의 ${trust.error} 좌표를 고친 뒤 다시 실행`;
   else if (!trust.pluginEnabled) next = 'not_installed — /plugins에서 ThisCodex를 설치·활성화한 뒤 새 세션 시작';
-  else if (!trust.ok) next = 'registered_pending_trust — /hooks에서 ThisCodex 11개 훅의 현재 정의를 검토·신뢰한 뒤 다시 실행';
+  else if (!trust.ok) next = 'registered_pending_trust — /hooks에서 ThisCodex 12개 훅의 현재 정의를 검토·신뢰한 뒤 다시 실행';
   return {
     ok,
     state,

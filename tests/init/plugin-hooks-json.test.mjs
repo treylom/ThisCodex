@@ -19,9 +19,9 @@ test('static plugin bundle is byte-equivalent to the single hooks contract', () 
   assert.match(rendered.stdout, /what|Compared|대조/i);
 });
 
-test('bundle has exactly the approved 11 handlers and every one uses bot-only', () => {
+test('bundle has exactly the approved 12 handlers and every one uses bot-only', () => {
   const entries = flattenHooks(hooksDocument());
-  assert.equal(entries.length, 11);
+  assert.equal(entries.length, 12);
   const names = entries.map(({ hook }) => REQUIRED_HOOKS.find(name => hook.command.includes(`/hooks/${name}`)));
   assert.deepEqual(names.sort(), [...REQUIRED_HOOKS].sort());
   for (const { hook } of entries) {

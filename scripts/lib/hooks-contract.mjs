@@ -7,6 +7,7 @@ export const REQUIRED_HOOKS = Object.freeze([
   'rule-router.sh',
   'dispatch-room-gate.py',
   'automation-handoff-gate.py',
+  'discord-readability-gate.py',
   'automation-no-interactive.sh',
   'verify-before-push.sh',
   'meeting-stop-reread.sh',
@@ -35,6 +36,7 @@ export const HOOKS_CONTRACT = Object.freeze({
       hooks: [
         handler('dispatch-room-gate', 'dispatch-room-gate.py', 5),
         handler('automation-handoff-gate', 'automation-handoff-gate.py', 5),
+        handler('discord-readability-gate', 'discord-readability-gate.py', 5),
       ],
     },
     {

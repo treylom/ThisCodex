@@ -69,7 +69,7 @@ function copyBundle() {
   return root;
 }
 
-test('bundle inspection accepts only the rendered 11-handler guarded contract', () => {
+test('bundle inspection accepts only the rendered 12-handler guarded contract', () => {
   assert.equal(inspectBundle(REPO).ok, true);
   const root = copyBundle();
   try {
@@ -368,14 +368,14 @@ test('a symlinked hooks.json is never replaced by migration', { skip: process.pl
   }
 });
 
-test('trust inspection requires the enabled plugin and exact hashes for all 11 handlers', () => {
+test('trust inspection requires the enabled plugin and exact hashes for all 12 handlers', () => {
   const home = tempHome();
   const configPath = join(home, '.codex', 'config.toml');
   try {
     writeFileSync(configPath, trustedConfig());
     const trusted = inspectTrust({ home, repoRoot: REPO, pluginId: 'thiscodex@test' });
     assert.equal(trusted.ok, true);
-    assert.equal(trusted.entries.length, 11);
+    assert.equal(trusted.entries.length, 12);
     assert.equal(trusted.entries.every(row => row.state === 'trusted'), true);
     const verified = verifyHooks({ home, project: home, repoRoot: REPO, pluginId: 'thiscodex@test' });
     assert.equal(verified.ok, true);
@@ -643,9 +643,9 @@ test('a pre-existing timestamp backup collision is preserved and fails closed', 
   }
 });
 
-test('known legacy hook list remains exactly the approved 11 basenames', () => {
-  assert.equal(REQUIRED_HOOKS.length, 11);
-  assert.equal(new Set(REQUIRED_HOOKS).size, 11);
+test('known legacy hook list remains exactly the approved 12 basenames', () => {
+  assert.equal(REQUIRED_HOOKS.length, 12);
+  assert.equal(new Set(REQUIRED_HOOKS).size, 12);
   assert.deepEqual(
     readdirSync(join(REPO, 'hooks')).filter(name => REQUIRED_HOOKS.includes(name)).sort(),
     [...REQUIRED_HOOKS].sort(),
