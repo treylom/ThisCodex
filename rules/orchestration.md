@@ -113,7 +113,9 @@ in-flight tracks; your maintainer-confirmation channel.
   file outside the bundle and outside SUMS; commit messages carry only a label
   and a fingerprint; publish only after the verdict. The copy has no git, so
   run the official security review (`/security-review`) once, separately, on
-  the original repo's diff.
+  the original repo's diff — if the fixed code lives outside git, make a fresh
+  git in a scratch folder (main = baseline, branch = candidate) and review that
+  diff; either way, first check that the diff actually shows the changed lines.
 - **Direction = "attack their claim with *your* data"** — not opening their
   sources for them. A verifier refutes the counterpart's hypothesis with data
   the verifier can access.
