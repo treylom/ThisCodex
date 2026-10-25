@@ -105,6 +105,15 @@ in-flight tracks; your maintainer-confirmation channel.
   is nearly exhausted, or a deadline is immediate: **send anyway, marked
   "cross-review not performed (reason)"** — the goal is preventing invisible
   solo closure, not blocking sends.
+- **Independent / security review = sealed copy by default**: hand the
+  reviewer a copy with no git history — copy only the files listed in the
+  SHA256SUMS of the sealed commit (the commit that freezes the bundle under
+  review) and verify their sha256 inside the copy; refuse any file changed
+  after the seal, any symlink, and any `../` path. Keep the reviewer's result
+  file outside the bundle and outside SUMS; commit messages carry only a label
+  and a fingerprint; publish only after the verdict. The copy has no git, so
+  run the official security review (`/security-review`) once, separately, on
+  the original repo's diff.
 - **Direction = "attack their claim with *your* data"** — not opening their
   sources for them. A verifier refutes the counterpart's hypothesis with data
   the verifier can access.
