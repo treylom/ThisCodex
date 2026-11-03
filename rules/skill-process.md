@@ -58,6 +58,8 @@ an automated experiment loop; delegating to a sub-agent.
   directly on that row; the script's own exclusion list for quoted sources is
   the reference to follow, not a copy kept in this document.
 
+- **Next round = move the release condition in the same turn (2026-11-02).** When you dispatch the next round of a task (round N → N+1), change that ledger row's release condition in the same turn so its first event points at the new round. A row left pointing at the old round's report looks like it is waiting for something that will never arrive.
+
 ## 2. Design-before-implement (hard gate)
 - "Let's build X" = present a design and get alignment **before** scaffolding
   or implementation. Exception: if the user explicitly said "proceed" under a
