@@ -4,7 +4,7 @@
 
 > A reproducible setup for running **Claude Code + Codex CLI multi-agent bots** over **Discord**, wired into an **Obsidian vault** with shared folder/memory rules.
 >
-> **Role boundary**: ThisCodex is the Codex-side bot-harness operations bundle. The general-purpose knowledge product is [knowledge-manager](https://github.com/treylom/knowledge-manager); plugin installs go through [tofukyung-plugins](https://github.com/treylom/tofukyung-plugins).
+> **Role boundary**: ThisCodex is the Codex-side bot-harness operations bundle. The general-purpose knowledge product is [knowledge-manager](https://github.com/treylom/knowledge-manager); plugin installs go through [tofukyung-plugins](https://github.com/treylom/tofukyung-plugins). **Rules source**: the rule text now lives in [SlackMod](https://github.com/treylom/slackmod) (`rules/codex/`); the `rules/` here is a copy kept so this repo works on its own. News and related repositories are updated there first.
 >
 > 🇰🇷 [한국어 README](./README.ko.md) · 📘 [Setup](docs/SETUP.md) · 🌱 [Beginner setup](docs/SETUP-BEGINNER.md) · ✅ [Bot checkup checklist (KR)](docs/bot-checkup-checklist.md) — 7-item self-checkup that your bot behaves as written (monthly) · 📦 Companion runtime: [ThisCode](https://github.com/treylom/ThisCode) (Claude Code side) · 📖 [Getting started guide (English PDF, beginner, 14p)](docs/getting-started/ThisCode-ThisCodex-getting-started.en.pdf) · This repo = the **Codex side** + cross-runtime conventions.
 
