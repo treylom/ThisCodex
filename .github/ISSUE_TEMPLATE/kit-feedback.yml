@@ -1,5 +1,5 @@
 name: 킷 사용 피드백 / Kit feedback
-description: ThisCodex 를 써 보고 안 된 점·바라는 점을 알려 주세요. / Tell us what did not work or what you wished for after using ThisCodex.
+description: ThisCodex를 써 보고 안 된 점·바라는 점을 알려 주세요. / Tell us what did not work or what you wished for after using ThisCodex.
 title: "[Kit feedback] "
 body:
   - type: input
@@ -25,7 +25,7 @@ body:
     id: what-happened
     attributes:
       label: 무엇이 안 됐나요, 무엇을 바랐나요 / What did not work, or what did you wish for?
-      description: 한 일, 기대한 결과, 실제 결과를 적어 주세요. / What you did, what you expected, and what actually happened.
+      description: 한 일, 기대한 결과, 실제 결과를 적어 주세요. 이 이슈는 누구나 볼 수 있으니 토큰·비밀번호·개인정보는 적지 마세요. / What you did, what you expected, and what actually happened. Anyone can see this issue, so please leave out tokens, passwords and personal details.
     validations:
       required: true
   - type: textarea
