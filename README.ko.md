@@ -59,6 +59,12 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (터미널) 설치 검
 
 ---
 
+## 피드백
+
+ThisCodex 를 써 보고 안 된 점이나 바라는 점이 있으면 **[킷 사용 피드백](https://github.com/treylom/ThisCodex/issues/new?template=kit-feedback.yml)** 양식으로 이슈를 열어 주세요(GitHub 계정 필요 · 이메일·실명 불필요). 받아들인 피드백은 고친 커밋이나 PR 에 그 이슈 번호를 출처로 적습니다. 전체 흐름은 [CONTRIBUTING.md](CONTRIBUTING.md) 에 있습니다.
+
+---
+
 ## 1. 무엇이 되나
 
 | 기능 | 상태 | 방식 |

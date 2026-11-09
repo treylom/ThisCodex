@@ -76,6 +76,12 @@ npx github:treylom/ThisCodex doctor --non-interactive   # (terminal) verificatio
 
 ---
 
+## Feedback
+
+Used ThisCodex and something did not work, or you wished it did something else? Open an issue with the **[Kit feedback](https://github.com/treylom/ThisCodex/issues/new?template=kit-feedback.yml)** form (a GitHub account is needed; no email or real name). When we accept a piece of feedback, the commit or pull request that makes the change names that issue number as its source. The full flow is in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
 ## 1. What you get
 
 | Capability | Status | Mechanism |
