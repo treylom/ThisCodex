@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """dispatch-room-gate.py — Gate A: top-level 채널 봇 발주 차단 (ThisCodex port).
 
-Spec: obsidian-ai-vault meetings/2026-08-12-dispatch-meeting-gate/
-      70-karpathy-track2-porting-spec.md v3.0 §1 D1·D2·D5 + P2(trust 게이트).
+Spec: maintainer's vault meetings/2026-08-12-dispatch-meeting-gate/
+      70-orchestrator-track2-porting-spec.md v3.0 §1 D1·D2·D5 + P2(trust 게이트).
 원본: ThisCode hooks/dispatch-room-gate.py (P1, e9a7ef3e) — 제품 델타 =
 wiring 이 ~/.codex/hooks.json + Codex trust 확인(probe ⑥칸). 판정 로직은
 접미사 매칭이라 MCP 도구명 차이(mcp__discord__* vs mcp__plugin_discord_*)에
@@ -133,7 +133,7 @@ def decide(data, cfg):
         # 발신문에 공개 표기된다. origin 과 달리 «의도 선언»이라 fail-closed
         # 승격 = §1.2 프로토콜 폐지와 등가 → 게이트 사정거리 밖).
         # 단 «태그 + 봇멘션 + 발주 마커» 조합은 오용 후보 — 관측 로그 1행
-        # (pass 유지). 판독 계약 = 70-doc §2 (카파시 · 주간/폐합/P4+7일).
+        # (pass 유지). 판독 계약 = 70-doc §2 (orchestrator · 주간/폐합/P4+7일).
         rec = {"why": "carve-out tag"}
         if bot_mentions and any(m in text for m in MARKERS):
             rec["observe"] = {
@@ -297,7 +297,7 @@ def probe_main():
     ok = sum(1 for _n, r in results if r)
     for name, r in results:
         print("  [%s] %s" % ("PASS" if r else "FAIL", name))
-    # 판독 보조(판정 칸 아님): 관측 로그 누적 — 판독 계약(70-doc §2, 카파시)
+    # 판독 보조(판정 칸 아님): 관측 로그 누적 — 판독 계약(70-doc §2, orchestrator)
     print("  [info] carve-out 관측 로그 누적 %d행" % observation_count())
     print("PROBE %s %d/%d" % ("PASS" if ok == len(results) else "FAIL",
                               ok, len(results)))

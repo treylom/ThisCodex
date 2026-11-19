@@ -63,7 +63,7 @@ test('confirmed paths persist outside the repo', () => {
 test('provisional paths are rejected before persistent state write', () => {
   const provisional = ['/', 'home', 'tofu', ['thiscodex', 'current', 'bot'].join('-')].join('/');
   assert.throws(() => rejectProvisionalPath(provisional), /provisional/);
-  assert.doesNotThrow(() => rejectProvisionalPath('/home/alice/bots/sonseokhee'));
+  assert.doesNotThrow(() => rejectProvisionalPath('/home/alice/bots/bot-a'));
 });
 
 test('detected defaults do not become confirmed state', () => {

@@ -1,7 +1,7 @@
 # Meeting Thread & Channel Governance Protocol
 
 > **Policy SoT**: vault `.claude/rules/channel-governance.md`  
-> **Domain**: Dr. Strange (schedule / channel governance)  
+> **Domain**: scheduler bot (schedule / channel governance)  
 > **Status**: Active — 2026-05-19
 
 ---
@@ -54,7 +54,7 @@ Without an explicit thread id, the receiving bot falls back to its default reply
 
 ### 2.3 Invite a meeting watchdog bot (optional, recommended)
 
-Every meeting **should** include one extra agent acting as a watchdog — a daemon that monitors progress, detects silence/idle/incompletion, and surfaces drift back to the orchestrator. The maintainer's vault runs Dr. Strange on a ~3 min cadence; the bundled default is ~5 min (`scripts/meeting_watchdog.py`). Either works — pick what fits your team's signal-to-noise.
+Every meeting **should** include one extra agent acting as a watchdog — a daemon that monitors progress, detects silence/idle/incompletion, and surfaces drift back to the orchestrator. The maintainer's vault runs a scheduler bot on a ~3 min cadence; the bundled default is ~5 min (`scripts/meeting_watchdog.py`). Either works — pick what fits your team's signal-to-noise.
 
 #### 2.3.1 Active push, not passive timer
 
@@ -114,4 +114,4 @@ Use a **separate cross-machine channel** when work crosses device or environment
 
 ---
 
-*Maintained by: Dr. Strange · Last updated: 2026-05-19*
+*Maintained by: scheduler bot · Last updated: 2026-05-19*
