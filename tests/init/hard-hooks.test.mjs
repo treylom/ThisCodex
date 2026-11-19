@@ -227,7 +227,7 @@ test('verify-before-push denies git push when enforce is on and no verify comman
   const res = runHook(
     'hooks/verify-before-push.sh',
     { hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'git push origin main' }, transcript_path: file },
-    { A1_ENFORCE: '1', DISCORD_STATE_DIR: '/tmp/discord-konan' },
+    { A1_ENFORCE: '1', DISCORD_STATE_DIR: '/tmp/discord-bot-a' },
   );
   assert.equal(res.status, 0);
   const payload = JSON.parse(res.stdout);
@@ -238,16 +238,16 @@ test('verify-before-push denies git push when enforce is on and no verify comman
 test('meeting-liveness dry-run detects stale participants without sending', () => {
   const dir = mkdtempSync(join(tmpdir(), 'tcx-live-'));
   const progress = join(dir, '02-progress.md');
-  writeFileSync(progress, '# progress\n[00:00 KST] konan | 시작 | old\n');
+  writeFileSync(progress, '# progress\n[00:00 KST] bot-a | 시작 | old\n');
   const res = spawnSync('python3', [
     'hooks/meeting-liveness.py',
     '--progress', progress,
     '--thread-id', '123456789012345678',
-    '--participants', 'konan:222222222222222222',
+    '--participants', 'bot-a:222222222222222222',
     '--threshold', '1',
   ], { cwd: process.cwd(), encoding: 'utf8' });
   assert.equal(res.status, 0);
   assert.match(res.stdout, /DRY-RUN/);
-  assert.match(res.stdout, /konan/);
+  assert.match(res.stdout, /bot-a/);
   rmSync(dir, { recursive: true, force: true });
 });

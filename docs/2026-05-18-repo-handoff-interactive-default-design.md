@@ -9,7 +9,7 @@ Relation to prior specs: this does **not** replace `docs/guided-installer-design
 
 ## 1. Problem
 
-When the repo is handed to an AI agent (the trigger incident: 재경님's WSL Codex test),
+When the repo is handed to an AI agent (the trigger incident: operator's WSL Codex test),
 the agent reads the entry skill, sees "copy + N-step setup", and performs a
 **non-interactive placement** "to be safe". The requirements doc's Core Distinction
 (copying `SKILL.md` is skill placement, not guided onboarding) is violated silently.
@@ -107,7 +107,7 @@ Code-grounded (read `bin/thiscodex.mjs`, `install/thiscodex.install.json`,
   2026-05-18 = **Option A**: do not raise plugin to entry step 1; keep loose-skill
   / `thiscodex init` first; **document the plugin path honestly as "incomplete on
   Codex 0.130 — future `.agents/plugins/marketplace.json` packaging required"**.
-  ThisCode (Claude Code) plugin path — **RE-VERIFIED 2026-05-19 (Karpathy):
+  ThisCode (Claude Code) plugin path — **RE-VERIFIED 2026-05-19 (orchestrator):
   VERIFIED WORKING**, the earlier "unverified" label was over-cautious and is
   retracted. Evidence: ThisCode ships a valid `.claude-plugin/marketplace.json`
   + `plugin.json`; `claude plugin marketplace add` is a real Claude Code CLI
@@ -311,7 +311,7 @@ naming rules (delegated async, non-blocking) · **Q4** non-breaking. Plus:
 "/search vault for awesome-design.md etc. → elevate to a comprehensive frontend
 skill", and "gpt-5.5 (Codex) judgment on all this work".
 
-Built: `~/obsidian-ai-vault/.claude/skills/design-md/SKILL.md` rewritten
+Built: `<vault>/.claude/skills/design-md/SKILL.md` rewritten
 (name kept = non-breaking invocation) — §0 semantic-token slot schema FIRST
 (the convergence contract), §1 IA, §2 component form/function split, §3
 slot-bound design-system synthesis, §4 narrative + anti-pattern gate, §5

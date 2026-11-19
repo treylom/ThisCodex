@@ -106,7 +106,7 @@ Everything marked ✅ is empirically verified (see §6 Evidence). Everything ⏸
 ## 2. Architecture
 
 ```
-tmux session "sshee"
+tmux session "codex-bot"
 ├── window: infra
 │     codex app-server --listen ws://127.0.0.1:4222   (headless LLM runtime)
 │        ▲ │  JSON-RPC over WebSocket

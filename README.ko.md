@@ -89,7 +89,7 @@ ThisCodex를 써 보고 안 된 점이나 바라는 점이 있으면 **[킷 사�
 ## 2. 구조
 
 ```
-tmux 세션 "sshee"
+tmux 세션 "codex-bot"
 ├── 윈도우: infra
 │     codex app-server --listen ws://127.0.0.1:4222   (화면 없는 LLM 런타임)
 │        ▲ │  WebSocket 위 JSON-RPC

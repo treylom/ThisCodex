@@ -278,8 +278,8 @@ test('migrateIdentity treats a legacy SOUL-only bot as existing and preserves it
 });
 
 test('aliasBlock launches the materialized runner from confirmed BOT_WD', () => {
-  const text = aliasBlock({ confirmed_repo_root: '/repo/ThisCodex', confirmed_bot_wd: '/bots/sonseokhee', session: 'thiscodex' });
-  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*start/);
+  const text = aliasBlock({ confirmed_repo_root: '/repo/ThisCodex', confirmed_bot_wd: '/bots/bot-a', session: 'thiscodex' });
+  assert.match(text, /\/bots\/bot-a\/run\.sh.*start/);
   assert.doesNotMatch(text, /\.\/scripts\/launch\.sh/);
   assert.doesNotMatch(text, new RegExp(['thiscodex', 'current', 'bot'].join('-')));
 });
@@ -287,17 +287,17 @@ test('aliasBlock launches the materialized runner from confirmed BOT_WD', () => 
 test('aliasBlock gives exact-session start, stop, attach, TUI and YOLO helpers without cmux', () => {
   const text = aliasBlock({
     confirmed_repo_root: '/repo/ThisCodex',
-    confirmed_bot_wd: '/bots/sonseokhee',
-    confirmed_state_dir: '/state/discord-sonseokhee',
+    confirmed_bot_wd: '/bots/bot-a',
+    confirmed_state_dir: '/state/discord-bot-a',
     session: 'thiscodex',
   });
   assert.match(text, /thiscodex-discord/);
   assert.match(text, /thiscodex-yolo-on/);
   assert.match(text, /thiscodex-yolo-off/);
   assert.match(text, /thiscodex-stop/);
-  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*stop/);
-  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*attach/);
-  assert.match(text, /\/bots\/sonseokhee\/run\.sh.*tui/);
+  assert.match(text, /\/bots\/bot-a\/run\.sh.*stop/);
+  assert.match(text, /\/bots\/bot-a\/run\.sh.*attach/);
+  assert.match(text, /\/bots\/bot-a\/run\.sh.*tui/);
   assert.doesNotMatch(text, /tmux attach -t thiscodex|tmux select-window -t thiscodex:/);
   assert.doesNotMatch(text, /cmux/i);
 });
@@ -342,9 +342,9 @@ test('aliasBlock is valid shell and preserves the parameterized runner command w
 test('materialized run.sh supports exact-session stop, attach and TUI actions', () => {
   const text = runScript({
     confirmed_repo_root: '/repo/ThisCodex',
-    confirmed_bot_wd: '/bots/sonseokhee',
-    confirmed_state_dir: '/state/discord-sonseokhee',
-    session: 'sonseokhee',
+    confirmed_bot_wd: '/bots/bot-a',
+    confirmed_state_dir: '/state/discord-bot-a',
+    session: 'bot-a',
   });
   assert.match(text, /ACTION="\$\{1:-start\}"/);
   assert.match(text, /has-session -t "=\$SESSION"/);

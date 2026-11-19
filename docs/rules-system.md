@@ -1,6 +1,6 @@
 # Rules System — Progressive-Disclosure agent rules (no context bloat)
 
-> Convention shipped with ThisCode / ThisCodex. Origin: 운영자 spec 2026-05-16 — "규칙을 CLAUDE.md/soul.md/메모리에 많이 넣으면 다 기억 못 함. rules.md 신설해 상황별 참조." Verified in the obsidian-ai-vault deployment (`.claude/rules/`).
+> Convention shipped with ThisCode / ThisCodex. Origin: 운영자 spec 2026-05-16 — "규칙을 CLAUDE.md/soul.md/메모리에 많이 넣으면 다 기억 못 함. rules.md 신설해 상황별 참조." Verified in the maintainer's reference vault deployment (`.claude/rules/`).
 
 ## Problem
 
@@ -129,7 +129,7 @@ When one deployment serves both Claude Code (auto-loads `CLAUDE.md`) and Codex-s
 - **`AGENTS.md` = the shared operational rules (SSOT)** — progressive-disclosure pointer to `rules/INDEX.md`, completion gates, core paths.
 - **`CLAUDE.md` = `@AGENTS.md` import at the top** + Claude-specific blocks only (identity guard, tool wrappers).
 
-Caveats learned in production (obsidian-ai-vault charness adoption, 2026-06-11; items 3–5 from the 2026-08-05 mirror-staleness incident):
+Caveats learned in production (reference-vault charness adoption, 2026-06-11; items 3–5 from the 2026-08-05 mirror-staleness incident):
 1. A whitelist-style `.gitignore` (`*` then `!` exceptions) silently untracks a new root file — add an explicit `!/AGENTS.md`.
 2. Verifying that a Codex agent actually receives the chain: echo-style probes get **contaminated** — the injected rules change the probe's own behavior. Use session-transcript forensics (inspect the injected payload in the agent's rollout log) with a read-only sandbox instead.
 3. **Make the chain visible at the top of every per-bot WD instruction file.** A Codex bot's WD `AGENTS.md` *receives* the shared rules via the 3-chain (`~/.codex/AGENTS.md` → git-root `AGENTS.md` → WD), but anyone auditing just the WD file cannot see that — which reads as "this bot has no shared rules." Document the chain in the file's opening lines (the shipped bot templates model this). Never paste the shared body into the WD file — the chain already delivers it; a copy forks the SSOT.
@@ -152,4 +152,4 @@ Where a rule maps to a **detectable action** (a tool call, a Stop, an outbound d
 - Ship each gate with a **block-case + allow-case test** before wiring.
 - Transcript-scanning Stop gates miss events summarized away by context **compaction** → carry an escape clause ("if already satisfied / not applicable, ignore and stop"); detection should key off filenames/structured fields, not free-text keywords (which false-fire on progress reports).
 
-Origin: obsidian-ai-vault 2026-06-29 — a soft INDEX self-check was being skipped under load; `rule-router` (Layer 1) + action gates (Layer 2) were added. The router is the broad fix ("rules not read"); action gates are the targeted fix ("rule read but not obeyed").
+Origin: reference vault 2026-06-29 — a soft INDEX self-check was being skipped under load; `rule-router` (Layer 1) + action gates (Layer 2) were added. The router is the broad fix ("rules not read"); action gates are the targeted fix ("rule read but not obeyed").

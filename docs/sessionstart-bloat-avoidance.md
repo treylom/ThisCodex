@@ -40,7 +40,7 @@ case.
 
 ## Applying this to other bots
 
-The same compression pattern applies to Conan, Strange, GJK, AK-Tofu, and any
+The same compression pattern applies to bot-a, bot-b, bot-c, bot-d, and any
 other bot that receives SessionStart memory or roster context. The bot-specific
 details can differ, but the eager payload should stay small:
 
