@@ -119,8 +119,8 @@ _AUTOMATION_RECEIPT_RE = re.compile(
 _THISCODEX_ROOT = Path(__file__).resolve().parents[1]
 for _scripts_dir in (
     Path(os.environ.get("THISCODEX_ROOT", _THISCODEX_ROOT)) / "scripts",
-    # VAULT_ROOT = your Obsidian vault path (default kept for the reference deployment)
-    Path(os.environ.get("VAULT_ROOT", str(Path.home() / "obsidian-ai-vault"))) / ".claude/scripts",
+    # VAULT_ROOT = your Obsidian vault path (default: ~/vault)
+    Path(os.environ.get("VAULT_ROOT", str(Path.home() / "vault"))) / ".claude/scripts",
 ):
     if _scripts_dir.exists():
         sys.path.insert(0, str(_scripts_dir))
@@ -1479,7 +1479,7 @@ async def worker():
                     )
                 else:
                     blocked_reason = f"turn hard-timed out after {TURN_HARD_TIMEOUT_SEC}s with no result"
-                    # 2026-08-09 review (글재경): a hard-timeout can coincide
+                    # 2026-08-09 review (reviewer): a hard-timeout can coincide
                     # with a discord reply tool refusal in the SAME turn — the
                     # reply was produced but rejected (e.g. allowlist), not
                     # simply "no result". Without this, the generic timeout
@@ -1557,7 +1557,7 @@ async def worker():
             # message at all (the codex turn never called mcp__discord__reply).
             # Emit a generic blocked report so it is never a silent gap.
             if blocked_reason and not reply_ack_marker and channel is not None:
-                # 2026-08-10 review (글재경 🔴, latent since 7b90193): the tail
+                # 2026-08-10 review (reviewer 🔴, latent since 7b90193): the tail
                 # states only what was checked. discord_reply_ack_marker()
                 # returns None whenever ANY reply failed this turn, even if
                 # OTHER replies in the same turn succeeded and delivered —
